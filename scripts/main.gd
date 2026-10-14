@@ -11,8 +11,8 @@ const LOCATIONS := {
 	"gas_station": "res://scenes/locations/gas_station.tscn",
 	"school": "res://scenes/locations/school.tscn",
 }
-const PHASE_LOC := {"home_am": "house", "work": "office", "drive": "gas_station", "home_pm": "house"}
-const GLOBAL_KEYS := ["text_jess", "pouch", "rx_dose"]
+const PHASE_LOC := {"home_am": "house", "work": "office", "drive": "gas_station", "home_pm": "house", "weekend": "house"}
+const GLOBAL_KEYS := ["text_jess", "pouch", "rx_dose", "breathe"]
 const SPEAKERS := {"dan": "Dan", "jess": "Jess", "lily": "Lily", "june": "June", "gary": "Gary", "lifeos": "LifeOS"}
 const FONT := 15
 
@@ -57,6 +57,10 @@ var pending_summary := ""
 var pending_title := ""
 var summary_is_week := false
 var did_jess_home := false
+var autoload_save := true    # tests turn this off
+
+func _on_day_started() -> void:
+	GameState.save_game()
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -69,6 +73,9 @@ func _ready() -> void:
 	GameState.day_ended.connect(_on_day_ended)
 	GameState.week_ended.connect(_on_week_ended)
 	GameState.action_performed.connect(_on_action)
+	GameState.day_started.connect(_on_day_started)
+	if autoload_save and GameState.has_save():
+		GameState.load_game()
 	get_viewport().size_changed.connect(_layout_world)
 	sync_location()
 	_refresh()
@@ -181,7 +188,7 @@ func _build_ui() -> void:
 		sv.add_child(b)
 		meters[key] = b
 	sv.add_child(HSeparator.new())
-	sv.add_child(_label("WASD / Arrows  move\n1 2 3  station action\nT  text Jess    P  nic pouch\nR  Rx dose\nEnter / Space  continue\nEsc  skip cutscene", 13))
+	sv.add_child(_label("WASD / Arrows  move    1-4  action\nT text Jess   B breathe\nP nic pouch   R Rx dose\nEnter continue   Esc skip\nF6 save   F7 load (autosaves daily)", 13))
 	sv.add_child(HSeparator.new())
 	log_label = _label("", 13, true)
 	log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -317,7 +324,7 @@ func sync_location() -> void:
 	match GameState.phase:
 		"home_am":
 			npcs = {"lily": "table_l", "june": "table_r"}
-		"home_pm":
+		"home_pm", "weekend":
 			npcs = {"lily": "girls", "june": "girls_dan", "jess": "couch_l"}
 		"work":
 			npcs = {"gary": "gary_desk"}
@@ -380,6 +387,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_T: perform("text_jess")
 		KEY_P: perform("pouch")
 		KEY_R: perform("rx_dose")
+		KEY_B: perform("breathe")
+		KEY_F6:
+			show_lifeos("LifeOS: Saved. Your progress is safe. Your inbox is not." if GameState.save_game() else "LifeOS: Save failed. Classic.")
+		KEY_F7:
+			if GameState.load_game():
+				cs_queue.clear(); cs_id = ""; summary_root.visible = false
+				loc_name = ""; sync_location(); queue_cutscene("wake")
+				show_lifeos("LifeOS: Loaded the morning of %s. Déjà vu is a feature." % GameState.day_name())
+			else:
+				show_lifeos("LifeOS: No save found. Living in the moment, then.")
 		KEY_1, KEY_2, KEY_3, KEY_4:
 			var acts := _current_actions()
 			var idx: int = k - KEY_1
@@ -419,9 +436,9 @@ func _on_action(id: String, _res: String) -> void:
 func _on_day_ended(s: Dictionary) -> void:
 	queue_cutscene("day_end", s)
 	pending_title = "END OF %s" % str(s["day"]).to_upper()
-	pending_summary = "Bedtime: %s\n%s\nTickets closed: %d\nThoughtful texts to Jess: %d\nBedtime story: %s\nKid moments: %d\nEnergy: %d -> %d" % [
-		s["bed_time"], s["sleep_text"], s["tickets"], s["texts"],
-		"Attended" if s["bedtime"] else "Missed (Mommy did the voices; the girls said goodnight to you)", s["kid_actions"], s["energy_before"], s["energy_after"]]
+	pending_summary = "Moment of the day: %s\n\nBedtime: %s\n%s\nTickets closed: %d\nThoughtful texts to Jess: %d\nBedtime story: %s\nKid moments: %d\nFridge drawings: %d\nEnergy: %d -> %d" % [
+		s.get("moment", ""), s["bed_time"], s["sleep_text"], s["tickets"], s["texts"],
+		"Attended" if s["bedtime"] else "Missed (Mommy did the voices; the girls said goodnight to you)", s["kid_actions"], s.get("drawings", 0), s["energy_before"], s["energy_after"]]
 	summary_is_week = false
 
 func _on_week_ended(review: String) -> void:
@@ -604,7 +621,7 @@ func _refresh() -> void:
 	var flags: Array[String] = []
 	if GameState.is_on_fumes(): flags.append("RUNNING ON FUMES")
 	if GameState.rx_active(): flags.append("focused")
-	hud_status.text = "$%d    Fridge: %d    Tin: %d%s" % [GameState.money, GameState.beers, GameState.pouches,
+	hud_status.text = "%s\n$%d   Beer: %d   Tin: %d   Drawings: %d%s" % [GameState.calendar_text(), GameState.money, GameState.beers, GameState.pouches, GameState.fridge_drawings,
 		("\n" + ", ".join(flags)) if not flags.is_empty() else ""]
 	energy_bar.value = GameState.energy
 	meters["Stress"].value = GameState.stress

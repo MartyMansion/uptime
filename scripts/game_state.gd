@@ -23,32 +23,53 @@ const FUMES := 20
 const OFF_WORK := 960    # 4:00 PM: earliest Dan can head home
 const RX_DURATION := 360 # focus lasts 6h, then the crash
 const TRAVEL := ["leave_for_work", "head_home", "pickup_girls"]
-const ANY := ["home_am", "work", "drive", "home_pm"]
+const ANY := ["home_am", "work", "drive", "home_pm", "weekend"]
+const HOME := ["home_pm", "weekend"]
 
 const PHASE_NAMES := {"home_am": "Home (morning)", "work": "At work — TriCounty Managed Services",
-	"drive": "Drive home — Gas-N-Sip", "home_pm": "Home (evening)"}
+	"drive": "Drive home — Gas-N-Sip", "home_pm": "Home (evening)", "weekend": "Home (weekend)"}
 
 # action id -> definition. blocks = 30-min blocks. energy = delta.
 const ACTIONS := {
 	"feed_girls": {"name": "Make breakfast with the girls", "blocks": 1, "energy": -5, "fed": 35, "connected": 5, "once": true, "phases": ["home_am"]},
 	"cereal": {"name": "Cereal and screens", "blocks": 1, "energy": 0, "fed": 20, "connected": -5, "once": true, "phases": ["home_am"]},
 	"leave_for_work": {"name": "Drop girls at school, drive to work", "blocks": 2, "energy": -3, "phases": ["home_am"]},
-	"work_ticket": {"name": "Work a ticket", "blocks": 2, "energy": -10, "stress": 5, "perf": 8, "phases": ["work", "home_pm"]},
+	"work_ticket": {"name": "Work a ticket", "blocks": 2, "energy": -10, "stress": 5, "perf": 8, "phases": ["work", "home_pm", "weekend"]},
 	"coffee_break": {"name": "Coffee break with the team", "blocks": 1, "energy": 8, "stress": -4, "phases": ["work"]},
 	"head_home": {"name": "Head home", "blocks": 1, "energy": 0, "phases": ["work"]},
 	"buy_beer": {"name": "Grab a six-pack ($12)", "blocks": 0, "energy": 0, "money": -12, "phases": ["drive"]},
 	"buy_pouches": {"name": "Grab a tin of nic pouches ($7)", "blocks": 0, "energy": 0, "money": -7, "phases": ["drive"]},
 	"pickup_girls": {"name": "Just drive on and pick up the girls", "blocks": 1, "energy": -3, "phases": ["drive"]},
-	"play_girls": {"name": "Play with Lily & June", "blocks": 1, "energy": -5, "stress": -5, "connected": 12, "phases": ["home_pm"]},
-	"bedtime_story": {"name": "Bedtime story", "blocks": 1, "energy": -5, "connected": 20, "after": 1170, "before": 1260, "once": true, "phases": ["home_pm"]},
-	"gaming": {"name": "Play video games", "blocks": 2, "energy": 5, "stress": -20, "phases": ["home_pm"]},
-	"drink": {"name": "Have a beer", "blocks": 0, "energy": -2, "stress": -10, "phases": ["home_pm"]},
+	"play_girls": {"name": "Play with Lily & June", "blocks": 1, "energy": -5, "stress": -5, "connected": 12, "phases": HOME},
+	"bedtime_story": {"name": "Bedtime story", "blocks": 1, "energy": -5, "connected": 20, "after": 1170, "before": 1260, "once": true, "phases": HOME},
+	"gaming": {"name": "Play video games", "blocks": 2, "energy": 5, "stress": -20, "phases": HOME},
+	"drink": {"name": "Have a beer", "blocks": 0, "energy": -2, "stress": -10, "phases": HOME},
 	"pouch": {"name": "Nic pouch", "blocks": 0, "energy": 0, "stress": -6, "phases": ANY},
-	"rx_dose": {"name": "Take Rx (prescribed: 1/day)", "blocks": 0, "energy": 15, "phases": ["home_am", "work", "home_pm"]},
+	"rx_dose": {"name": "Take Rx (prescribed: 1/day)", "blocks": 0, "energy": 15, "phases": ["home_am", "work", "home_pm", "weekend"]},
 	"text_jess": {"name": "Text Jess (thoughtful)", "blocks": 0, "energy": -2, "closeness": 6, "max_per_day": 3, "phases": ANY},
-	"sleep": {"name": "Go to sleep", "blocks": 0, "energy": 0, "phases": ["home_pm"]},
+	# Cozy evening/weekend verbs (playtester pass 2)
+	"family_dinner": {"name": "Family dinner (everyone at the table)", "blocks": 1, "energy": -4, "stress": -4, "fed": 30, "connected": 6, "closeness": 4, "after": 1020, "before": 1230, "once": true, "phases": HOME},
+	"homework": {"name": "Homework & drawing at the table", "blocks": 1, "energy": -4, "connected": 8, "before": 1200, "once": true, "phases": HOME},
+	"walk_park": {"name": "Walk to the park with the girls", "blocks": 2, "energy": -2, "stress": -14, "connected": 10, "after": 960, "before": 1170, "once": true, "phases": HOME},
+	"walk_block": {"name": "Walk around the block (alone)", "blocks": 1, "energy": 4, "stress": -12, "phases": HOME},
+	"tea_jess": {"name": "Tea on the couch with Jess", "blocks": 1, "energy": 3, "stress": -10, "closeness": 8, "after": 1080, "once": true, "phases": HOME},
+	"breathe": {"name": "Deep breath (box breathing)", "blocks": 0, "energy": 0, "stress": -5, "max_per_day": 3, "phases": ANY},
+	"pancakes": {"name": "Saturday-style pancakes", "blocks": 2, "energy": -4, "stress": -6, "fed": 40, "connected": 10, "before": 720, "once": true, "phases": ["weekend"]},
+	"chores": {"name": "Chores together (with a playlist)", "blocks": 2, "energy": -8, "stress": -4, "connected": 4, "closeness": 6, "once": true, "phases": ["weekend"]},
+	"concert": {"name": "Lily's school concert", "blocks": 2, "energy": -3, "connected": 18, "closeness": 4, "after": 1050, "before": 1110, "once": true, "event": "concert", "phases": ["home_pm"]},
+	"sleep": {"name": "Go to sleep", "blocks": 0, "energy": 0, "phases": HOME},
 }
 
+# Calendar: day index -> event. Shown in the HUD; some unlock actions.
+const CALENDAR := {
+	0: {"id": "", "text": "Monday. The fridge calendar says nothing. Suspicious."},
+	1: {"id": "picture", "text": "Picture day! (Hair: attempted)"},
+	2: {"id": "", "text": "Taco Wednesday (household law)"},
+	3: {"id": "concert", "text": "Lily's concert, 5:30 PM (recorder solo)"},
+	4: {"id": "pizza", "text": "Office pizza Friday"},
+	5: {"id": "weekend", "text": "Saturday. No work. (Theoretically.)"},
+	6: {"id": "oncall", "text": "Sunday. You're on call. The pager is asleep. Don't wake it."},
+}
 const TICKETS := [
 	"\"Printer is printing. Is this normal? URGENT\" (It was normal. She sent a thank-you GIF.)",
 	"\"Can you make the internet faster? —Sent from my iPad\" (You moved him closer to the router. He called you a wizard.)",
@@ -110,6 +131,12 @@ var rx_extra_total: int = 0
 var rx_until: int = -1        # minute the current dose wears off
 var rx_last_dose: int = -1
 var notices_seen := {}
+var fridge_drawings: int = 0       # cozy loop: grows with time spent with the girls
+var moments_seen := {}              # relationship moments already played
+var clean := {"drink": 0, "pouch": 0, "rx_extra": 0}   # consecutive clean days after using
+var used_ever := {"drink": false, "pouch": false, "rx_extra": false}
+var week_moments: Array[String] = []
+signal moment(id: String)
 
 func _ready() -> void:
 	new_game()
@@ -134,19 +161,30 @@ func new_game(seed_value: int = 0) -> void:
 	rx_pills = 30
 	rx_extra_total = 0
 	notices_seen = {}
+	fridge_drawings = 0
+	moments_seen = {}
+	clean = {"drink": 0, "pouch": 0, "rx_extra": 0}
+	used_ever = {"drink": false, "pouch": false, "rx_extra": false}
+	week_moments = []
 	week_over = false
 	week_stats = {"bedtimes": 0, "tickets": 0, "texts": 0, "gaming_blocks": 0, "drinks": 0, "pouches": 0, "rx_extra": 0}
 	_start_day()
 
 func _start_day() -> void:
 	minutes = DAY_START
-	phase = "home_am"
+	phase = "weekend" if day >= 5 else "home_am"
 	rx_until = -1
 	rx_last_dose = -1
 	today = {"tickets": 0, "text_jess": 0, "bedtime_story": 0, "kid_actions": 0, "gaming": 0,
-		"drink": 0, "pouch": 0, "rx_dose": 0, "crashed": false, "log": []}
+		"drink": 0, "pouch": 0, "rx_dose": 0, "crashed": false, "log": [], "moments": []}
 	state_changed.emit()
 	day_started.emit()
+
+func is_weekend() -> bool:
+	return day >= 5
+
+func calendar_text() -> String:
+	return CALENDAR[day]["text"]
 
 func day_name() -> String:
 	return DAY_NAMES[day]
@@ -190,7 +228,9 @@ func can_do(id: String) -> String:
 	if a.get("once", false) and int(today.get(id, 0)) > 0:
 		return "Already done today."
 	if a.has("max_per_day") and int(today.get(id, 0)) >= int(a["max_per_day"]):
-		return "Jess is busy at work. She'll text back later."
+		return "You're breathed out for now. Lungs: at capacity." if id == "breathe" else "Jess is busy. She'll text back later."
+	if a.has("event") and CALENDAR[day]["id"] != a["event"]:
+		return "Not on the calendar today."
 	if a.has("money") and money + int(a["money"]) < 0:
 		return "Card declined. Money's a little tight this week."
 	match id:
@@ -206,7 +246,10 @@ func can_do(id: String) -> String:
 		"rx_dose":
 			if rx_pills <= 0:
 				return "Pharmacy: \"Too early to refill.\""
-		"play_girls":
+		"tea_jess":
+			if phase == "weekend" and minutes < 600:
+				return "Jess is still asleep. Let her have this."
+		"play_girls", "walk_park", "chores":
 			if is_on_fumes():
 				return "You're running on fumes. Maybe rest a bit first."
 	var e: int = int(a["energy"])
@@ -242,6 +285,7 @@ func do_action(id: String) -> String:
 	today[id] = int(today.get(id, 0)) + 1
 	var line: String = a["name"]
 	var lifeos := ""
+	var before_min: int = minutes - blocks * BLOCK
 	match id:
 		"leave_for_work":
 			phase = "work"
@@ -266,6 +310,41 @@ func do_action(id: String) -> String:
 				line += "\n(Everything is very clear. Almost too clear.)"
 		"coffee_break":
 			line = "Coffee with the team. Karen shows everyone her new puppy. You feel a little more human."
+		"breathe":
+			line = ["In for four, hold for four, out for four. The inbox is still there, but further away.",
+				"Box breathing. The box is fine. You're fine. Mostly fine.",
+				"One more breath. LifeOS tries to join in and buffers."][mini(int(today["breathe"]), 3) - 1]
+		"family_dinner":
+			line = ["Tacos. June builds hers inside out. Everyone talks at once. It's perfect.",
+				"Spaghetti night. Lily explains her whole day, including the parts that haven't happened yet.",
+				"Breakfast-for-dinner. A cardinal sin of nutrition. A triumph of morale."][day % 3]
+			_moment("Dinner where everyone talked at once.")
+		"homework":
+			fridge_drawings += 1
+			line = "Lily does fractions. June draws you as a robot with a coffee for a heart. It goes on the fridge. (Drawings: %d)" % fridge_drawings
+			_moment("A new drawing for the fridge.")
+		"walk_park":
+			line = "The park. June conquers the big slide. Lily finds a stick that is 'definitely a wand.' Nobody checks a phone."
+			if rng.randf() < 0.5:
+				fridge_drawings += 1
+				line += " (Lily draws the park later. Fridge: %d)" % fridge_drawings
+			_moment("The big slide was conquered.")
+		"walk_block":
+			line = ["A lap around the block. Mrs. Okafor waves from her porch. The sky does a nice orange thing.",
+				"Walk. Cold air. Your brain defrags a little.",
+				"Around the block. A dog you don't know is very happy to see you. Mutual."][rng.randi() % 3]
+		"tea_jess":
+			line = "Tea on the couch. Jess puts her feet on you like you're furniture. Highest honor in the house."
+			_moment("Tea with Jess, feet on your lap.")
+		"pancakes":
+			line = "Pancakes. June wants hers shaped like a server rack. You do your best. It's a rectangle."
+			_moment("Server-rack pancakes.")
+		"chores":
+			line = "Chores with a playlist. Jess sings the wrong lyrics on purpose. The garage is 4% cleaner."
+		"concert":
+			line = "Lily's recorder solo. It is loud and brave and mostly in tune. You cry a normal amount."
+			fridge_drawings += 1
+			_moment("Lily's recorder solo. You were there.")
 		"text_jess":
 			week_stats["texts"] += 1
 			line = JESS_TEXTS[rng.randi() % JESS_TEXTS.size()] + "\nYou: (a thoughtful reply)"
@@ -274,12 +353,17 @@ func do_action(id: String) -> String:
 			line = "June negotiated two more books. Worth it."
 			if today["drink"] >= 3:
 				line += "\nLily: \"You did the dragon voice twice.\""
+			else:
+				_moment("The dragon voice. Nailed it.")
+			if rng.randf() < 0.35:
+				fridge_drawings += 1
 		"gaming":
 			week_stats["gaming_blocks"] += 2
 			today["gaming"] += 1
 			line = "One more match. Stress down. Where did the time go?"
 		"drink":
 			beers -= 1
+			used_ever["drink"] = true
 			drinks_week += 1
 			week_stats["drinks"] += 1
 			closeness = clampi(closeness - (1 if today["drink"] == 1 else 3), 0, 100)
@@ -293,6 +377,7 @@ func do_action(id: String) -> String:
 					lifeos = JESS_NOTICES[t]
 		"pouch":
 			pouches -= 1
+			used_ever["pouch"] = true
 			gum_damage += 1
 			week_stats["pouches"] += 1
 			line = "Pouch in. A brief, quiet calm. Upper lip, left side, same spot as always."
@@ -304,6 +389,7 @@ func do_action(id: String) -> String:
 			rx_pills -= 1
 			if rx_last_dose >= 0:
 				rx_extra_total += 1
+				used_ever["rx_extra"] = true
 				week_stats["rx_extra"] += 1
 				line = "Another one, just to get through the afternoon. The bottle says 1 daily."
 				if rx_extra_total >= 3 and not notices_seen.has("rx_refill"):
@@ -317,6 +403,12 @@ func do_action(id: String) -> String:
 	if id in ["feed_girls", "play_girls", "bedtime_story", "cereal"]:
 		today["kid_actions"] += 1
 	_check_crash()
+	if lifeos == "" and phase in HOME and before_min < 1170 and minutes >= 1170 and today["bedtime_story"] == 0:
+		lifeos = "LifeOS: It's 7:30. Lily is sitting on her bed holding a book very obviously. (Bedtime story: Girls' room)"
+	if lifeos == "" and id in ["walk_block", "breathe", "tea_jess", "walk_park"] and int(today.get("pouch", 0)) == 0 and stress < 25 and not notices_seen.has("calm"):
+		notices_seen["calm"] = true
+		lifeos = "LifeOS: Stress is down and nothing was purchased. LifeOS's business model is concerned. LifeOS is happy for you."
+	_check_relationships()
 	if lifeos == "" and id == "work_ticket" and is_on_fumes() and rx_last_dose >= 0 and not rx_active() and rx_pills > 0:
 		lifeos = "LifeOS: Energy low. Maybe a snack or a short walk? (LifeOS is not a doctor. LifeOS is an app that worries.)"
 	today["log"].append(line)
@@ -329,6 +421,48 @@ func do_action(id: String) -> String:
 	if minutes >= DAY_END:
 		end_day()
 	return line
+
+func _moment(t: String) -> void:
+	today["moments"].append(t)
+
+## One-time relationship moments at closeness/connection thresholds (Stardew heart events).
+const REL_MOMENTS := {
+	"jess70": ["closeness", 70, "Jess: found our old wedding playlist. it's mostly ska. who let us do that. ❤"],
+	"jess85": ["closeness", 85, "Jess: you've been really here this week. I notice. thank you."],
+	"girls75": ["girls_connected", 75, "LifeOS: June has declared you 'Best Daddy (Tie)'. The other contestant is the cat."],
+	"girls90": ["girls_connected", 90, "LifeOS: Lily made you a certificate: 'Dad. Level 99.' It's laminated with tape."],
+}
+func _check_relationships() -> void:
+	for k in REL_MOMENTS:
+		var m: Array = REL_MOMENTS[k]
+		if not moments_seen.has(k) and int(get(m[0])) >= int(m[1]):
+			moments_seen[k] = true
+			_moment(str(m[2]).split(": ", true, 1)[1] if ": " in str(m[2]) else str(m[2]))
+			moment.emit(k)
+			lifeos_message.emit(m[2])
+
+## Clean-day streaks: quitting is rewarded through people, not badges.
+const CLEAN_LINES := {
+	"drink": {2: ["Jess: you're funny when you're tired and sober. like weird-funny. I like it.", "closeness", 6],
+		4: ["Jess: slept through the night next to you. no 3 AM fridge light. 💛", "closeness", 8]},
+	"pouch": {2: ["LifeOS: Cravings detected and survived. LifeOS cannot sell you anything for this. Respect.", "stress", -6],
+		4: ["Brookfield Family Dental: \"Dr. Lin says your gums are already calmer. Keep it up!\"", "stress", -8]},
+	"rx_extra": {2: ["LifeOS: Two days on the prescribed dose. Your afternoon is slower and your nights are longer. Fair trade.", "energy", 10],
+		4: ["LifeOS: Refill date is back on schedule. The pharmacist smiled. Pharmacists don't smile.", "energy", 10]},
+}
+func _update_clean_streaks() -> void:
+	var used := {"drink": int(today["drink"]) > 0, "pouch": int(today["pouch"]) > 0, "rx_extra": int(today["rx_dose"]) > 1}
+	for k in clean:
+		if used[k]:
+			clean[k] = 0
+		elif used_ever[k]:
+			clean[k] += 1
+			var tab: Dictionary = CLEAN_LINES[k]
+			if tab.has(clean[k]) and not notices_seen.has("clean_%s_%d" % [k, clean[k]]):
+				notices_seen["clean_%s_%d" % [k, clean[k]]] = true
+				var r: Array = tab[clean[k]]
+				set(r[1], clampi(int(get(r[1])) + int(r[2]), 0, 100))
+				lifeos_message.emit(r[0])
 
 func _check_crash() -> void:
 	if rx_last_dose >= 0 and not rx_active() and not today["crashed"]:
@@ -379,6 +513,7 @@ func end_day() -> Dictionary:
 		closeness = clampi(closeness - 8, 0, 100)
 	if today["bedtime_story"] == 0:
 		girls_connected = clampi(girls_connected - 10, 0, 100)
+	_update_clean_streaks()
 	if today["tickets"] == 0 and day < 5:
 		performance = clampi(performance - 10, 0, 100)
 	if phase == "work" or phase == "drive":
@@ -389,6 +524,10 @@ func end_day() -> Dictionary:
 	var q := "" if notes.is_empty() else " (" + "; ".join(notes) + ")"
 	summary["sleep_text"] = "Sleep: %dh %02dm, quality %d%%%s. Today: %s. Tomorrow's a new day." % [slept_min / 60, slept_min % 60, int(quality * 100), q, "Solid work" if today["tickets"] > 1 else "A quiet one"]
 	summary["energy_after"] = energy
+	var ms: Array = today["moments"]
+	summary["moment"] = ms[rng.randi() % ms.size()] if not ms.is_empty() else ("You made it. That counts." if today["kid_actions"] > 0 else "A blur. Tomorrow, maybe the park.")
+	week_moments.append(summary["moment"])
+	summary["drawings"] = fridge_drawings
 	day_ended.emit(summary)
 	day += 1
 	if day >= 7:
@@ -419,6 +558,17 @@ func weekly_review() -> String:
 		s += "Oral Health ....... Worth a cleaning soon\n"
 	if week_stats["rx_extra"] > 0:
 		s += "Focus ............. Big highs, rough crashes. Maybe chat with your doctor\n"
+	s += "Fridge gallery .... %d drawing%s\n" % [fridge_drawings, "" if fridge_drawings == 1 else "s"]
+	if not week_moments.is_empty():
+		var best: Array[String] = []
+		for m in week_moments:
+			if not (m in best) and not m.begins_with("A blur") and not m.begins_with("You made it"):
+				best.append(m)
+		if not best.is_empty():
+			s += "Moments ........... " + "; ".join(best.slice(0, 3)) + "\n"
+	for k in clean:
+		if used_ever[k] and clean[k] >= 2:
+			s += "Streaks ........... %d clean day%s (%s). Someone noticed.\n" % [clean[k], "" if clean[k] == 1 else "s", {"drink": "no beer", "pouch": "no pouches", "rx_extra": "Rx as prescribed"}[k]]
 	return s + "Manager comment: \"Thanks for everything this week, Dan. Get some rest.\"\n\n" \
 		+ "ENDING (stub): Not a perfect week. A real one. Pancakes on Sunday."
 
@@ -428,3 +578,54 @@ func _fmt(m: int) -> String:
 	if h12 == 0:
 		h12 = 12
 	return "%d:%02d %s" % [h12, m % 60, "AM" if h < 12 else "PM"]
+
+# ------------------------------------------------------------------ save/load
+const SAVE_PATH := "user://uptime_save.json"
+const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
+	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
+	"fridge_drawings", "moments_seen", "clean", "used_ever", "week_moments"]
+
+## Saves at the start of a day (the game autosaves every morning).
+func save_game(path: String = SAVE_PATH) -> bool:
+	var d := {"version": 1}
+	for v in SAVE_VARS:
+		d[v] = get(v)
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(JSON.stringify(d))
+	return true
+
+func has_save(path: String = SAVE_PATH) -> bool:
+	return FileAccess.file_exists(path)
+
+## Loads a morning save. Returns false if missing/corrupt (game state untouched).
+func load_game(path: String = SAVE_PATH) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var d = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not (d is Dictionary) or int(d.get("version", 0)) != 1:
+		return false
+	for v in SAVE_VARS:
+		if not d.has(v):
+			return false
+	for v in SAVE_VARS:
+		var x = d[v]
+		if typeof(get(v)) == TYPE_INT:
+			x = int(x)
+		elif v == "week_moments":
+			var arr: Array[String] = []
+			for m in x: arr.append(str(m))
+			x = arr
+		elif x is Dictionary:
+			var dd := {}
+			for k in x: dd[k] = int(x[k]) if (x[k] is float) else x[k]
+			x = dd
+		set(v, x)
+	week_over = false
+	_start_day()
+	return true
+
+func delete_save(path: String = SAVE_PATH) -> void:
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

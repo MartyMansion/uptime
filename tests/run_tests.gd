@@ -12,10 +12,22 @@ func check(cond: bool, msg: String) -> void:
 
 func _initialize() -> void:
 	var main: Node = load("res://scenes/main.tscn").instantiate()
+	main.autoload_save = false
 	root.add_child(main)
 
 ## Plays a standard day: breakfast, work tickets until 4, drive stop, evening.
 func play_day(gs: Node, buy: Array, drinks: int, pouches: int) -> void:
+	if gs.is_weekend():
+		gs.beers += drinks if "buy_beer" in buy else 0
+		gs.pouches += pouches if "buy_pouches" in buy else 0
+		gs.do_action("pancakes")
+		gs.minutes = maxi(gs.minutes, 1100)
+		for i in drinks: gs.do_action("drink")
+		for i in pouches: gs.do_action("pouch")
+		gs.minutes = maxi(gs.minutes, 1170)
+		gs.do_action("bedtime_story")
+		gs.do_action("sleep")
+		return
 	gs.do_action("feed_girls")
 	gs.do_action("leave_for_work")
 	while gs.minutes < gs.OFF_WORK:
@@ -119,6 +131,36 @@ func _process(_d: float) -> bool:
 	gs.new_game(6)
 	gs.do_action("cereal")
 	check(gs.can_do("cereal") != "", "breakfast/cereal once per morning")
+	# --- Pass 2: weekends, cozy verbs, calendar, moments, quitting, save/load
+	gs.new_game(11)
+	for i in 5: play_day(gs, [], 0, 0)
+	check(gs.day == 5 and gs.phase == "weekend" and gs.can_do("leave_for_work") != "", "Saturday is a home day (no work)")
+	check(gs.can_do("pancakes") == "" and gs.calendar_text().begins_with("Saturday"), "weekend pancakes + calendar")
+	var sm := [{}]
+	gs.day_ended.connect(func(x): sm[0] = x, CONNECT_ONE_SHOT)
+	gs.do_action("pancakes"); gs.minutes = 1080; gs.do_action("homework"); gs.do_action("tea_jess")
+	check(gs.fridge_drawings >= 1, "homework adds a fridge drawing")
+	gs.do_action("sleep")
+	check(str(sm[0].get("moment", "")) != "", "day summary has a moment of the day")
+	gs.new_game(12)
+	gs.do_action("feed_girls"); gs.do_action("leave_for_work")
+	var st0: int = gs.stress
+	gs.do_action("breathe")
+	check(gs.stress == maxi(st0 - 5, 0) and gs.minutes == 480, "breathe: free stress relief, competes with a pouch")
+	gs.day = 3
+	check(gs.can_do("concert") != "", "concert only in the evening on Thursday")
+	gs.day = 0
+	gs.pouches = 5; gs.do_action("pouch")
+	var msgs: Array = []
+	gs.lifeos_message.connect(func(t): msgs.append(t))
+	gs.end_day(); gs.end_day(); gs.end_day()
+	check(gs.clean["pouch"] == 2 and msgs.any(func(t): return "Cravings" in str(t)), "quitting pouches: clean streak + reward line")
+	gs.fridge_drawings = 7
+	check(gs.save_game("user://test_save.json"), "save game")
+	gs.new_game(13)
+	check(gs.load_game("user://test_save.json") and gs.fridge_drawings == 7 and gs.day == 3 and gs.clean["pouch"] == 2, "load game restores the morning")
+	gs.delete_save("user://test_save.json")
+	check(not gs.load_game("user://nope.json"), "missing save fails cleanly")
 	# --- Scenes, cutscenes, assets, UI
 	main.skip_all_cutscenes()
 	main.dismiss_summary() if main.summary_root.visible else null

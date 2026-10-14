@@ -3,7 +3,7 @@ extends SceneTree
 ## through the real Main scene (UI + cutscenes), logging problems.
 ##   godot --headless --path . -s res://tests/playtest_bot.gd -- [runs] [outdir]
 
-const STRATS := ["random", "workaholic", "family_first", "heavy", "all_skip", "night_owl", "rx_spam", "balanced", "broke", "stardew"]
+const STRATS := ["random", "workaholic", "family_first", "heavy", "all_skip", "night_owl", "rx_spam", "balanced", "broke", "stardew", "cozy", "quitter"]
 var problems: Array[String] = []
 var lines := {}            # dialogue/text line -> count
 var stats := {"runs": 0, "days": 0, "actions": 0, "cutscenes": {}, "actions_used": {}, "endings": 0, "audits": 0}
@@ -13,6 +13,7 @@ var cur := ""
 
 func _initialize() -> void:
 	main = load("res://scenes/main.tscn").instantiate()
+	main.autoload_save = false
 	root.add_child(main)
 	_run.call_deferred()
 
@@ -120,8 +121,21 @@ func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String
 			pref = ["cereal", "leave_for_work", "work_ticket", "head_home", "pickup_girls", "gaming", "work_ticket", "drink"]
 		"rx_spam":
 			pref = ["rx_dose", "leave_for_work", "work_ticket", "head_home", "pickup_girls", "work_ticket", "sleep"]
+		"cozy":
+			pref = ["pancakes", "feed_girls", "leave_for_work", "text_jess", "work_ticket", "head_home", "pickup_girls", "concert", "walk_park", "family_dinner", "homework", "tea_jess", "bedtime_story", "chores", "walk_block", "sleep"]
+			if gs.today.get("tickets", 0) >= 3: pref.erase("work_ticket")
+		"quitter":
+			if gs.day < 2:
+				pref = ["pouch", "leave_for_work", "rx_dose", "work_ticket", "head_home", "buy_beer", "buy_pouches", "pickup_girls", "drink", "sleep"]
+			else:
+				pref = ["breathe", "feed_girls", "pancakes", "leave_for_work", "coffee_break", "work_ticket", "head_home", "pickup_girls", "walk_block", "family_dinner", "tea_jess", "bedtime_story", "sleep"]
+				if gs.today.get("tickets", 0) >= 4: pref.erase("work_ticket")
+				if gs.today.get("coffee_break", 0) >= 1: pref.erase("coffee_break")
 		"balanced", "stardew":
 			pref = ["feed_girls", "leave_for_work", "text_jess", "work_ticket", "head_home", "pickup_girls", "bedtime_story", "play_girls", "gaming", "sleep"]
+	if strat in ["random", "broke"] and false: pass
+	if strat == "quitter" and gs.day < 2 and gs.today.get("drink", 0) >= 3: pref.erase("drink")
+	if strat == "quitter" and gs.day < 2 and gs.today.get("pouch", 0) >= 3: pref.erase("pouch")
 	if strat == "heavy" and gs.today.get("drink", 0) >= 4: pref.erase("drink")
 	if strat == "heavy" and gs.today.get("pouch", 0) >= 4: pref.erase("pouch")
 	if strat == "family_first" and gs.today.get("play_girls", 0) >= 3: pref.erase("play_girls")
@@ -181,7 +195,7 @@ func play_week(strat: String, seed_v: int) -> void:
 			stats["actions_used"][a] = int(stats["actions_used"].get(a, 0)) + 1
 			var before_min: int = gs.minutes
 			main.perform(a)
-			if gs.minutes < before_min and gs.phase != "home_am": bad("clock went backwards on " + a)
+			if gs.minutes < before_min and gs.day == last_day and not gs.week_over: bad("clock went backwards on " + a)
 		check_state()
 		if rng.randf() < 0.05: await audit("play")
 		await drain(rng.randf() < 0.3)

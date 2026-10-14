@@ -27,10 +27,11 @@ func build() -> void:
 	prop("door", Vector2(140, 170))
 	prop("plant", Vector2(292, 176))
 	station("bed", "Bed", Rect2(12, 22, 32, 40), ["sleep"])
-	station("kitchen", "Kitchen", Rect2(108, 18, 104, 30), ["feed_girls", "cereal", "drink"])
-	station("girls", "Girls' room", Rect2(232, 22, 74, 60), ["play_girls", "bedtime_story"])
+	station("kitchen", "Kitchen", Rect2(108, 18, 104, 30), ["feed_girls", "cereal", "pancakes", "family_dinner", "drink"])
+	station("girls", "Girls' room", Rect2(232, 22, 74, 60), ["play_girls", "homework", "bedtime_story"])
 	station("desk", "PC desk", Rect2(16, 116, 32, 20), ["work_ticket", "gaming"])
-	station("door", "Front door", Rect2(140, 170, 20, 30), ["leave_for_work"])
+	station("door", "Front door", Rect2(140, 170, 20, 30), ["leave_for_work", "walk_park", "walk_block", "concert"])
+	station("couch", "Couch", Rect2(172, 160, 52, 26), ["tea_jess", "chores"])
 	spots = {"entry": Vector2(150, 186), "door": Vector2(150, 192), "bed": Vector2(56, 60),
 		"kitchen": Vector2(132, 56), "kitchen_b": Vector2(178, 88), "table_l": Vector2(132, 84), "table_r": Vector2(176, 78),
 		"girls": Vector2(262, 86), "lily_bed": Vector2(242, 62), "june_bed": Vector2(296, 62), "girls_dan": Vector2(270, 66),

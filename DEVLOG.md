@@ -34,3 +34,12 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **Rerun: 100 weeks, 700 days, ~16k actions, ~1.5k UI audits, 0 problems.** All actions and all 9 cutscenes triggered.
 - **Tone pass** (Marty: too much black comedy/meanness): ~110 strings rewritten across cutscenes, LifeOS, Jess, the girls, Gary, tickets, summaries, review and ending. Gary is a decent boss, LifeOS is silly-sweet instead of upselling, tickets end with small wins, the 4 AM Club is gentle, and the substance thread reads as concern (Jess checks in, Dr. Lin asks you to come in, LifeOS suggests talking to the doctor), never mockery. Logic unchanged.
 - Tests: 48 checks pass. Report: `/workspace/uptime-build/PLAYTEST_REPORT.md`.
+
+## 2026-10-14 (night) — Refinement hour, iteration 1: weekends, evenings, cozy loops, quitting, saves
+- **Weekends are home days.** Saturday/Sunday start in a new `weekend` phase at the house: pancakes, chores with Jess, the park, homework/drawing, tea, games, bedtime. No drop-off, no office, no Gas-N-Sip.
+- **The 4:30–7:30 PM gap is filled:** family dinner, homework & drawing, walk to the park, tea on the couch with Jess, a walk around the block. A LifeOS nudge at 7:30 points to the bedtime story.
+- **Non-substance stress relief that competes:** B = box breathing (free, -5 stress, 3/day, works anywhere, same speed as a pouch), walk around the block (-12 stress, +4 energy), tea with Jess, the park, coffee break at work.
+- **Cozy loops:** fridge drawing gallery (homework, park, bedtime, concert), shown in the HUD, the summary and the review. Relationship moments at Jess 70/85 and girls 75/90. A calendar line in the HUD (picture day, taco Wednesday, Lily's Thursday recorder concert as a real action, pizza Friday, Sunday on-call). Every day summary leads with a **Moment of the day**.
+- **Quitting paths:** clean-day streaks for beer, pouches and extra Rx after use. At 2 and 4 clean days, people notice (Jess, Dr. Lin, the pharmacist) and there's a small stat reward. Streaks appear on the weekly review.
+- **Save/load:** autosave every morning (`user://uptime_save.json`), continue on launch, F6 save, F7 load.
+- Bot: +2 strategies (cozy, quitter). 100 weeks, 0 problems. Tests: 58 pass.

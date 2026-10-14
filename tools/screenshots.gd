@@ -14,6 +14,7 @@ func _initialize() -> void:
 	if args.size() > 1: prefix = args[1]
 	DirAccess.make_dir_recursive_absolute(out)
 	main = load("res://scenes/main.tscn").instantiate()
+	main.autoload_save = false
 	root.add_child(main)
 	gs = root.get_node("GameState")
 	run()
