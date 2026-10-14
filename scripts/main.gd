@@ -74,6 +74,7 @@ func _ready() -> void:
 	GameState.week_ended.connect(_on_week_ended)
 	GameState.action_performed.connect(_on_action)
 	GameState.day_started.connect(_on_day_started)
+	GameState.moment.connect(func(k): queue_cutscene("moment", {"id": k}))
 	if autoload_save and GameState.has_save():
 		GameState.load_game()
 	get_viewport().size_changed.connect(_layout_world)
@@ -336,7 +337,25 @@ func sync_location() -> void:
 		else:
 			loc.despawn(n)
 	dan.visible = true
+	_update_fridge()
 	_refresh_prompt()
+
+## Cozy loop made visible: one little drawing per fridge_drawings on the house fridge.
+func _update_fridge() -> void:
+	if loc_name != "house":
+		return
+	var g: Node2D = loc.get_node_or_null("FridgeGallery")
+	if g == null:
+		g = Node2D.new()
+		g.name = "FridgeGallery"
+		g.z_index = 30
+		g.draw.connect(func():
+			var cols := [Color(0.95, 0.5, 0.5), Color(0.5, 0.75, 0.95), Color(0.95, 0.85, 0.4), Color(0.6, 0.9, 0.6), Color(0.85, 0.6, 0.95)]
+			for i in mini(GameState.fridge_drawings, 12):
+				var p := Vector2(198 + (i % 4) * 4, 22 + (i / 4) * 5)
+				g.draw_rect(Rect2(p, Vector2(3, 4)), cols[i % cols.size()]))
+		loc.add_child(g)
+	g.queue_redraw()
 
 # ------------------------------------------------------------------ loop
 func is_busy() -> bool:

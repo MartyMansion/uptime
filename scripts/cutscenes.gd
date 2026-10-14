@@ -11,7 +11,7 @@ class_name Cutscenes
 ##  ["wait", seconds]
 ## Lines adapted from the design doc (§4.12, §5.4).
 
-const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review"]
+const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment"]
 
 static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 	var d: int = gs.day
@@ -40,8 +40,12 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 				s += [["move", "dan", "kitchen"]] + mornings[(d - 1) % mornings.size()]
 				if gs.week_stats.get("drinks", 0) >= 6 and d >= 3:
 					s += [["say", "", "Jess sets a glass of water in front of you and squeezes your shoulder. She doesn't say anything. She doesn't have to."]]
-				s += [["say", "jess", "Off to the billing salt mines. Shared calendar. Open it. Once. For me. Love you."]]
-			s += [["move", "jess", "door"], ["hide", "jess"]]
+				if d >= 5:
+					s += [["say", "jess", ["No alarms. No shifts. I'm making coffee and nobody is allowed to say 'sync'.", "Sunday. You're on call, so I'm on pancakes. Fair trade."][d - 5]]]
+				else:
+					s += [["say", "jess", "Off to the billing salt mines. Shared calendar. Open it. Once. For me. Love you."]]
+			if d < 5:
+				s += [["move", "jess", "door"], ["hide", "jess"]]
 			return s
 		"dropoff":
 			var lines := [
@@ -121,4 +125,14 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 				["say", "lily", "Is it a lot?"],
 				["say", "june", "I'm the dentist now. Say ahh."],
 				["say", "jess", "Come here, you. Pancakes. Nobody's on call."]]
+		"moment":
+			# Heart events (Stardew-style), played once when a relationship crosses a threshold.
+			var lines := {
+				"jess70": [["say", "jess", "Found our wedding playlist. It's 60% ska. Who let us make decisions?"], ["say", "dan", "We were young and the trombone was persuasive."], ["say", "jess", "Dance with me. Badly. Before the kids notice."]],
+				"jess85": [["say", "jess", "Hey. You've been really here this week. Like, here here."], ["say", "dan", "LifeOS says I'm 'underperforming in Side Hustle.'"], ["say", "jess", "LifeOS can file a ticket."]],
+				"girls75": [["say", "june", "You are Best Daddy. It's a tie with the cat."], ["say", "dan", "I'll take it. The cat's very accomplished."]],
+				"girls90": [["say", "lily", "I made you a certificate. 'Dad. Level 99.'"], ["say", "dan", "Is it laminated?"], ["say", "lily", "With tape. That's how you know it's official."]],
+			}
+			var key: String = ctx.get("id", "girls75")
+			return [["loc", "house"], ["place", "dan", "living"]] + lines.get(key, lines["girls75"])
 	return []

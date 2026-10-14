@@ -49,3 +49,10 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - Job Performance hit 100 for every strategy, so there was no tension. Tickets are now +4 (+7 focused), and performance drifts -15 each workday (-20 with no tickets): "the queue refills overnight." A cozy week now ends around 59 Performance and a workaholic week at 100 with Jess and the girls at 0.
 - Stress floated at 0 for most strategies. Weekday mornings now add +10 ("the inbox refilled overnight"), so relief verbs matter.
 - Bot strategies were smarter about waiting for bedtime, and the quitter actually quits. 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 3–4: tone mix + heart events
+- **Tone mix:** about 38 lines have their wry edge back, aimed at systems, not people: LifeOS upsells ("Premium Sleep™… Regular sleep is still free. For now."), the 4 AM Club, "pizza instead of raises," the billing salt mines, and Gary's corporate-speak (he now winces at his own "Great energy!"). Kids and Jess stay kind. The substance thread is unchanged: concern, never punchlines.
+- **Heart events:** a new `moment` cutscene plays once when Jess reaches 70/85 or the girls reach 75/90 (wedding ska playlist, "Dad. Level 99" certificate laminated with tape).
+- **Fridge gallery is visible:** a little coloured drawing appears on the house fridge for each one you earn.
+- **Fixes:** the weekend wake-up no longer sends Jess off to work. Sunday on-call now pages you once at 3 PM ("it re-ran").
+- 100 weeks, 0 problems. Tests pass. UI screenshot audit at 1280x720: 0 problems.

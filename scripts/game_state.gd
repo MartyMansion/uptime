@@ -410,6 +410,9 @@ func do_action(id: String) -> String:
 	if lifeos == "" and id in ["walk_block", "breathe", "tea_jess", "walk_park"] and int(today.get("pouch", 0)) == 0 and stress < 25 and not notices_seen.has("calm"):
 		notices_seen["calm"] = true
 		lifeos = "LifeOS: Stress is down and nothing was purchased. LifeOS's business model is concerned. LifeOS is happy for you."
+	if lifeos == "" and CALENDAR[day]["id"] == "oncall" and before_min < 900 and minutes >= 900:
+		stress = clampi(stress + 6, 0, 100)
+		lifeos = "PAGER: [P2] Backup job failed (it's fine, it re-ran). LifeOS: The pager woke up. You put it back to sleep from the couch in 4 minutes. Legend."
 	_check_relationships()
 	if lifeos == "" and id == "work_ticket" and is_on_fumes() and rx_last_dose >= 0 and not rx_active() and rx_pills > 0:
 		lifeos = "LifeOS: Energy low. Maybe a snack or a short walk? (LifeOS is not a doctor. LifeOS is an app that worries.)"
