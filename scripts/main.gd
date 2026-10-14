@@ -377,7 +377,13 @@ func _process(delta: float) -> void:
 	dan.walk(dir)
 	if dir != Vector2.ZERO:
 		var b := loc.bounds
-		dan.position = (dan.position + dir.normalized() * SPEED * delta).clamp(b.position, b.end)
+		var step := dir.normalized() * SPEED * delta
+		var stuck := loc.blocked(dan.position)   # never trap Dan if a cutscene left him inside furniture
+		for cand in [dan.position + step, dan.position + Vector2(step.x, 0), dan.position + Vector2(0, step.y)]:
+			var np: Vector2 = cand.clamp(b.position, b.end)
+			if stuck or not loc.blocked(np):
+				dan.position = np
+				break
 	var s := loc.station_at(dan.position)
 	if s != near_station:
 		near_station = s

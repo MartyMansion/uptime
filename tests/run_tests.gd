@@ -176,6 +176,13 @@ func _process(_d: float) -> bool:
 			for aid in main.loc.stations[sid]["actions"]:
 				ok = ok and gs.ACTIONS.has(aid)
 		check(ok and main.loc.spots.has("entry"), "location %s loads with valid stations" % n)
+		var walk: Array[Vector2] = main.loc.reachable(main.loc.spot("entry"))
+		var unreachable: Array = []
+		for sid in main.loc.stations:
+			var r: Rect2 = main.loc.stations[sid]["rect"]
+			if not walk.any(func(p): return main.loc.station_at(p) == sid):
+				unreachable.append(sid)
+		check(walk.size() > 100 and unreachable.is_empty(), "%s: furniture collision, every station reachable %s" % [n, unreachable])
 	main.sync_location()
 	main.perform("leave_for_work")
 	check(main.cs_id == "dropoff", "leaving for work plays the drop-off cutscene")

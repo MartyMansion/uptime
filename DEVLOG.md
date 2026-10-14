@@ -56,3 +56,8 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **Fridge gallery is visible:** a little coloured drawing appears on the house fridge for each one you earn.
 - **Fixes:** the weekend wake-up no longer sends Jess off to work. Sunday on-call now pages you once at 3 PM ("it re-ran").
 - 100 weeks, 0 problems. Tests pass. UI screenshot audit at 1280x720: 0 problems.
+
+## Refinement hour, iteration 5: Dan stops walking through furniture
+- Non-flat props and interior walls now have solid footprints (lower ~55% of the sprite, so you still walk "behind" tall furniture in 3/4 view). Doors, rugs, toys and signs stay walkable. Movement slides along edges (tries x, then y), and Dan can always walk out if a cutscene placed him inside something.
+- `Location.reachable()` flood-fills the walkable space. A new test proves every station in all 4 locations is reachable from the entry.
+- 100 weeks, 0 problems. Tests pass.

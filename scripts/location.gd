@@ -12,6 +12,7 @@ var stations := {}                        # id -> {rect, label, actions}
 var spots := {}                           # name -> Vector2 (feet positions)
 var actors := {}                          # name -> Actor
 var highlight := ""
+var solids: Array[Rect2] = []             # furniture/walls Dan can't walk through (feet)
 var _hl: Node2D
 
 func _ready() -> void:
@@ -46,6 +47,8 @@ func tile(tex: String, r: Rect2, z := -10) -> Sprite2D:
 	s.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	s.position = r.position
 	s.z_index = z
+	if z == -9:   # interior walls are solid
+		solids.append(r.grow_individual(0, 2, 0, 0))
 	add_child(s)
 	return s
 
@@ -60,6 +63,9 @@ func prop(n: String, pos: Vector2, flat := false) -> Sprite2D:
 	s.position = pos + Vector2(0, h)
 	if flat:
 		s.z_index = -5
+	elif not (n in ["door", "office_sign", "gas_sign", "plant_small"]):
+		var w := s.texture.get_width()
+		solids.append(Rect2(pos.x + 1, pos.y + h * 0.45, w - 2, h * 0.55 - 1))
 	add_child(s)
 	return s
 
@@ -97,3 +103,25 @@ func station_at(p: Vector2) -> String:
 				bd = d
 				best = id
 	return best
+
+## True if Dan's feet can't stand at p.
+func blocked(p: Vector2) -> bool:
+	for r in solids:
+		if r.has_point(p):
+			return true
+	return false
+
+## Flood-fills walkable space from a point (step px). Used by tests/bot.
+func reachable(from: Vector2, step := 2.0) -> Array[Vector2]:
+	var seen := {}
+	var out: Array[Vector2] = []
+	var q: Array[Vector2] = [from.snapped(Vector2(step, step))]
+	while not q.is_empty():
+		var c: Vector2 = q.pop_back()
+		if seen.has(c) or not bounds.has_point(c) or blocked(c):
+			continue
+		seen[c] = true
+		out.append(c)
+		for d in [Vector2(step, 0), Vector2(-step, 0), Vector2(0, step), Vector2(0, -step)]:
+			q.append(c + d)
+	return out
