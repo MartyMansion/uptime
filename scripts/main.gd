@@ -443,7 +443,7 @@ func _on_day_ended(s: Dictionary) -> void:
 
 func _on_week_ended(review: String) -> void:
 	queue_cutscene("review")
-	pending_title = "LIFEOS WEEK IN REVIEW"
+	pending_title = "LIFEOS QUARTERLY-WEEKLY PERFORMANCE REVIEW"
 	pending_summary = review.substr(review.find("\n") + 1)
 	summary_is_week = true
 

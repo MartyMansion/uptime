@@ -73,26 +73,26 @@ const CALENDAR := {
 const TICKETS := [
 	"\"Printer is printing. Is this normal? URGENT\" (It was normal. She sent a thank-you GIF.)",
 	"\"Can you make the internet faster? —Sent from my iPad\" (You moved him closer to the router. He called you a wizard.)",
-	"\"Can I install a screensaver with fish on it?\" (You found a safe one. The fish are very calm.)",
+	"\"Need admin rights to install FreeScreenSaverz_REAL.exe for productivity\" (Declined. You found her a safe fish one. She loves the fish.)",
 	"\"What's the Wi-Fi password?\" (You taped it to the conference room wall. Solved forever. Probably.)",
-	"\"Outlook froze again, sorry to bug you!\" —Karen in Accounts Payable (She left a muffin on your desk.)",
+	"\"Outlook is Not Responding. Neither am I.\" —Karen in Accounts Payable (Fixed both. She left a muffin.)",
 	"\"The server room is making a noise. A different noise.\" (A tired fan. Fixed. The servers hum happily.)",
 	"\"Reply-all thread re: WHO TOOK MY YOGURT (47 replies)\" (The yogurt was found. Everyone is relieved.)",
 	"\"Our chatbot told a customer we offer free kittens. Do we?\" (We do not. You fixed it. A little sad, honestly.)",
 ]
 const JESS_TEXTS := [
-	"Jess: On hold with insurance for 52 min. The hold music has a bridge now. I'm learning the words.",
+	"Jess: On hold with insurance for 52 min. The hold music has a bridge now. I'm emotionally invested.",
 	"Jess: Can you grab milk on the way? June wants to 'review' the oat one again.",
-	"Jess: Hospital had a pizza lunch for the billing team. Saved you a slice. Thinking of you.",
-	"Jess: Lily asked what your job is. I said 'he helps people when their computers are sad.' She approves.",
+	"Jess: Hospital gave us pizza instead of a raise again. Saved you a slice of late-stage capitalism. ❤",
+	"Jess: Lily asked if your job is real. I said 'legally, yes.' She said you seem 'very important to printers.'",
 	"Jess: Friendly reminder the shared calendar exists 💛 June has picture day Thursday.",
 ]
 const LIFEOS_TIPS := [
-	"LifeOS: Tip: Sleep restores Energy. LifeOS also recommends: blankets.",
+	"LifeOS: Tip: Sleep restores Energy. Premium Sleep™ is $4.99/mo. Regular sleep is still free. For now.",
 	"LifeOS: Tip: Your daughters can't be optimized. Our engineers say this is a feature.",
 	"LifeOS: Tip: It's always DNS. Except when it's the cable. Check the cable.",
-	"LifeOS: Tip: Drink some water! LifeOS believes in you. LifeOS is also a little thirsty.",
-	"LifeOS: Feeling overwhelmed by notifications? So is LifeOS. Let's both take a deep breath.",
+	"LifeOS: Tip: A 'quick call' has never once been quick. LifeOS has the data. LifeOS is sorry.",
+	"LifeOS: Feeling overwhelmed by notifications? Here is a notification about that.",
 ]
 # Jess noticing drinking, keyed by cumulative drinks this week. Quiet, not a fight.
 const JESS_NOTICES := {
@@ -234,14 +234,14 @@ func can_do(id: String) -> String:
 	if a.has("event") and CALENDAR[day]["id"] != a["event"]:
 		return "Not on the calendar today."
 	if a.has("money") and money + int(a["money"]) < 0:
-		return "Card declined. Money's a little tight this week."
+		return "Card declined. The pump says nothing. The pump doesn't have to."
 	match id:
 		"head_home":
 			if minutes < OFF_WORK:
-				return "Not quite quittin' time. Maybe after 4."
+				return "Gary is doing a lap. Your coat is very visible. Maybe after 4."
 		"drink":
 			if beers <= 0:
-				return "Fridge: oat milk, juice boxes, one lemon."
+				return "Fridge: oat milk, juice boxes, one lemon with a lot of potential."
 		"pouch":
 			if pouches <= 0:
 				return "Tin's empty."
@@ -362,7 +362,7 @@ func do_action(id: String) -> String:
 		"gaming":
 			week_stats["gaming_blocks"] += 2
 			today["gaming"] += 1
-			line = "One more match. Stress down. Where did the time go?"
+			line = "One more match. Stress down. Time: gone. Into the void. Worth it, probably."
 		"drink":
 			beers -= 1
 			used_ever["drink"] = true
@@ -398,7 +398,7 @@ func do_action(id: String) -> String:
 					notices_seen["rx_refill"] = true
 					lifeos = "LifeOS: Pharmacy reminder: at this pace your refill runs out %d days early. Maybe a good thing to mention to your doctor." % rx_extra_total
 			else:
-				line = "Rx taken. The browser tabs feel less loud. Focus: on."
+				line = "Rx taken. The 47 browser tabs close themselves, emotionally. Focus: on."
 			rx_last_dose = minutes
 			rx_until = minutes + RX_DURATION
 			today["crashed"] = false
@@ -476,13 +476,13 @@ func _check_crash() -> void:
 func _lifeos_comment(id: String) -> String:
 	match id:
 		"gaming":
-			return "LifeOS: Leisure detected! Rest is productive too. LifeOS read that somewhere."
+			return "LifeOS: Leisure detected. Your competitors are also playing video games. Everyone's fine."
 		"bedtime_story":
 			return "LifeOS: Bedtime story logged. This is the good stuff, Dan."
 		"work_ticket":
-			return "LifeOS: Ticket closed! Somebody's day just got easier. Nice work."
+			return "LifeOS: Ticket closed! 1 down, ∞ to go. Somebody's day just got easier, though."
 		"pickup_girls":
-			return "LifeOS: Commute logged. The girls sang the whole way. LifeOS rates it 5 stars."
+			return "LifeOS: Commute logged. Brayden Kole's 4 AM Club played for 22 min. The girls drowned it out singing. Good."
 	return LIFEOS_TIPS[rng.randi() % LIFEOS_TIPS.size()]
 
 func end_day() -> Dictionary:
@@ -549,7 +549,7 @@ func weekly_review() -> String:
 		+ "Bedtimes attended . %d/7\n" % week_stats["bedtimes"] \
 		+ "Marriage .......... %s\n" % marriage \
 		+ "Career ............ %s (%d tickets)\n" % [career, week_stats["tickets"]] \
-		+ "Side Hustle ....... Still a dream. Dreams are allowed.\n" \
+		+ "Side Hustle ....... Pre-revenue, post-sleep. Dreams are allowed.\n" \
 		+ "Self-Care ......... %s\n" % ("Running low. Be gentle with yourself." if stress > 50 else "Detected! LifeOS is so proud.")
 	# Subtle lines: only appear if relevant, never as a score.
 	if week_stats["drinks"] > 0:
@@ -571,8 +571,8 @@ func weekly_review() -> String:
 	for k in clean:
 		if used_ever[k] and clean[k] >= 2:
 			s += "Streaks ........... %d clean day%s (%s). Someone noticed.\n" % [clean[k], "" if clean[k] == 1 else "s", {"drink": "no beer", "pouch": "no pouches", "rx_extra": "Rx as prescribed"}[k]]
-	return s + "Manager comment: \"Thanks for everything this week, Dan. Get some rest.\"\n\n" \
-		+ "ENDING (stub): Not a perfect week. A real one. Pancakes on Sunday."
+	return s + "Manager comment: \"Great energy! Let's circle back on everything. Also, genuinely, get some rest.\"\n\n" \
+		+ "ENDING (stub): Uptime this week: 99.2%. The SLA was 100%. The pancakes were 100%."
 
 func _fmt(m: int) -> String:
 	var h := (m % 1440) / 60

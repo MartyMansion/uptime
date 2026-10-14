@@ -20,27 +20,27 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			var s: Array = [["loc", "house"], ["dim", false], ["place", "dan", "bed"], ["face", "dan", "down"],
 				["place", "lily", "table_l"], ["place", "june", "table_r"], ["place", "jess", "kitchen_b"]]
 			if d == 0:
-				s += [["lifeos", "Good morning, Dan! You slept 4h 51m. LifeOS made you a to-do list and drew a little sun on it."],
+				s += [["lifeos", "Good morning, Dan! You slept 4h 51m. That's 18% more than a Navy SEAL. LifeOS drew a little sun on your to-do list. Let's crush today! (Gently.)"],
 					["move", "dan", "kitchen"],
 					["say", "june", "Daddy. My shoes are gone. Forever. Someone took them."],
-					["say", "dan", "Nobody took your shoes, bug. They're just hiding. Shoes do that."],
+					["say", "dan", "Nobody took your shoes, bug. Shoes don't get stolen. They just quietly resign."],
 					["say", "lily", "Mommy says they're in \"the last place you'd look.\""],
 					["say", "dan", "That's every place, Lily. That's kind of how looking works."],
 					["say", "lily", "Mommy says you'd say that. She was right."],
 					["say", "jess", "They're under the couch. My shift starts at 7, lunches are in the fridge. Love you. Have a good day."]]
 			else:
 				var mornings := [
-					[["say", "june", "I had a dream the printer was printing."], ["say", "dan", "That's not a dream, bug. That's my whole job. Isn't it great?"]],
-					[["say", "lily", "Is your job real? Like, can you touch it?"], ["say", "dan", "You can touch the printer. It's very friendly. Mostly."]],
+					[["say", "june", "I had a dream the printer was printing."], ["say", "dan", "That's not a dream, bug. That's my job. Sometimes it's also a nightmare. Eat your toast."]],
+					[["say", "lily", "Is your job real? Like, can you touch it?"], ["say", "dan", "You can touch the printer. It's very friendly. It has simply seen things."]],
 					[["say", "june", "Two more minutes or I'm letting the cat in your bed."], ["say", "jess", "She's been negotiating since 5:40. She's going to be a lawyer."]],
-					[["say", "lily", "I drew you. Episode 2: Daddy and the Computer and the Coffee."], ["say", "dan", "Why is my head a laptop?"], ["say", "lily", "It's because you're smart."]],
+					[["say", "lily", "I drew you. Episode 2: Daddy and the Computer and the Coffee."], ["say", "dan", "Why is my head a laptop?"], ["say", "lily", "Artistic choice. Also because you're smart."]],
 					[["say", "june", "Daddy says the cloud is just someone else's computer."], ["say", "jess", "He's not wrong, sweetie. But maybe let's say it nicer at school."]],
-					[["say", "jess", "No work today. Theoretically."], ["say", "lily", "Theoretically is a funny word."]],
+					[["say", "jess", "No work today. Theoretically."], ["say", "lily", "Theoretically is a sad word."]],
 				]
 				s += [["move", "dan", "kitchen"]] + mornings[(d - 1) % mornings.size()]
 				if gs.week_stats.get("drinks", 0) >= 6 and d >= 3:
 					s += [["say", "", "Jess sets a glass of water in front of you and squeezes your shoulder. She doesn't say anything. She doesn't have to."]]
-				s += [["say", "jess", "Off to work. Check the shared calendar when you get a sec? Love you."]]
+				s += [["say", "jess", "Off to the billing salt mines. Shared calendar. Open it. Once. For me. Love you."]]
 			s += [["move", "jess", "door"], ["hide", "jess"]]
 			return s
 		"dropoff":
@@ -49,7 +49,7 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 				["say", "june", "Daddy says the cloud is just someone else's computer."],
 				["say", "lily", "Ms. Hollis says the parent group chat has 112 unread. She laughed when she said it."],
 				["say", "june", "I'm going to say synergy today."],
-				["say", "lily", "Bye, Daddy! Be nice to the printer."],
+				["say", "lily", "Bye, Daddy! Don't let the printer win."],
 			]
 			return [["loc", "school"], ["place", "dan", "car_r"], ["place", "lily", "car_l"], ["place", "june", "car_r"],
 				["move", "june", "curb_r"], ["move", "lily", "curb_l"], lines[d % lines.size()],
@@ -58,11 +58,11 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 		"arrive_work":
 			var gary := [
 				"Morning, Dan! Payroll server is \"being weird\" again. No rush, but could you peek when you get a sec?",
-				"Rough week for everyone. Donuts in the break room. You're doing great.",
+				"Team, let's lean into the headwinds! ...I don't know what that means either. There are donuts.",
 				"Leadership says we need AI. I'm not totally sure what for either. Can we figure it out together?",
 				"The CEO put in a ticket to \"make the internet faster.\" I told him you're the best we've got.",
-				"Pizza party Friday for the team!!! I'm ordering you the pineapple one. I remembered.",
-				"Hey, sorry you're on call this weekend. I owe you one. Seriously.",
+				"Pizza party Friday instead of raises!!! Corporate's words, not mine. I got you the pineapple one.",
+				"Weekend on-call is you, right? Great energy! ...Sorry. I hate that I said that. I owe you one.",
 				"Hey, sorry you're on call this weekend. I owe you one. Seriously.",
 			]
 			return [["loc", "office"], ["place", "dan", "entry"], ["place", "gary", "gary_desk"], ["move", "dan", "desk"],
@@ -71,8 +71,8 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 		"drive_stop":
 			var radio := [
 				"...and that's why I get up at 4 AM. Anyway, it's not for everyone. Get some sleep, folks.",
-				"Today's guest says the secret to success is... a nap. Huh. Okay.",
-				"Listener question: 'How do I balance work and family?' Great question. Hard question.",
+				"Sleep is a subscription you can cancel! Link in bio. (A caller says 'please don't.' Good caller.)",
+				"Grindset tip: your kids will understand when you're a unicorn. (Dan switches to the oldies station. The oldies station understands.)",
 			]
 			return [["loc", "gas_station"], ["place", "dan", "car"], ["face", "dan", "up"],
 				["say", "4 AM Club (radio)", radio[d % radio.size()]],
@@ -88,9 +88,9 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 		"jess_home":
 			var jess := [
 				"I was on hold with insurance for 52 minutes. I can sing you the hold music now.",
-				"Hospital had a pizza lunch. I saved you a slice. It's a little cold. It's still pizza.",
+				"Hospital gave us pizza instead of a raise again. I saved you a slice of disappointment. It's pepperoni disappointment, at least.",
 				"Did anyone open the shared calendar? June has picture day! Brush her hair. Please.",
-				"Long day. Phone trees. So many phone trees. Hug me.",
+				"Press 9 to hear these options in a more disappointing order. That was my whole day. Hug me.",
 				"My mom says hi and also her iPad is 'broken.' She loves you. She just loves you more when it's broken.",
 				"I'm home. I'm horizontal. Talk to me in ten minutes.",
 				"Weekend tip: nobody is allowed to say 'quick call' in this house.",
@@ -105,8 +105,8 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			return s
 		"bedtime":
 			var s := [["place", "dan", "girls_dan"], ["place", "lily", "lily_bed"], ["place", "june", "june_bed"],
-				["say", "june", "Two more books, please. Pleeease."], ["say", "dan", "One book."], ["say", "june", "Two books and I'll go to sleep SO fast."],
-				["say", "lily", "She never goes to sleep fast."]]
+				["say", "june", "Two more books, please. Pleeease."], ["say", "dan", "One book."], ["say", "june", "Two books and I release the cat."],
+				["say", "lily", "Nobody releases the cat. The cat has been through enough."]]
 			if gs.today.get("drink", 0) >= 3:
 				s += [["say", "lily", "You did the dragon voice twice. ...That's okay. I liked it."]]
 			else:
@@ -117,7 +117,7 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 				["lifeos", str(ctx.get("sleep_text", "Sleep: pending. Today: done. Good job."))]]
 		"review":
 			return [["loc", "house"], ["dim", false], ["place", "dan", "couch"], ["place", "jess", "couch_l"], ["place", "lily", "couch_r"], ["place", "june", "living"],
-				["lifeos", "Putting together your Week 1 review. One moment. LifeOS is playing you some soft music."],
+				["lifeos", "Compiling your Week 1 Quarterly-Weekly Performance Review. Please hold. Hold music: pan flute."],
 				["say", "lily", "Is it a lot?"],
 				["say", "june", "I'm the dentist now. Say ahh."],
 				["say", "jess", "Come here, you. Pancakes. Nobody's on call."]]
