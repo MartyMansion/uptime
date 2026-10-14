@@ -7,11 +7,13 @@ const HOUSE := Rect2(40, 110, 880, 570)
 
 # station id -> rect, color, label, actions (key order = 1, 2)
 var stations := {
-	"kitchen": {"rect": Rect2(80, 150, 160, 90), "color": Color(0.85, 0.65, 0.3), "label": "Kitchen", "actions": ["feed_girls", "cereal"]},
+	"kitchen": {"rect": Rect2(80, 150, 160, 90), "color": Color(0.85, 0.65, 0.3), "label": "Kitchen", "actions": ["feed_girls", "cereal", "drink"]},
 	"girls": {"rect": Rect2(700, 150, 180, 110), "color": Color(0.9, 0.5, 0.75), "label": "Girls' room", "actions": ["play_girls", "bedtime_story"]},
 	"desk": {"rect": Rect2(420, 560, 170, 80), "color": Color(0.35, 0.5, 0.9), "label": "PC desk", "actions": ["work_ticket", "gaming"]},
 	"bed": {"rect": Rect2(80, 540, 170, 110), "color": Color(0.5, 0.45, 0.7), "label": "Bed", "actions": ["sleep"]},
+	"door": {"rect": Rect2(440, 112, 110, 50), "color": Color(0.55, 0.4, 0.25), "label": "Front door", "actions": ["leave_for_work"]},
 }
+const GLOBAL_KEYS := ["text_jess", "pouch", "rx_dose"]
 
 var dan: ColorRect
 var hud_day: Label
@@ -25,6 +27,8 @@ var lifeos_label: Label
 var summary_panel: PanelContainer
 var summary_label: Label
 var near_station := ""
+var away_panel: ColorRect
+var away_label: Label
 var modal_open := false
 
 func _ready() -> void:
@@ -101,9 +105,19 @@ func _build_hud() -> void:
 		layer.add_child(bar)
 		meters[key] = bar
 		y += 60
+	away_panel = ColorRect.new()
+	away_panel.color = Color(0.15, 0.17, 0.2, 0.92)
+	away_panel.position = HOUSE.position
+	away_panel.size = HOUSE.size
+	away_panel.visible = false
+	layer.add_child(away_panel)
+	away_label = Label.new()
+	away_label.position = Vector2(30, 30)
+	away_label.add_theme_font_size_override("font_size", 22)
+	away_panel.add_child(away_label)
 	var help := Label.new()
 	help.position = Vector2(950, 440)
-	help.text = "WASD/Arrows: move\n1 / 2: station action\nT: text Jess (phone)\nEnter/Space: dismiss popups"
+	help.text = "WASD/Arrows: move\n1 / 2: station action\nT: text Jess (phone)\nP: nic pouch   R: Rx dose\nEnter/Space: dismiss popups"
 	layer.add_child(help)
 	prompt = Label.new()
 	prompt.position = Vector2(40, 684)
@@ -137,7 +151,9 @@ func _build_hud() -> void:
 	layer.add_child(summary_panel)
 
 func _process(delta: float) -> void:
-	if modal_open:
+	away_panel.visible = GameState.phase in ["work", "drive"]
+	dan.visible = not away_panel.visible
+	if modal_open or away_panel.visible:
 		return
 	var dir := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): dir.x -= 1
@@ -162,12 +178,14 @@ func _update_near() -> void:
 		_refresh_prompt()
 
 func _refresh_prompt() -> void:
-	if near_station == "":
-		prompt.text = "Walk to a station (Kitchen, Girls' room, PC desk, Bed). T texts Jess from anywhere."
+	if GameState.phase in ["work", "drive"]:
+		near_station = ""
+	if near_station == "" and not (GameState.phase in ["work", "drive"]):
+		prompt.text = "Walk to a station (Front door, Kitchen, Girls' room, PC desk, Bed). T/P/R work anywhere."
 		return
 	var parts: Array[String] = []
 	var i := 1
-	for aid in stations[near_station]["actions"]:
+	for aid in _current_actions():
 		var a: Dictionary = GameState.ACTIONS[aid]
 		var cost := "%d min, %+d energy" % [int(a["blocks"]) * GameState.BLOCK, int(a["energy"])]
 		if aid == "sleep":
@@ -197,11 +215,29 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if k == KEY_T:
 		perform("text_jess")
-	elif (k == KEY_1 or k == KEY_2) and near_station != "":
-		var idx := 0 if k == KEY_1 else 1
-		var acts: Array = stations[near_station]["actions"]
+	elif k == KEY_P:
+		perform("pouch")
+	elif k == KEY_R:
+		perform("rx_dose")
+	elif k >= KEY_1 and k <= KEY_4:
+		var idx: int = k - KEY_1
+		var acts := _current_actions()
 		if idx < acts.size():
 			perform(acts[idx])
+
+## Numbered actions for the current context: the menu at work / on the drive,
+## or the nearby station's phase-valid actions at home.
+func _current_actions() -> Array[String]:
+	var out: Array[String] = []
+	if GameState.phase in ["work", "drive"]:
+		for aid in GameState.phase_actions():
+			if not (aid in GLOBAL_KEYS):
+				out.append(aid)
+	elif near_station != "":
+		for aid in stations[near_station]["actions"]:
+			if GameState.phase in GameState.ACTIONS[aid]["phases"]:
+				out.append(aid)
+	return out
 
 func perform(aid: String) -> void:
 	toast.text = GameState.do_action(aid)
@@ -218,6 +254,7 @@ func _on_day_ended(s: Dictionary) -> void:
 	summary_panel.visible = true
 	modal_open = true
 	dan.position = Vector2(180, 500)
+	near_station = ""
 
 func _on_week_ended(review: String) -> void:
 	summary_label.text = review + "\n\n[Enter] Play the week again"
@@ -225,8 +262,10 @@ func _on_week_ended(review: String) -> void:
 	modal_open = true
 
 func _refresh() -> void:
-	hud_day.text = "%s — Day %d/7" % [GameState.day_name(), GameState.day + 1]
-	hud_clock.text = GameState.clock_text() + ("   RUNNING ON FUMES" if GameState.is_on_fumes() else "")
+	hud_day.text = "%s — Day %d/7   %s" % [GameState.day_name(), GameState.day + 1, GameState.phase_name()]
+	away_label.text = {"work": "TriCounty Managed Services\n\nThe ticket queue hums. Gary is doing laps.\nPick an option with 1–4 (see bottom bar).",
+		"drive": "Route 9. The Gas-N-Sip sign flickers.\nBeer cooler on the left, tins behind the counter.\nAfter-care closes at 6. Pick with 1–3."}.get(GameState.phase, "")
+	hud_clock.text = GameState.clock_text() + ("   RUNNING ON FUMES" if GameState.is_on_fumes() else "") + ("   (focused)" if GameState.rx_active() else "") + "   $%d   Fridge: %d   Tin: %d" % [GameState.money, GameState.beers, GameState.pouches]
 	energy_bar.value = GameState.energy
 	meters["Stress"].value = GameState.stress
 	meters["Job Performance"].value = GameState.performance
