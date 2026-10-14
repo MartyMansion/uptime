@@ -107,6 +107,18 @@ func _process(_d: float) -> bool:
 	var review: String = gs.weekly_review()
 	check(review.begins_with("LIFEOS") and review.contains("Oral Health") and review.contains("Hydration"), "weekly review includes subtle lines")
 	print(review)
+	# --- Playtest regressions: no softlocks when exhausted
+	gs.new_game(5)
+	gs.do_action("leave_for_work")
+	gs.energy = 3
+	check(gs.can_do("coffee_break") == "" and gs.can_do("work_ticket") != "", "exhausted at work: coffee break available")
+	gs.minutes = gs.OFF_WORK
+	gs.do_action("head_home")
+	gs.energy = 0
+	check(gs.can_do("pickup_girls") == "", "0 energy: Dan can still pick up the girls")
+	gs.new_game(6)
+	gs.do_action("cereal")
+	check(gs.can_do("cereal") != "", "breakfast/cereal once per morning")
 	# --- Scenes, cutscenes, assets, UI
 	main.skip_all_cutscenes()
 	main.dismiss_summary() if main.summary_root.visible else null

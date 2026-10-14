@@ -22,6 +22,7 @@ const BLOCK := 30        # one time block = 30 min
 const FUMES := 20
 const OFF_WORK := 960    # 4:00 PM: earliest Dan can head home
 const RX_DURATION := 360 # focus lasts 6h, then the crash
+const TRAVEL := ["leave_for_work", "head_home", "pickup_girls"]
 const ANY := ["home_am", "work", "drive", "home_pm"]
 
 const PHASE_NAMES := {"home_am": "Home (morning)", "work": "At work — TriCounty Managed Services",
@@ -29,10 +30,11 @@ const PHASE_NAMES := {"home_am": "Home (morning)", "work": "At work — TriCount
 
 # action id -> definition. blocks = 30-min blocks. energy = delta.
 const ACTIONS := {
-	"feed_girls": {"name": "Make breakfast with the girls", "blocks": 1, "energy": -5, "fed": 35, "connected": 5, "phases": ["home_am"]},
-	"cereal": {"name": "Cereal and screens", "blocks": 1, "energy": 0, "fed": 20, "connected": -5, "phases": ["home_am"]},
+	"feed_girls": {"name": "Make breakfast with the girls", "blocks": 1, "energy": -5, "fed": 35, "connected": 5, "once": true, "phases": ["home_am"]},
+	"cereal": {"name": "Cereal and screens", "blocks": 1, "energy": 0, "fed": 20, "connected": -5, "once": true, "phases": ["home_am"]},
 	"leave_for_work": {"name": "Drop girls at school, drive to work", "blocks": 2, "energy": -3, "phases": ["home_am"]},
 	"work_ticket": {"name": "Work a ticket", "blocks": 2, "energy": -10, "stress": 5, "perf": 8, "phases": ["work", "home_pm"]},
+	"coffee_break": {"name": "Coffee break with the team", "blocks": 1, "energy": 8, "stress": -4, "phases": ["work"]},
 	"head_home": {"name": "Head home", "blocks": 1, "energy": 0, "phases": ["work"]},
 	"buy_beer": {"name": "Grab a six-pack ($12)", "blocks": 0, "energy": 0, "money": -12, "phases": ["drive"]},
 	"buy_pouches": {"name": "Grab a tin of nic pouches ($7)", "blocks": 0, "energy": 0, "money": -7, "phases": ["drive"]},
@@ -48,40 +50,40 @@ const ACTIONS := {
 }
 
 const TICKETS := [
-	"\"Printer is printing. Is this normal? URGENT\"",
-	"\"Can you make the internet faster? —Sent from my iPad, CEO\"",
-	"\"Need admin rights to install FreeScreenSaverz_REAL.exe for productivity\"",
-	"\"What's the Wi-Fi password?\" (5th ticket today, same person, same conference room)",
-	"\"Outlook is Not Responding. Neither am I. —Karen in Accounts Payable\"",
-	"\"The server room is making a noise. A different noise.\"",
-	"\"Reply-all storm re: WHO TOOK MY YOGURT (47 replies)\"",
-	"\"Our AI chatbot told a customer we offer free kittens. Do we?\"",
+	"\"Printer is printing. Is this normal? URGENT\" (It was normal. She sent a thank-you GIF.)",
+	"\"Can you make the internet faster? —Sent from my iPad\" (You moved him closer to the router. He called you a wizard.)",
+	"\"Can I install a screensaver with fish on it?\" (You found a safe one. The fish are very calm.)",
+	"\"What's the Wi-Fi password?\" (You taped it to the conference room wall. Solved forever. Probably.)",
+	"\"Outlook froze again, sorry to bug you!\" —Karen in Accounts Payable (She left a muffin on your desk.)",
+	"\"The server room is making a noise. A different noise.\" (A tired fan. Fixed. The servers hum happily.)",
+	"\"Reply-all thread re: WHO TOOK MY YOGURT (47 replies)\" (The yogurt was found. Everyone is relieved.)",
+	"\"Our chatbot told a customer we offer free kittens. Do we?\" (We do not. You fixed it. A little sad, honestly.)",
 ]
 const JESS_TEXTS := [
-	"Jess: Insurance put me on hold for 52 min. The hold music has a bridge now.",
-	"Jess: Can you grab milk? The real kind. Not the oat thing June 'reviewed'.",
-	"Jess: Hospital gave us pizza instead of a raise again. Saving you a slice of disappointment.",
-	"Jess: Lily asked if your job is real. I said 'legally, yes'.",
-	"Jess: Did anyone open the shared calendar. Anyone. Ever.",
+	"Jess: On hold with insurance for 52 min. The hold music has a bridge now. I'm learning the words.",
+	"Jess: Can you grab milk on the way? June wants to 'review' the oat one again.",
+	"Jess: Hospital had a pizza lunch for the billing team. Saved you a slice. Thinking of you.",
+	"Jess: Lily asked what your job is. I said 'he helps people when their computers are sad.' She approves.",
+	"Jess: Friendly reminder the shared calendar exists 💛 June has picture day Thursday.",
 ]
 const LIFEOS_TIPS := [
-	"LifeOS: Tip: Sleep restores Energy. Premium Sleep™ is available for $4.99/mo.",
-	"LifeOS: Tip: Your daughters cannot be optimized. We tried.",
-	"LifeOS: Tip: It's always DNS. Even when it isn't. Especially then.",
-	"LifeOS: Tip: A 'quick call' has never once been quick.",
-	"LifeOS: Feeling overwhelmed by notifications? Unlock Focus Mode+ for $6.99/mo.",
+	"LifeOS: Tip: Sleep restores Energy. LifeOS also recommends: blankets.",
+	"LifeOS: Tip: Your daughters can't be optimized. Our engineers say this is a feature.",
+	"LifeOS: Tip: It's always DNS. Except when it's the cable. Check the cable.",
+	"LifeOS: Tip: Drink some water! LifeOS believes in you. LifeOS is also a little thirsty.",
+	"LifeOS: Feeling overwhelmed by notifications? So is LifeOS. Let's both take a deep breath.",
 ]
 # Jess noticing drinking, keyed by cumulative drinks this week. Quiet, not a fight.
 const JESS_NOTICES := {
-	4: "Jess: recycling bin's clinking a lot this week. long week?",
-	8: "Jess: you were kind of far away tonight. not mad. just noticed.",
-	12: "Jess: can we talk this weekend? not about the dishwasher.",
+	4: "Jess: hey, the recycling's been pretty full this week. you doing okay? long week?",
+	8: "Jess: you seemed far away tonight. I'm not upset. I just miss you a little.",
+	12: "Jess: can we talk this weekend? nothing scary. I just want to check in on us. ❤",
 }
 # Gum damage thresholds -> subtle health notes.
 const GUM_NOTES := {
-	6: "LifeOS: Brookfield Family Dental: \"It's been a while! Book your cleaning.\" (Sponsored)",
-	14: "LifeOS: You've searched \"gum sore one side normal\" 3 times. Here are 9 ads for whitening strips.",
-	24: "Brookfield Family Dental: \"Dr. Lin noticed something at your last visit and would like a closer look. No rush.\"",
+	6: "LifeOS: Brookfield Family Dental: \"It's been a while! We'd love to see you for a cleaning.\"",
+	14: "LifeOS: You've searched \"gum sore one side normal\" 3 times. Maybe worth asking Dr. Lin? LifeOS cares about your teeth.",
+	24: "Brookfield Family Dental: \"Dr. Lin noticed something at your last visit and would like a closer look. Nothing to panic about, but please do come in.\"",
 }
 
 var day: int = 0
@@ -172,7 +174,7 @@ func phase_actions() -> Array[String]:
 ## Returns "" if allowed, otherwise a reason (LifeOS-flavored).
 func can_do(id: String) -> String:
 	if week_over:
-		return "The week is over. LifeOS is compiling your review."
+		return "The week is over. LifeOS is putting your review together."
 	if not ACTIONS.has(id):
 		return "Unknown action."
 	var a: Dictionary = ACTIONS[id]
@@ -188,16 +190,16 @@ func can_do(id: String) -> String:
 	if a.get("once", false) and int(today.get(id, 0)) > 0:
 		return "Already done today."
 	if a.has("max_per_day") and int(today.get(id, 0)) >= int(a["max_per_day"]):
-		return "Jess is on hold with insurance. She'll see it later."
+		return "Jess is busy at work. She'll text back later."
 	if a.has("money") and money + int(a["money"]) < 0:
-		return "Card declined. The pump judges you silently."
+		return "Card declined. Money's a little tight this week."
 	match id:
 		"head_home":
 			if minutes < OFF_WORK:
-				return "Gary is doing a lap. Maybe after 4."
+				return "Not quite quittin' time. Maybe after 4."
 		"drink":
 			if beers <= 0:
-				return "Fridge: oat milk, one sad lemon."
+				return "Fridge: oat milk, juice boxes, one lemon."
 		"pouch":
 			if pouches <= 0:
 				return "Tin's empty."
@@ -206,10 +208,11 @@ func can_do(id: String) -> String:
 				return "Pharmacy: \"Too early to refill.\""
 		"play_girls":
 			if is_on_fumes():
-				return "You don't have it in you right now. (Running on Fumes)"
+				return "You're running on fumes. Maybe rest a bit first."
 	var e: int = int(a["energy"])
-	if e < 0 and energy + e < 0:
-		return "You don't have it in you right now."
+	# Getting places never depends on energy: a tired dad still drives home.
+	if e < 0 and energy + e < 0 and not (id in TRAVEL):
+		return "You're too tired for that right now."
 	return ""
 
 ## Performs an action. Returns a result line for the UI.
@@ -242,45 +245,47 @@ func do_action(id: String) -> String:
 	match id:
 		"leave_for_work":
 			phase = "work"
-			line = "School drop-off: shoes found (one). You badge in at %s." % clock_text()
+			line = "School drop-off: both shoes found! You badge in at %s." % clock_text()
 		"head_home":
 			phase = "drive"
-			line = "The Gas-N-Sip on Route 9 glows like a lighthouse. You're between work and the girls."
+			line = "The Gas-N-Sip on Route 9 glows in the dusk. The girls are waiting at after-care."
 		"buy_beer":
 			beers += 6
-			line = "Six-pack in the passenger seat. Seatbelt optional."
+			line = "Six-pack in the passenger seat."
 		"buy_pouches":
 			pouches += 15
-			line = "Tin of pouches. The cashier already knew which flavor."
+			line = "Tin of pouches. The cashier already knows your usual."
 		"pickup_girls":
 			phase = "home_pm"
-			line = "After-care pickup. Lily: \"Why does the car smell like gas station?\"" if today.get("buy_beer", 0) + today.get("buy_pouches", 0) > 0 else "After-care pickup. June reports three incidents, none of them hers."
+			line = "After-care pickup. Lily: \"Why does the car smell like the gas station?\"" if today.get("buy_beer", 0) + today.get("buy_pouches", 0) > 0 else "After-care pickup. June reports three 'incidents', and a new best friend."
 		"work_ticket":
 			today["tickets"] += 1
 			week_stats["tickets"] += 1
 			line = "Closed ticket: " + TICKETS[rng.randi() % TICKETS.size()]
 			if rx_active():
-				line += "\n(Everything is very clear. Suspiciously clear.)"
+				line += "\n(Everything is very clear. Almost too clear.)"
+		"coffee_break":
+			line = "Coffee with the team. Karen shows everyone her new puppy. You feel a little more human."
 		"text_jess":
 			week_stats["texts"] += 1
 			line = JESS_TEXTS[rng.randi() % JESS_TEXTS.size()] + "\nYou: (a thoughtful reply)"
 		"bedtime_story":
 			week_stats["bedtimes"] += 1
-			line = "June negotiated two more books and released the cat."
+			line = "June negotiated two more books. Worth it."
 			if today["drink"] >= 3:
 				line += "\nLily: \"You did the dragon voice twice.\""
 		"gaming":
 			week_stats["gaming_blocks"] += 2
 			today["gaming"] += 1
-			line = "One more match. Stress down. Time: gone."
+			line = "One more match. Stress down. Where did the time go?"
 		"drink":
 			beers -= 1
 			drinks_week += 1
 			week_stats["drinks"] += 1
 			closeness = clampi(closeness - (1 if today["drink"] == 1 else 3), 0, 100)
-			line = ["Crack. The day gets a little softer around the edges.",
-				"Another one. The couch is very supportive.",
-				"Third one. The dishes can be a tomorrow problem."][mini(today["drink"], 3) - 1]
+			line = ["A cold one. The day gets a little softer around the edges.",
+				"Another one. The couch feels nice.",
+				"Third one. The dishes can wait till tomorrow. Probably."][mini(today["drink"], 3) - 1]
 			for t in JESS_NOTICES:
 				if drinks_week >= t and not notices_seen.has("jess%d" % t):
 					notices_seen["jess%d" % t] = true
@@ -290,7 +295,7 @@ func do_action(id: String) -> String:
 			pouches -= 1
 			gum_damage += 1
 			week_stats["pouches"] += 1
-			line = "Pouch in. Brief, clean calm. Upper lip, left side, same spot as always."
+			line = "Pouch in. A brief, quiet calm. Upper lip, left side, same spot as always."
 			for t in GUM_NOTES:
 				if gum_damage >= t and not notices_seen.has("gum%d" % t):
 					notices_seen["gum%d" % t] = true
@@ -300,12 +305,12 @@ func do_action(id: String) -> String:
 			if rx_last_dose >= 0:
 				rx_extra_total += 1
 				week_stats["rx_extra"] += 1
-				line = "Another one. Just for the afternoon. The bottle says 1 daily; the bottle doesn't know Gary."
+				line = "Another one, just to get through the afternoon. The bottle says 1 daily."
 				if rx_extra_total >= 3 and not notices_seen.has("rx_refill"):
 					notices_seen["rx_refill"] = true
-					lifeos = "LifeOS: Pharmacy reminder: at this pace your refill runs out %d days early. Math is a type of wellness!" % rx_extra_total
+					lifeos = "LifeOS: Pharmacy reminder: at this pace your refill runs out %d days early. Maybe a good thing to mention to your doctor." % rx_extra_total
 			else:
-				line = "Rx taken. The tabs close themselves. Focus: on."
+				line = "Rx taken. The browser tabs feel less loud. Focus: on."
 			rx_last_dose = minutes
 			rx_until = minutes + RX_DURATION
 			today["crashed"] = false
@@ -313,7 +318,7 @@ func do_action(id: String) -> String:
 		today["kid_actions"] += 1
 	_check_crash()
 	if lifeos == "" and id == "work_ticket" and is_on_fumes() and rx_last_dose >= 0 and not rx_active() and rx_pills > 0:
-		lifeos = "LifeOS: Energy low. You have medication that helps with that. (LifeOS is not a doctor. LifeOS is an app.)"
+		lifeos = "LifeOS: Energy low. Maybe a snack or a short walk? (LifeOS is not a doctor. LifeOS is an app that worries.)"
 	today["log"].append(line)
 	action_performed.emit(id, line)
 	if lifeos != "":
@@ -330,18 +335,18 @@ func _check_crash() -> void:
 		today["crashed"] = true
 		energy = clampi(energy - 20, 0, 100)
 		stress = clampi(stress + 8, 0, 100)
-		lifeos_message.emit("LifeOS: Focus session ended. You skipped lunch (again). Energy: -20.")
+		lifeos_message.emit("LifeOS: Focus session ended. Looks like lunch got skipped. Energy: -20. Maybe eat something?")
 
 func _lifeos_comment(id: String) -> String:
 	match id:
 		"gaming":
-			return "LifeOS: You chose leisure. Your competitors did not. Great hustle anyway!"
+			return "LifeOS: Leisure detected! Rest is productive too. LifeOS read that somewhere."
 		"bedtime_story":
-			return "LifeOS: You chose bedtime over your side project. Bold."
+			return "LifeOS: Bedtime story logged. This is the good stuff, Dan."
 		"work_ticket":
-			return "LifeOS: Ticket closed! Gary will not notice. Productivity: Exceptional."
+			return "LifeOS: Ticket closed! Somebody's day just got easier. Nice work."
 		"pickup_girls":
-			return "LifeOS: Commute logged. Brayden Kole's 4 AM Club played for 22 min. You absorbed 0 insights."
+			return "LifeOS: Commute logged. The girls sang the whole way. LifeOS rates it 5 stars."
 	return LIFEOS_TIPS[rng.randi() % LIFEOS_TIPS.size()]
 
 func end_day() -> Dictionary:
@@ -356,7 +361,7 @@ func end_day() -> Dictionary:
 		notes.append("woke at 3:12 AM, very awake")
 	if rx_last_dose >= 0 and minutes - rx_last_dose < 600:
 		quality -= 0.25
-		notes.append("stared at the ceiling fan, counting rotations")
+		notes.append("lay awake watching the ceiling fan")
 	quality = maxf(quality, 0.35)
 	var restore: int = int(round(slept_min / 60.0 * 14.0 * quality))
 	var summary := {
@@ -382,7 +387,7 @@ func end_day() -> Dictionary:
 	stress = clampi(stress + (5 if slept_min * quality < 360 else -10), 0, 100)
 	energy = clampi(energy + restore, 0, 100)
 	var q := "" if notes.is_empty() else " (" + "; ".join(notes) + ")"
-	summary["sleep_text"] = "Sleep: %dh %02dm, quality %d%%%s. Productivity: %s. Liver: Concerned." % [slept_min / 60, slept_min % 60, int(quality * 100), q, "Exceptional" if today["tickets"] > 1 else "Pending"]
+	summary["sleep_text"] = "Sleep: %dh %02dm, quality %d%%%s. Today: %s. Tomorrow's a new day." % [slept_min / 60, slept_min % 60, int(quality * 100), q, "Solid work" if today["tickets"] > 1 else "A quiet one"]
 	summary["energy_after"] = energy
 	day_ended.emit(summary)
 	day += 1
@@ -395,27 +400,27 @@ func end_day() -> Dictionary:
 	return summary
 
 func weekly_review() -> String:
-	var fatherhood := "Exceeds Expectations (June disputes this)" if week_stats["bedtimes"] >= 5 else "Meets Expectations (June disputes this)" if week_stats["bedtimes"] >= 3 else "Needs Improvement (Lily drew a comic without you)"
-	var marriage := "Synced" if closeness >= 60 else "\"We should talk\" received x2 (Needs Sync)"
-	var career := "Exceeds Expectations (no one noticed)" if performance >= 70 else "Meets Expectations" if performance >= 40 else "Gary would like a quick call"
+	var fatherhood := "Wonderful (June gives it two thumbs up)" if week_stats["bedtimes"] >= 5 else "Pretty great (June wants more dragon voices)" if week_stats["bedtimes"] >= 3 else "Missed you (Lily saved you a drawing)"
+	var marriage := "In sync" if closeness >= 60 else "A little out of sync. Worth some time together."
+	var career := "Exceeds Expectations (Karen sent a muffin)" if performance >= 70 else "Meets Expectations" if performance >= 40 else "Gary would like to check in. He seems nice about it."
 	var s := "LIFEOS QUARTERLY-WEEKLY PERFORMANCE REVIEW: Week 1\n" \
 		+ "Fatherhood ........ %s\n" % fatherhood \
 		+ "Bedtimes attended . %d/7\n" % week_stats["bedtimes"] \
 		+ "Marriage .......... %s\n" % marriage \
 		+ "Career ............ %s (%d tickets)\n" % [career, week_stats["tickets"]] \
-		+ "Side Hustle ....... Pre-revenue, post-sleep\n" \
-		+ "Self-Care ......... %s\n" % ("Not Applicable" if stress > 50 else "Detected. Suspicious.")
+		+ "Side Hustle ....... Still a dream. Dreams are allowed.\n" \
+		+ "Self-Care ......... %s\n" % ("Running low. Be gentle with yourself." if stress > 50 else "Detected! LifeOS is so proud.")
 	# Subtle lines: only appear if relevant, never as a score.
 	if week_stats["drinks"] > 0:
-		s += "Hydration ......... %s\n" % ("Mostly hops" if week_stats["drinks"] >= 8 else "Some hops")
+		s += "Hydration ......... %s\n" % ("More beer than water this week" if week_stats["drinks"] >= 8 else "Could use more water")
 	if gum_damage >= 14:
-		s += "Oral Health ....... Dentist would like to \"take a closer look\"\n"
+		s += "Oral Health ....... Dr. Lin would like to see you soon\n"
 	elif week_stats["pouches"] > 0:
-		s += "Oral Health ....... Calm (sponsored by nicotine)\n"
+		s += "Oral Health ....... Worth a cleaning soon\n"
 	if week_stats["rx_extra"] > 0:
-		s += "Focus ............. Exceptional, then not. Refill math: creative\n"
-	return s + "Manager comment: \"Great energy! Let's circle back on everything.\"\n\n" \
-		+ "ENDING (stub): Everybody wins. Nobody wins the way they planned."
+		s += "Focus ............. Big highs, rough crashes. Maybe chat with your doctor\n"
+	return s + "Manager comment: \"Thanks for everything this week, Dan. Get some rest.\"\n\n" \
+		+ "ENDING (stub): Not a perfect week. A real one. Pancakes on Sunday."
 
 func _fmt(m: int) -> String:
 	var h := (m % 1440) / 60

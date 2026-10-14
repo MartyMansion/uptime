@@ -24,3 +24,13 @@ Marty playtested on Windows (Godot 4.7): fonts overlapped and everything was rec
 - **Scenes:** House (bedroom, kitchen, girls' room, living room), TriCounty office (desks, server room, Gary's corner), Gas-N-Sip (store + lot), Brookfield Elementary curb. The phase decides the scene; no more overlays.
 - **Cutscenes:** small step-script system (place/move/face/say/lifeos/dim/wait), Enter to advance, Esc to skip. Nine of them: wake-up ("Shoes, a Postmortem" on Monday), drop-off, arriving at work (Gary of the day), the drive-home stop (4 AM Club on the radio), pickup (Lily notices the gas-station smell if you stopped), Jess comes home (and quietly sits far away if Closeness is low), bedtime (dragon voice), day-end (lights down + LifeOS sleep report), weekly review (pancakes).
 - Tests: 45 checks, including scene switching, cutscene triggers, portraits, sprite sheet layout and the UI audit.
+
+## 2026-10-14 (night) — Playtester pass: 100 weeks, softer heart
+A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks through the real Main scene, cutscenes and all, with 10 strategies (random, workaholic, family-first, heavy drinking/pouches/Rx, all-skip, night owl/1 AM timeouts, Rx spam, balanced, broke, "Stardew"). It checks meter ranges, money/inventory, clock overruns, scene/phase mismatch, softlocks and stuck days, runs `audit_ui()` on gameplay, dialogue and summaries, and logs every line shown.
+- **First run (100 weeks): 222 problems.** Fixed:
+  - Softlock at work: under 10 energy before 4 PM there was nothing to do (156 hits). Added a **Coffee break** at Your desk (+8 energy, -4 stress, 30 min).
+  - Softlock on the drive home: picking up the girls cost 3 energy, so Dan at 0-2 energy couldn't leave the Gas-N-Sip (60+ hits). Travel (leave for work, head home, pick up girls) no longer needs energy.
+  - Breakfast/cereal could be repeated all morning (6,497 cereals in one run batch, draining Connected to 0). Now once per morning each.
+- **Rerun: 100 weeks, 700 days, ~16k actions, ~1.5k UI audits, 0 problems.** All actions and all 9 cutscenes triggered.
+- **Tone pass** (Marty: too much black comedy/meanness): ~110 strings rewritten across cutscenes, LifeOS, Jess, the girls, Gary, tickets, summaries, review and ending. Gary is a decent boss, LifeOS is silly-sweet instead of upselling, tickets end with small wins, the 4 AM Club is gentle, and the substance thread reads as concern (Jess checks in, Dr. Lin asks you to come in, LifeOS suggests talking to the doctor), never mockery. Logic unchanged.
+- Tests: 48 checks pass. Report: `/workspace/uptime-build/PLAYTEST_REPORT.md`.

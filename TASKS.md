@@ -47,6 +47,17 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 
 ## M3+ — Chapter 1 demo, Chapters 2–4, beta, launch (see doc §6.2)
 
+## Playtester follow-ups (from the 100-run pass)
+- [x] Automated playtest harness (tests/playtest_bot.gd), 100 weeks clean
+- [x] Fix work/drive softlocks; breakfast once per morning; coffee break at work
+- [x] Tone pass: warm, Stardew-style dialogue; substance thread as concern, not mockery
+- [ ] Weekends: Sat/Sun currently still go to work. Make them home days (park, pancakes, chores, on-call page)
+- [ ] Fill the 4:30-7:30 PM gap: dinner together, homework, yard, walk to the park
+- [ ] Bedtime story only happened in ~7% of bot days; make the window obvious (a "Lily is waiting" nudge)
+- [ ] Day-end summary: one warm "moment of the day" line pulled from what you did
+- [ ] Small cozy loops: a garden/patio plant, a kids' drawing wall that fills up, a fridge-magnet gallery
+- [ ] Recovery paths as playable as the habits (see backlog)
+
 ## Marty ideas backlog
 - [x] Subtle substance-use thread: alcohol (marriage, sleep), nicotine pouches (gum damage, cancer risk via dentist), prescription amphetamines (focus/crash, extra-dose temptation) — skeleton in M0.5
 - [x] Daily drive-home stop (gas station/liquor) between work and picking up the girls — M0.5

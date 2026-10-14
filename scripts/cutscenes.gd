@@ -20,105 +20,105 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			var s: Array = [["loc", "house"], ["dim", false], ["place", "dan", "bed"], ["face", "dan", "down"],
 				["place", "lily", "table_l"], ["place", "june", "table_r"], ["place", "jess", "kitchen_b"]]
 			if d == 0:
-				s += [["lifeos", "Good morning, Dan! You slept 4h 51m. That's 18% more than a Navy SEAL. Let's crush today!"],
+				s += [["lifeos", "Good morning, Dan! You slept 4h 51m. LifeOS made you a to-do list and drew a little sun on it."],
 					["move", "dan", "kitchen"],
 					["say", "june", "Daddy. My shoes are gone. Forever. Someone took them."],
-					["say", "dan", "Nobody took your shoes, bug. Nobody wants your shoes. They have glitter and trauma."],
+					["say", "dan", "Nobody took your shoes, bug. They're just hiding. Shoes do that."],
 					["say", "lily", "Mommy says they're in \"the last place you'd look.\""],
-					["say", "dan", "That's every place, Lily. That's how looking works."],
-					["say", "lily", "Mommy says you'd say that."],
-					["say", "jess", "They're under the couch. Shift starts at 7. Lunches are in the fridge. I love you, go."]]
+					["say", "dan", "That's every place, Lily. That's kind of how looking works."],
+					["say", "lily", "Mommy says you'd say that. She was right."],
+					["say", "jess", "They're under the couch. My shift starts at 7, lunches are in the fridge. Love you. Have a good day."]]
 			else:
 				var mornings := [
-					[["say", "june", "I had a dream the printer was printing."], ["say", "dan", "That's not a dream, bug. That's my job."]],
-					[["say", "lily", "Is your job real? Like, can you touch it?"], ["say", "dan", "You can touch the printer. Please don't."]],
-					[["say", "june", "Two more minutes and I release the cat."], ["say", "jess", "She's been negotiating since 5:40."]],
-					[["say", "lily", "I drew you. Episode 2: Daddy and the Computer and the Coffee."], ["say", "dan", "Why is my head a laptop?"], ["say", "lily", "Artistic choice."]],
-					[["say", "june", "Daddy says the cloud is just someone else's computer."], ["say", "jess", "Please don't say that at school again."]],
-					[["say", "jess", "No work today. Theoretically."], ["say", "lily", "Theoretically is a sad word."]],
+					[["say", "june", "I had a dream the printer was printing."], ["say", "dan", "That's not a dream, bug. That's my whole job. Isn't it great?"]],
+					[["say", "lily", "Is your job real? Like, can you touch it?"], ["say", "dan", "You can touch the printer. It's very friendly. Mostly."]],
+					[["say", "june", "Two more minutes or I'm letting the cat in your bed."], ["say", "jess", "She's been negotiating since 5:40. She's going to be a lawyer."]],
+					[["say", "lily", "I drew you. Episode 2: Daddy and the Computer and the Coffee."], ["say", "dan", "Why is my head a laptop?"], ["say", "lily", "It's because you're smart."]],
+					[["say", "june", "Daddy says the cloud is just someone else's computer."], ["say", "jess", "He's not wrong, sweetie. But maybe let's say it nicer at school."]],
+					[["say", "jess", "No work today. Theoretically."], ["say", "lily", "Theoretically is a funny word."]],
 				]
 				s += [["move", "dan", "kitchen"]] + mornings[(d - 1) % mornings.size()]
 				if gs.week_stats.get("drinks", 0) >= 6 and d >= 3:
-					s += [["say", "", "Jess slides you a glass of water without a word. It's either kindness or a memo."]]
-				s += [["say", "jess", "Off to the billing salt mines. Shared calendar. Open it. Once."]]
+					s += [["say", "", "Jess sets a glass of water in front of you and squeezes your shoulder. She doesn't say anything. She doesn't have to."]]
+				s += [["say", "jess", "Off to work. Check the shared calendar when you get a sec? Love you."]]
 			s += [["move", "jess", "door"], ["hide", "jess"]]
 			return s
 		"dropoff":
 			var lines := [
 				["say", "lily", "Is your job real? Like, can you touch it?"],
 				["say", "june", "Daddy says the cloud is just someone else's computer."],
-				["say", "lily", "Ms. Hollis says the parent group chat has 112 unread. She said it like a threat."],
+				["say", "lily", "Ms. Hollis says the parent group chat has 112 unread. She laughed when she said it."],
 				["say", "june", "I'm going to say synergy today."],
-				["say", "lily", "Bye. Don't let the printer win."],
+				["say", "lily", "Bye, Daddy! Be nice to the printer."],
 			]
 			return [["loc", "school"], ["place", "dan", "car_r"], ["place", "lily", "car_l"], ["place", "june", "car_r"],
 				["move", "june", "curb_r"], ["move", "lily", "curb_l"], lines[d % lines.size()],
-				["say", "dan", "Love you. Be kind. Find your shoes."], ["move", "lily", "school_door"], ["hide", "lily"],
+				["say", "dan", "Love you. Be kind. Keep both shoes on."], ["move", "lily", "school_door"], ["hide", "lily"],
 				["move", "june", "school_door"], ["hide", "june"]]
 		"arrive_work":
 			var gary := [
-				"Quick q! Payroll server is \"being weird.\" Can you hop on a quick call?",
-				"Team, let's lean into the headwinds!",
-				"Leadership says we need AI. Not sure what for. Can you set it up by Friday?",
-				"Somebody put a ticket in: \"make the internet faster.\" It's from the CEO. Thoughts?",
-				"Pizza party Friday for the team!!! You've earned one-eighth of it.",
-				"Weekend on-call is you, right? Great energy!",
-				"Weekend on-call is you, right? Great energy!",
+				"Morning, Dan! Payroll server is \"being weird\" again. No rush, but could you peek when you get a sec?",
+				"Rough week for everyone. Donuts in the break room. You're doing great.",
+				"Leadership says we need AI. I'm not totally sure what for either. Can we figure it out together?",
+				"The CEO put in a ticket to \"make the internet faster.\" I told him you're the best we've got.",
+				"Pizza party Friday for the team!!! I'm ordering you the pineapple one. I remembered.",
+				"Hey, sorry you're on call this weekend. I owe you one. Seriously.",
+				"Hey, sorry you're on call this weekend. I owe you one. Seriously.",
 			]
 			return [["loc", "office"], ["place", "dan", "entry"], ["place", "gary", "gary_desk"], ["move", "dan", "desk"],
 				["move", "gary", "gary_talk"], ["face", "dan", "right"], ["say", "gary", gary[d % gary.size()]],
 				["say", "dan", "(Sysadmin Brain: It's DNS.)  Sure thing, Gary."], ["move", "gary", "gary_desk"]]
 		"drive_stop":
 			var radio := [
-				"If you're not building at 4 AM, someone in a cheaper time zone is.",
-				"Sleep is a subscription you can cancel. Link in bio.",
-				"Grindset tip: your kids will understand when you're a unicorn.",
+				"...and that's why I get up at 4 AM. Anyway, it's not for everyone. Get some sleep, folks.",
+				"Today's guest says the secret to success is... a nap. Huh. Okay.",
+				"Listener question: 'How do I balance work and family?' Great question. Hard question.",
 			]
 			return [["loc", "gas_station"], ["place", "dan", "car"], ["face", "dan", "up"],
 				["say", "4 AM Club (radio)", radio[d % radio.size()]],
-				["say", "", "The Gas-N-Sip sign hums. After-care closes at 6. The cooler is right there. So is the car."]]
+				["say", "", "The Gas-N-Sip sign hums. After-care closes at 6. The girls will be watching the door for you."]]
 		"pickup":
 			var s := [["loc", "school"], ["place", "dan", "car_r"], ["place", "lily", "school_door"], ["place", "june", "school_door"],
 				["move", "june", "curb_r"], ["move", "lily", "curb_l"]]
 			if ctx.get("bought", false):
-				s += [["say", "lily", "Why does the car smell like gas station?"], ["say", "dan", "Because it's a car, Lily."], ["say", "lily", "Hm."]]
+				s += [["say", "lily", "Why does the car smell like gas station?"], ["say", "dan", "Cars just smell like that sometimes, Lil."], ["say", "lily", "Hm."]]
 			else:
-				s += [["say", "june", "Three incidents today. None of them mine."], ["say", "lily", "One of them was hers."]]
+				s += [["say", "june", "Three incidents today. None of them mine."], ["say", "lily", "One of them was hers. But she said sorry."]]
 			return s
 		"jess_home":
 			var jess := [
-				"I was on hold with insurance for 52 minutes. The hold music has a bridge now.",
-				"Hospital gave us pizza instead of a raise again. I saved you a slice of disappointment.",
-				"Did anyone open the shared calendar. Anyone. Ever.",
-				"Press 9 to hear these options in a more disappointing order. That was my whole day.",
-				"My mom forwarded an article called AI IS STEALING JOBS and then asked you to fix her iPad.",
+				"I was on hold with insurance for 52 minutes. I can sing you the hold music now.",
+				"Hospital had a pizza lunch. I saved you a slice. It's a little cold. It's still pizza.",
+				"Did anyone open the shared calendar? June has picture day! Brush her hair. Please.",
+				"Long day. Phone trees. So many phone trees. Hug me.",
+				"My mom says hi and also her iPad is 'broken.' She loves you. She just loves you more when it's broken.",
 				"I'm home. I'm horizontal. Talk to me in ten minutes.",
 				"Weekend tip: nobody is allowed to say 'quick call' in this house.",
 			]
 			var s := [["loc", "house"], ["place", "dan", "living"], ["place", "lily", "girls"], ["place", "june", "girls_dan"],
 				["place", "jess", "door"], ["move", "jess", "living_j"], ["face", "dan", "right"], ["face", "jess", "left"], ["say", "jess", jess[d % jess.size()]]]
 			if gs.closeness < 35:
-				s += [["say", "", "She sits on the far end of the couch. Not mad. Just far."]]
+				s += [["say", "", "She sits at the far end of the couch, tired. She still smiles when you look over."]]
 			elif gs.today.get("text_jess", 0) > 0:
-				s += [["say", "jess", "Thanks for texting today. It helped. Don't tell LifeOS."]]
+				s += [["say", "jess", "Thanks for texting today. It really helped."]]
 			s += [["move", "jess", "couch_l"]]
 			return s
 		"bedtime":
 			var s := [["place", "dan", "girls_dan"], ["place", "lily", "lily_bed"], ["place", "june", "june_bed"],
-				["say", "june", "Two more books and I release the cat."], ["say", "dan", "One book."], ["say", "june", "Two books and I release the cat AND Lily."],
-				["say", "lily", "You can't release me."]]
+				["say", "june", "Two more books, please. Pleeease."], ["say", "dan", "One book."], ["say", "june", "Two books and I'll go to sleep SO fast."],
+				["say", "lily", "She never goes to sleep fast."]]
 			if gs.today.get("drink", 0) >= 3:
-				s += [["say", "lily", "You did the dragon voice twice."]]
+				s += [["say", "lily", "You did the dragon voice twice. ...That's okay. I liked it."]]
 			else:
 				s += [["say", "lily", "Daddy? Will you do the dragon voice tomorrow too?"], ["say", "dan", "Every day, bug."]]
 			return s
 		"day_end":
 			return [["loc", "house"], ["place", "dan", "living"], ["move", "dan", "bed"], ["dim", true],
-				["lifeos", str(ctx.get("sleep_text", "Sleep: pending. Productivity: Exceptional."))]]
+				["lifeos", str(ctx.get("sleep_text", "Sleep: pending. Today: done. Good job."))]]
 		"review":
 			return [["loc", "house"], ["dim", false], ["place", "dan", "couch"], ["place", "jess", "couch_l"], ["place", "lily", "couch_r"], ["place", "june", "living"],
-				["lifeos", "Compiling your Week 1 Quarterly-Weekly Performance Review. Please hold. Hold music: pan flute."],
+				["lifeos", "Putting together your Week 1 review. One moment. LifeOS is playing you some soft music."],
 				["say", "lily", "Is it a lot?"],
-				["say", "june", "I'm the dentist now. Open your mouth."],
-				["say", "jess", "Come here, founder. Pancakes. Nobody's on call."]]
+				["say", "june", "I'm the dentist now. Say ahh."],
+				["say", "jess", "Come here, you. Pancakes. Nobody's on call."]]
 	return []

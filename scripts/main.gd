@@ -421,12 +421,12 @@ func _on_day_ended(s: Dictionary) -> void:
 	pending_title = "END OF %s" % str(s["day"]).to_upper()
 	pending_summary = "Bedtime: %s\n%s\nTickets closed: %d\nThoughtful texts to Jess: %d\nBedtime story: %s\nKid moments: %d\nEnergy: %d -> %d" % [
 		s["bed_time"], s["sleep_text"], s["tickets"], s["texts"],
-		"Attended" if s["bedtime"] else "Missed (Mommy already did the voices)", s["kid_actions"], s["energy_before"], s["energy_after"]]
+		"Attended" if s["bedtime"] else "Missed (Mommy did the voices; the girls said goodnight to you)", s["kid_actions"], s["energy_before"], s["energy_after"]]
 	summary_is_week = false
 
 func _on_week_ended(review: String) -> void:
 	queue_cutscene("review")
-	pending_title = "LIFEOS WEEKLY PERFORMANCE REVIEW"
+	pending_title = "LIFEOS WEEK IN REVIEW"
 	pending_summary = review.substr(review.find("\n") + 1)
 	summary_is_week = true
 
