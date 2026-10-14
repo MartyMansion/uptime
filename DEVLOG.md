@@ -43,3 +43,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **Quitting paths:** clean-day streaks for beer, pouches and extra Rx after use. At 2 and 4 clean days, people notice (Jess, Dr. Lin, the pharmacist) and there's a small stat reward. Streaks appear on the weekly review.
 - **Save/load:** autosave every morning (`user://uptime_save.json`), continue on launch, F6 save, F7 load.
 - Bot: +2 strategies (cozy, quitter). 100 weeks, 0 problems. Tests: 58 pass.
+
+## Refinement hour, iteration 2: balance
+- The bot now records average end-of-week meters per strategy (`BALANCE` lines in playtest_log.txt).
+- Job Performance hit 100 for every strategy, so there was no tension. Tickets are now +4 (+7 focused), and performance drifts -15 each workday (-20 with no tickets): "the queue refills overnight." A cozy week now ends around 59 Performance and a workaholic week at 100 with Jess and the girls at 0.
+- Stress floated at 0 for most strategies. Weekday mornings now add +10 ("the inbox refilled overnight"), so relief verbs matter.
+- Bot strategies were smarter about waiting for bedtime, and the quitter actually quits. 100 weeks, 0 problems. Tests pass.

@@ -7,6 +7,7 @@ const STRATS := ["random", "workaholic", "family_first", "heavy", "all_skip", "n
 var problems: Array[String] = []
 var lines := {}            # dialogue/text line -> count
 var stats := {"runs": 0, "days": 0, "actions": 0, "cutscenes": {}, "actions_used": {}, "endings": 0, "audits": 0}
+var bal := {}   # strat -> sums of end-of-week meters
 var gs: Node
 var main: Node
 var cur := ""
@@ -45,6 +46,11 @@ func _run() -> void:
 	f.store_line("RUNS %d DAYS %d ACTIONS %d AUDITS %d PROBLEMS %d" % [stats["runs"], stats["days"], stats["actions"], stats["audits"], problems.size()])
 	f.store_line("CUTSCENES " + JSON.stringify(stats["cutscenes"]))
 	f.store_line("ACTIONS " + JSON.stringify(stats["actions_used"]))
+	f.store_line("BALANCE (avg end of week)  strat | stress perf jess girls | drawings bedtimes | drinks pouches rx_extra | money")
+	for k in bal:
+		var b: Dictionary = bal[k]
+		var n: float = b["n"]
+		f.store_line("BALANCE %-12s | %3d %3d %3d %3d | %4.1f %3.1f | %4.1f %4.1f %3.1f | %d" % [k, b["stress"] / n, b["perf"] / n, b["jess"] / n, b["girls"] / n, b["drawings"] / n, b["bedtimes"] / n, b["drinks"] / n, b["pouches"] / n, b["rx_extra"] / n, b["money"] / n])
 	for p in problems:
 		f.store_line("PROBLEM " + p)
 	f.close()
@@ -128,12 +134,13 @@ func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String
 			if gs.day < 2:
 				pref = ["pouch", "leave_for_work", "rx_dose", "work_ticket", "head_home", "buy_beer", "buy_pouches", "pickup_girls", "drink", "sleep"]
 			else:
-				pref = ["breathe", "feed_girls", "pancakes", "leave_for_work", "coffee_break", "work_ticket", "head_home", "pickup_girls", "walk_block", "family_dinner", "tea_jess", "bedtime_story", "sleep"]
+				pref = ["breathe", "text_jess", "feed_girls", "pancakes", "leave_for_work", "coffee_break", "work_ticket", "head_home", "pickup_girls", "walk_block", "family_dinner", "tea_jess", "bedtime_story", "sleep"]
 				if gs.today.get("tickets", 0) >= 4: pref.erase("work_ticket")
 				if gs.today.get("coffee_break", 0) >= 1: pref.erase("coffee_break")
 		"balanced", "stardew":
 			pref = ["feed_girls", "leave_for_work", "text_jess", "work_ticket", "head_home", "pickup_girls", "bedtime_story", "play_girls", "gaming", "sleep"]
-	if strat in ["random", "broke"] and false: pass
+			if strat == "stardew" and gs.phase in ["home_pm", "weekend"]:
+				pref = ["pancakes", "walk_park", "family_dinner", "homework", "tea_jess", "text_jess", "play_girls", "bedtime_story", "chores", "gaming", "sleep"]
 	if strat == "quitter" and gs.day < 2 and gs.today.get("drink", 0) >= 3: pref.erase("drink")
 	if strat == "quitter" and gs.day < 2 and gs.today.get("pouch", 0) >= 3: pref.erase("pouch")
 	if strat == "heavy" and gs.today.get("drink", 0) >= 4: pref.erase("drink")
@@ -141,8 +148,14 @@ func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String
 	if strat == "family_first" and gs.today.get("play_girls", 0) >= 3: pref.erase("play_girls")
 	if strat == "workaholic" and gs.today.get("rx_dose", 0) >= 2: pref.erase("rx_dose")
 	if strat == "stardew" and gs.today.get("gaming", 0) >= 1: pref.erase("gaming")
+	if strat in ["family_first", "stardew", "balanced", "cozy", "quitter"] and gs.minutes < 1170 and gs.today.get("bedtime_story", 0) == 0:
+		pref.erase("sleep")
+	if strat == "quitter" and gs.today.get("rx_dose", 0) >= 1: pref.erase("rx_dose")
 	for p in pref:
 		if p in allowed: return p
+	if strat in ["cozy", "quitter", "family_first", "stardew"]:
+		for p in ["walk_block", "play_girls", "coffee_break", "work_ticket", "gaming"]:
+			if p in allowed: return p
 	return allowed[rng.randi() % allowed.size()] if not allowed.is_empty() else ""
 
 func play_week(strat: String, seed_v: int) -> void:
@@ -206,4 +219,9 @@ func play_week(strat: String, seed_v: int) -> void:
 				break
 			await drain()
 	if not gs.week_over: bad("week never finished")
+	var b: Dictionary = bal.get(strat, {"n": 0, "stress": 0, "perf": 0, "jess": 0, "girls": 0, "drawings": 0, "bedtimes": 0, "drinks": 0, "pouches": 0, "rx_extra": 0, "money": 0})
+	b["n"] += 1; b["stress"] += gs.stress; b["perf"] += gs.performance; b["jess"] += gs.closeness; b["girls"] += gs.girls_connected
+	b["drawings"] += gs.fridge_drawings; b["bedtimes"] += gs.week_stats["bedtimes"]; b["drinks"] += gs.week_stats["drinks"]
+	b["pouches"] += gs.week_stats["pouches"]; b["rx_extra"] += gs.week_stats["rx_extra"]; b["money"] += gs.money
+	bal[strat] = b
 	main.summary_root.visible = false

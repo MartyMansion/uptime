@@ -57,7 +57,7 @@ func _process(_d: float) -> bool:
 	gs.do_action("leave_for_work")
 	check(gs.phase == "work" and gs.minutes == 480, "leave for work: 2 blocks, phase=work")
 	gs.do_action("work_ticket")
-	check(gs.minutes == 540 and gs.energy == 82 and gs.performance == 58, "ticket costs 2 blocks / 10 energy, +perf")
+	check(gs.minutes == 540 and gs.energy == 82 and gs.performance == 54, "ticket costs 2 blocks / 10 energy, +4 perf")
 	var m: int = gs.minutes
 	gs.do_action("text_jess")
 	check(gs.minutes == m and gs.closeness == 56, "texting Jess costs no time, +closeness")
@@ -69,7 +69,7 @@ func _process(_d: float) -> bool:
 	e = gs.energy
 	var p: int = gs.performance
 	gs.do_action("work_ticket")
-	check(gs.energy == e - 5 and gs.performance == p + 12, "focused ticket: -5 energy, +12 perf")
+	check(gs.energy == e - 5 and gs.performance == p + 7, "focused ticket: -5 energy, +7 perf")
 	e = gs.energy
 	while gs.rx_active():
 		gs.do_action("work_ticket")

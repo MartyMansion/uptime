@@ -34,7 +34,7 @@ const ACTIONS := {
 	"feed_girls": {"name": "Make breakfast with the girls", "blocks": 1, "energy": -5, "fed": 35, "connected": 5, "once": true, "phases": ["home_am"]},
 	"cereal": {"name": "Cereal and screens", "blocks": 1, "energy": 0, "fed": 20, "connected": -5, "once": true, "phases": ["home_am"]},
 	"leave_for_work": {"name": "Drop girls at school, drive to work", "blocks": 2, "energy": -3, "phases": ["home_am"]},
-	"work_ticket": {"name": "Work a ticket", "blocks": 2, "energy": -10, "stress": 5, "perf": 8, "phases": ["work", "home_pm", "weekend"]},
+	"work_ticket": {"name": "Work a ticket", "blocks": 2, "energy": -10, "stress": 5, "perf": 4, "phases": ["work", "home_pm", "weekend"]},
 	"coffee_break": {"name": "Coffee break with the team", "blocks": 1, "energy": 8, "stress": -4, "phases": ["work"]},
 	"head_home": {"name": "Head home", "blocks": 1, "energy": 0, "phases": ["work"]},
 	"buy_beer": {"name": "Grab a six-pack ($12)", "blocks": 0, "energy": 0, "money": -12, "phases": ["drive"]},
@@ -173,6 +173,8 @@ func new_game(seed_value: int = 0) -> void:
 func _start_day() -> void:
 	minutes = DAY_START
 	phase = "weekend" if day >= 5 else "home_am"
+	if day > 0 and day < 5:
+		stress = clampi(stress + 10, 0, 100)   # the inbox refilled overnight
 	rx_until = -1
 	rx_last_dose = -1
 	today = {"tickets": 0, "text_jess": 0, "bedtime_story": 0, "kid_actions": 0, "gaming": 0,
@@ -272,7 +274,7 @@ func do_action(id: String) -> String:
 	var perf: int = int(a.get("perf", 0))
 	if id == "work_ticket" and rx_active():
 		e = -5          # focus: tickets feel easy...
-		perf += 4
+		perf += 3
 	minutes += blocks * BLOCK
 	energy = clampi(energy + e, 0, 100)
 	stress = clampi(stress + int(a.get("stress", 0)), 0, 100)
@@ -514,8 +516,8 @@ func end_day() -> Dictionary:
 	if today["bedtime_story"] == 0:
 		girls_connected = clampi(girls_connected - 10, 0, 100)
 	_update_clean_streaks()
-	if today["tickets"] == 0 and day < 5:
-		performance = clampi(performance - 10, 0, 100)
+	if day < 5:
+		performance = clampi(performance - (20 if today["tickets"] == 0 else 15), 0, 100)  # the queue refills overnight
 	if phase == "work" or phase == "drive":
 		girls_connected = clampi(girls_connected - 15, 0, 100)  # never made it home
 	girls_fed = clampi(girls_fed - 20, 0, 100)
