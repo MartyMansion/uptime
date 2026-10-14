@@ -107,6 +107,58 @@ func _process(_d: float) -> bool:
 	var review: String = gs.weekly_review()
 	check(review.begins_with("LIFEOS") and review.contains("Oral Health") and review.contains("Hydration"), "weekly review includes subtle lines")
 	print(review)
+	# --- Scenes, cutscenes, assets, UI
+	main.skip_all_cutscenes()
+	main.dismiss_summary() if main.summary_root.visible else null
+	gs.new_game(9)
+	main.skip_all_cutscenes()
+	main.summary_root.visible = false
+	main.sync_location()
+	check(main.loc_name == "house", "home phase loads the house scene")
+	for n in ["house", "office", "gas_station", "school"]:
+		main.load_location(n)
+		var ok := true
+		for sid in main.loc.stations:
+			for aid in main.loc.stations[sid]["actions"]:
+				ok = ok and gs.ACTIONS.has(aid)
+		check(ok and main.loc.spots.has("entry"), "location %s loads with valid stations" % n)
+	main.sync_location()
+	main.perform("leave_for_work")
+	check(main.cs_id == "dropoff", "leaving for work plays the drop-off cutscene")
+	main.skip_all_cutscenes()
+	check(main.loc_name == "office" and main.loc.actors.has("gary"), "arrive at office with Gary")
+	gs.minutes = gs.OFF_WORK
+	main.perform("head_home")
+	main.skip_all_cutscenes()
+	check(main.loc_name == "gas_station", "drive home stop is the Gas-N-Sip scene")
+	main.perform("pickup_girls")
+	check(main.cs_id == "pickup", "pickup cutscene at school")
+	main.skip_all_cutscenes()
+	check(main.loc_name == "house" and main.loc.actors.has("jess"), "evening at home with Jess")
+	var all_ok := true
+	for id in Cutscenes.IDS:
+		var steps: Array = Cutscenes.build(id, gs, {})
+		if steps.is_empty():
+			all_ok = false
+			printerr("empty cutscene ", id)
+		for st in steps:
+			if st[0] == "say" and st[1] in ["dan", "jess", "lily", "june", "gary"] and not ResourceLoader.exists("res://assets/portraits/%s.png" % st[1]):
+				all_ok = false
+	check(all_ok, "all %d cutscenes build with portraits" % Cutscenes.IDS.size())
+	main.perform("sleep")
+	check(main.cs_id == "day_end", "sleep plays the day-end cutscene")
+	main.skip_all_cutscenes()
+	check(main.summary_root.visible, "day summary shown after the cutscene")
+	main.dismiss_summary()
+	check(main.cs_id == "wake", "next morning plays the wake-up cutscene")
+	main.skip_all_cutscenes()
+	for n in ["dan", "jess", "lily", "june", "gary"]:
+		var t: Texture2D = load("res://assets/sprites/characters/%s.png" % n)
+		check(t.get_width() == 64 and t.get_height() == 96, "%s sheet is 4 dirs x (3 walk + 1 idle)" % n)
+	var probs: Array[String] = main.audit_ui()
+	for x in probs:
+		printerr("  ", x)
+	check(probs.is_empty(), "UI audit: no overlapping/out-of-bounds labels")
 	print("TESTS DONE: %d failure(s)" % failures)
 	quit(1 if failures > 0 else 0)
 	return true

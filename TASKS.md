@@ -17,12 +17,21 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [x] Amphetamine Rx: +energy, focused tickets, crash after 6h, hurts sleep, "skipped lunch"; extra doses tracked → refill math note
 - [x] Tests for the phase flow and all three substances
 
+## M0.6 — Art, UI, scenes, cutscenes (DONE, 2026-10-14)
+- [x] Original procedural pixel art (tools/gen_sprites.py): Dan/Jess/Lily/June/Gary 4-dir walk + idle, portraits, tiles, props; ASSETS.md style guide
+- [x] UI rebuilt with containers + theme (top bar, sidebar meters, bottom prompt, LifeOS toast, dialogue box, summary modal); stretch keep-aspect
+- [x] UI audit (no overlapping/out-of-bounds labels) in tests + screenshots at 1280x720, 1920x1080, 1366x768, 1024x768, 800x600
+- [x] Real scenes: House, TriCounty office, Gas-N-Sip, Brookfield Elementary; switched per phase
+- [x] Cutscenes with portraits + movement: wake-up, drop-off, arrive at work/Gary, drive-home stop, pickup, Jess home, bedtime, day-end, weekly review
+
 ## M1 — Grey-box day (design doc Phase 1)
 - [ ] Phone overlay with 3 real text threads + reply choices (thoughtful / "k 👍" / draft-and-delete)
 - [ ] Ticket Triage minigame (drag tickets to Fix / Escalate / Schedule / Off-and-on)
 - [ ] Per-girl needs (Fed / Rested / Connected for Lily and June)
 - [ ] Stress effects; Running on Fumes greys out kind options
-- [ ] Real office scene (replace the work overlay)
+- [ ] Collision with furniture; door transitions between rooms
+- [ ] Choices inside cutscenes (e.g. "Shoes, a Postmortem" P1 incident choice)
+- [ ] Car/commute scene with the 4 AM Club podcast as an interactive radio
 - [ ] Substance thread: longer arcs over weeks (cancer-risk scare at the dentist, honest Rx talk with doctor, Jess real-talk scene tied to Honesty)
 - [ ] Substance choices feed Honesty/Integrity meters and ending tone
 - [ ] Content check: sensitivity read on substance writing (stay non-preachy, never mock)
@@ -34,7 +43,7 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [ ] ~25 ticket jokes, ~30 LifeOS notifications, 5 achievements
 - [ ] Chaos events (June + Blu-ray crayon), "one more match" prompt
 - [ ] Save/load
-- [ ] Real art for key rooms; comedy pass; 5–10 outside playtesters
+- [ ] Commissioned/final art pass replacing generated placeholders (see ASSETS.md); comedy pass; 5–10 outside playtesters
 
 ## M3+ — Chapter 1 demo, Chapters 2–4, beta, launch (see doc §6.2)
 
@@ -43,3 +52,4 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [x] Daily drive-home stop (gas station/liquor) between work and picking up the girls — M0.5
 - [ ] Recovery/quitting paths that are as playable as the habits (patches, "dry January" LifeOS upsell, talking to Jess)
 - [ ] Withdrawal/tolerance tuning across multiple weeks
+- [x] Sprites for everyone, fix overlapping fonts, real scenes + cutscenes (after Windows playtest) — M0.6

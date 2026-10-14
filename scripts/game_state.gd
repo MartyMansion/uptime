@@ -12,6 +12,8 @@ signal state_changed
 signal lifeos_message(text: String)
 signal day_ended(summary: Dictionary)
 signal week_ended(review: String)
+signal day_started
+signal action_performed(id: String, result: String)
 
 const DAY_NAMES := ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const DAY_START := 390   # 6:30 AM, in minutes
@@ -142,6 +144,7 @@ func _start_day() -> void:
 	today = {"tickets": 0, "text_jess": 0, "bedtime_story": 0, "kid_actions": 0, "gaming": 0,
 		"drink": 0, "pouch": 0, "rx_dose": 0, "crashed": false, "log": []}
 	state_changed.emit()
+	day_started.emit()
 
 func day_name() -> String:
 	return DAY_NAMES[day]
@@ -312,6 +315,7 @@ func do_action(id: String) -> String:
 	if lifeos == "" and id == "work_ticket" and is_on_fumes() and rx_last_dose >= 0 and not rx_active() and rx_pills > 0:
 		lifeos = "LifeOS: Energy low. You have medication that helps with that. (LifeOS is not a doctor. LifeOS is an app.)"
 	today["log"].append(line)
+	action_performed.emit(id, line)
 	if lifeos != "":
 		lifeos_message.emit(lifeos)
 	elif rng.randf() < 0.3:
