@@ -87,3 +87,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
   - Heart events no longer show twice (as a LifeOS toast and a cutscene).
   - Added 5 homework/drawing variants and 5 drop-off variants so the week doesn't repeat itself.
 - 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 11: more choices where life happens
+- **Interactive car radio** in the drive-home cutscene: the 4 AM Club (stress +3, "a man who owns a gong"), the oldies (the wedding ska song), or silence.
+- **Dinner conversations** after Family dinner, with three rotating topics: listen to the girls, ask Jess first, or explain DNS ("June falls asleep in her taco").
+- **"One more match?"** after gaming past 10 PM: log off like an adult, or one more (30 min, peace).
+- The bot now hits all 18 choice outcomes. 100 weeks, 0 problems. Tests pass.

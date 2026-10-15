@@ -456,6 +456,9 @@ func _log(t: String) -> void:
 	log_label.text = t
 
 func _on_action(id: String, _res: String) -> void:
+	if GameState.pending_choice != "":
+		queue_cutscene(GameState.pending_choice)
+		GameState.pending_choice = ""
 	match id:
 		"leave_for_work":
 			queue_cutscene("dropoff")

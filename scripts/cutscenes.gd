@@ -11,7 +11,7 @@ class_name Cutscenes
 ##  ["wait", seconds]
 ## Lines adapted from the design doc (§4.12, §5.4).
 
-const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos"]
+const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more"]
 
 static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 	var d: int = gs.day
@@ -82,6 +82,7 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			]
 			return [["loc", "gas_station"], ["place", "dan", "car"], ["face", "dan", "up"],
 				["say", "4 AM Club (radio)", radio[d % radio.size()]],
+				["choice", [["Leave the 4 AM Club on (for science)", "radio_4am"], ["Oldies station", "radio_oldies"], ["Radio off. Just the road.", "radio_quiet"]]],
 				["say", "", "The Gas-N-Sip sign hums. After-care closes at 6. The girls will be watching the door for you."]]
 		"pickup":
 			var s := [["loc", "school"], ["place", "dan", "car_r"], ["place", "lily", "school_door"], ["place", "june", "school_door"],
@@ -146,6 +147,13 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 					["choice", [["Laugh. Butter is a lost cause anyway", "chaos_laugh"], ["Calmly relocate the cat. Butter: retired", "chaos_calm"], ["Make the girls narrate it like a nature show", "chaos_art"]]]],
 			]
 			return [["loc", "house"], ["place", "dan", "living"], ["place", "june", "living_j"], ["place", "lily", "girls"]] + evs[ev]
+		"dinner":
+			var topics := ["What was the best part of everyone's day?", "June wants to know if robots have birthdays.", "Lily asks why grown-ups are always tired."]
+			return [["say", "jess", topics[d % topics.size()]],
+				["choice", [["Phone down. Listen to the girls.", "dinner_listen"], ["Ask Jess about her day first.", "dinner_jess"], ["Explain DNS. They asked. (They didn't.)", "dinner_work"]]]]
+		"one_more":
+			return [["lifeos", "It's late. Your squad is queuing again. LifeOS has no opinion. (LifeOS has an opinion.)"],
+				["choice", [["Log off. Go to bed like an adult.", "match_bed"], ["One more match.", "match_more"]]]]
 		"moment":
 			# Heart events (Stardew-style), played once when a relationship crosses a threshold.
 			var lines := {

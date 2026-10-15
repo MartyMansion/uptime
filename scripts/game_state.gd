@@ -169,6 +169,7 @@ var rx_last_dose: int = -1
 var notices_seen := {}
 var patch_days: int = 0            # patches blunt pouch cravings
 var rx_plan := false               # talked to the doctor: gentler crash
+var pending_choice := ""          # Main turns this into a choice cutscene after the action
 var honesty: int = 50              # hidden; moved by choices in cutscenes
 var fridge_drawings: int = 0       # cozy loop: grows with time spent with the girls
 var moments_seen := {}              # relationship moments already played
@@ -380,6 +381,7 @@ func do_action(id: String) -> String:
 				"Spaghetti night. Lily explains her whole day, including the parts that haven't happened yet.",
 				"Breakfast-for-dinner. A cardinal sin of nutrition. A triumph of morale."][day % 3]
 			_moment("Dinner where everyone talked at once.")
+			pending_choice = "dinner"
 		"homework":
 			fridge_drawings += 1
 			line = ["Lily does fractions. June draws you as a robot with a coffee for a heart. It goes on the fridge.",
@@ -430,6 +432,8 @@ func do_action(id: String) -> String:
 		"gaming":
 			week_stats["gaming_blocks"] += 2
 			today["gaming"] += 1
+			if minutes >= 1320 and minutes <= DAY_END - 30:
+				pending_choice = "one_more"
 			line = "One more match. Stress down. Time: gone. Into the void. Worth it, probably."
 		"drink":
 			beers -= 1
@@ -692,6 +696,14 @@ const CHOICES := {
 	"chaos_laugh": [{"connected": 6, "energy": -4, "stress": -3}, "You laugh. The girls laugh. Somehow this became the best part of the day."],
 	"chaos_calm": [{"connected": 2, "stress": 2}, "Calm voice, clear rule, quick fix. Nobody cried. Not even you. Professional."],
 	"chaos_art": [{"connected": 5, "closeness": 2}, "Jess walks in, sees it, and joins in. Somehow it's a family tradition now."],
+	"radio_4am": [{"stress": 3}, "Brayden Kole explains 'micro-sleeps.' You feel personally attacked by a man who owns a gong."],
+	"radio_oldies": [{"stress": -4}, "The oldies station plays the song from your wedding. The ska one. You drum on the wheel."],
+	"radio_quiet": [{"stress": -3, "energy": 2}, "Silence. Just the turn signal, ticking like a very patient clock."],
+	"dinner_listen": [{"connected": 5, "closeness": 3}, "You put your phone face-down. Lily tells a 9-minute story about a worm. It's honestly gripping."],
+	"dinner_jess": [{"closeness": 6}, "You ask Jess about her day first. She blinks like you've patched a bug she reported in 2019."],
+	"dinner_work": [{"closeness": -2, "performance": 2}, "You explain DNS to the table. June falls asleep in her taco. It was a good explanation, though."],
+	"match_more": [{"stress": -4, "energy": -6, "minutes": 30}, "One more match. You lose. One more. You win. It's 30 minutes later and you are, somehow, at peace."],
+	"match_bed": [{"energy": 3}, "You log off mid-lobby. Your teammates will survive. Probably. You go to bed like an adult."],
 	"talk_honest": [{"closeness": 8, "honesty": 15, "stress": -6}, "\"Yeah. It's been more than I want it to be.\" Jess takes your hand. \"Okay. We'll figure it out. Together, like the IKEA bed.\""],
 	"talk_deflect": [{"closeness": -4, "honesty": -10}, "\"Just a long week.\" Jess nods. She doesn't push. That's somehow worse."],
 	"talk_joke": [{"closeness": -2, "honesty": -5}, "\"The recycling is just very enthusiastic.\" Jess smiles, but only with her mouth."],
