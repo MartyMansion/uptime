@@ -70,6 +70,8 @@ func _run() -> void:
 	lf.close()
 	var missing: Array = []
 	for id in gs.ACTIONS:
+		# UI verbs + the garage build are exercised by the homelab personas (persona_bot.gd farm_routine)
+		if gs.ACTIONS[id].get("ui", false) or id == "build_farm": continue
 		if not stats["actions_used"].has(id): missing.append(id)
 	for id in Cutscenes.IDS:
 		# "triage" is the legacy quick-choice; the terminal minigame replaced it in play
@@ -335,6 +337,8 @@ func play_week(strat: String, seed_v: int) -> void:
 				main.queue_cutscene("phone")   # the T key path: phone overlay with reply choices
 			else:
 				main.perform(a)
+			if main.assembly_open(): main.assembly_auto()
+			if main.desktop_open(): main.close_desktop()
 			if main.term_open():
 				await play_terminal(strat, rng)
 			await play_map(strat, rng)
@@ -364,6 +368,11 @@ func play_week(strat: String, seed_v: int) -> void:
 		skill_sum[c] = snappedf(float(skill_sum.get(c, 0.0)) + gs.skill_level(c) / 100.0, 0.01)
 	stats["missed_pickups"] = int(stats.get("missed_pickups", 0)) + int(gs.week_stats.get("missed_pickups", 0))
 	var en: String = gs.ending_id()
+	if gs.farm_has("server") > 0:
+		stats["farm_runs"] = int(stats.get("farm_runs", 0)) + 1
+		stats["farm_servers_online"] = int(stats.get("farm_servers_online", 0)) + gs.farm_online()
+		stats["farm_net"] = int(stats.get("farm_net", 0)) + gs.farm_income_total
+		stats["farm_outages"] = int(stats.get("farm_outages", 0)) + gs.farm_outages
 	stats["endings_by"][en] = int(stats["endings_by"].get(en, 0)) + 1
 	stats["endings_by"][strat + ":" + en] = int(stats["endings_by"].get(strat + ":" + en, 0)) + 1
 	main.summary_root.visible = false

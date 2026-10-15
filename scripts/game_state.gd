@@ -67,6 +67,13 @@ const ACTIONS := {
 	"side_hustle": {"name": "Side hustle: Marisol's bakery script", "blocks": 2, "energy": -8, "stress": 4, "after": 1200, "phases": HOME},
 	"water_plant": {"name": "Water the porch tomato (June helps)", "blocks": 0, "energy": -1, "stress": -2, "once": true, "phases": ["home_am", "home_pm", "weekend"]},
 	"sleep": {"name": "Go to sleep", "blocks": 0, "energy": 0, "phases": HOME},
+	# Garage homelab (data-center path). Main runs the interactive assembly, then calls this.
+	# UI-only verbs (Main opens a screen / changes room; never run through do_action).
+	"pc": {"name": "Use the PC (desktop)", "blocks": 0, "energy": 0, "ui": true, "phases": ["home_am", "home_pm", "weekend"]},
+	"go_garage": {"name": "Go to the garage", "blocks": 0, "energy": 0, "ui": true, "phases": ["home_am", "home_pm", "weekend"]},
+	"go_inside": {"name": "Back inside", "blocks": 0, "energy": 0, "ui": true, "phases": ["home_am", "home_pm", "weekend"]},
+	"farm_check": {"name": "Check the farm (FarmStat)", "blocks": 0, "energy": 0, "ui": true, "phases": ["home_am", "home_pm", "weekend"]},
+	"build_farm": {"name": "Build the next delivered box", "blocks": 1, "energy": -6, "stress": -2, "phases": ["home_am", "home_pm", "weekend"]},
 }
 
 # Calendar: day index -> event. Shown in the HUD; some unlock actions.
@@ -232,6 +239,12 @@ func new_game(seed_value: int = 0) -> void:
 	clean = {"drink": 0, "pouch": 0, "rx_extra": 0}
 	used_ever = {"drink": false, "pouch": false, "rx_extra": false}
 	week_moments = []
+	farm = {}
+	orders = []
+	boxes = []
+	farm_income_total = 0
+	farm_outages = 0
+	farm_days = 0
 	week_over = false
 	week_stats = {"bedtimes": 0, "tickets": 0, "texts": 0, "gaming_blocks": 0, "drinks": 0, "pouches": 0, "rx_extra": 0}
 	_start_day()
@@ -264,6 +277,7 @@ func _start_day() -> void:
 	rx_last_dose = -1
 	girls_picked = false
 	at_place = "home"
+	_deliver()
 	today = {"tickets": 0, "text_jess": 0, "bedtime_story": 0, "kid_actions": 0, "gaming": 0,
 		"drink": 0, "pouch": 0, "rx_dose": 0, "crashed": false, "log": [], "moments": []}
 	state_changed.emit()
@@ -300,6 +314,10 @@ func phase_actions() -> Array[String]:
 
 ## Returns "" if allowed, otherwise a reason (LifeOS-flavored).
 func can_do(id: String) -> String:
+	if ACTIONS.get(id, {}).get("ui", false):
+		return "(That's a place, not a verb. Walk there.)"
+	if id == "build_farm" and boxes.is_empty():
+		return "No boxes in the garage. (PCEggo has a sale. PCEggo always has a sale.)"
 	if week_over:
 		return "The week is over. LifeOS is putting your review together."
 	if not ACTIONS.has(id):
@@ -558,6 +576,8 @@ func do_action(id: String) -> String:
 	var why := can_do(id)
 	if why != "":
 		return why
+	if id == "build_farm":
+		return build_box()
 	pending_choice = ""
 	if id == "sleep":
 		end_day()
@@ -937,6 +957,7 @@ func end_day() -> Dictionary:
 		_performance_consequences()
 	if phase == "work" or phase == "drive":
 		girls_connected = clampi(girls_connected - 15, 0, 100)  # never made it home
+	summary["farm"] = _farm_night()
 	girls_fed = clampi(girls_fed - 10, 0, 100)   # overnight (was -15; pass 2)
 	stress = clampi(stress + (5 if slept_min * quality < 360 else -10), 0, 100)
 	energy = clampi(energy + restore, 0, 100)
@@ -1016,6 +1037,8 @@ func ending_id() -> String:
 		return "crispy"
 	if subs > 0 and (clean["drink"] >= 2 or clean["pouch"] >= 2 or clean["rx_extra"] >= 2):
 		return "turning"
+	if farm_online() >= HOMELAB_SERVERS and farm_income_total >= HOMELAB_NET and closeness >= 40:
+		return "homelab"
 	if closeness >= 70 and girls_connected >= 70 and stress <= 50:
 		return "cozy"
 	if performance >= 85 and not on_pip() and int(week_stats.get("sla_breaches", 0)) == 0 and (closeness < 40 or girls_connected < 40):
@@ -1032,6 +1055,8 @@ func ending_text() -> String:
 			return "ENDING — Five Nines: The servers had a perfect week. Lily drew the servers. They were the only thing in the picture. Gary sent a thumbs-up emoji. Next week can be different."
 		"crispy":
 			return ("(You're on Gary's 'Plan'. He brought donuts to the meeting. That made it worse.) " if on_pip() else "") + "ENDING — Crispy: LifeOS rates your burnout 'golden brown.' Jess hands you the TV remote and the good blanket and says 'nope' to everything else. Rest is next week's ticket #1."
+		"homelab":
+			return "ENDING — Mercer Data Center (Est. This Week): %d servers hum in the garage, net $%d. Jess calls it 'the other kid'. June named the rack 'Server' too. Lily hung a status page on the fridge: DADDY: OPERATIONAL. Five nines is next." % [farm_online(), farm_income_total]
 		"foggy":
 			return "ENDING — Foggy: The week happened mostly around you. Nobody's angry. They just miss you, a little, at the table. The Gas-N-Sip sign is on, as always. So is the porch light."
 	return "ENDING — A Real Week: Not a perfect week. A real one. Uptime 99.2%, SLA 100%, pancakes 100%."
@@ -1226,7 +1251,8 @@ const SAVE_PATH := "user://uptime_save.json"
 var save_path: String = SAVE_PATH if OS.get_environment("UPTIME_SAVE_TAG") == "" else "user://uptime_save_%s.json" % OS.get_environment("UPTIME_SAVE_TAG")
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
-	"fridge_drawings", "honesty", "skills", "incidents_week", "plant", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
+	"fridge_drawings", "honesty", "skills", "incidents_week", "plant", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments",
+	"farm", "orders", "boxes", "farm_income_total", "farm_outages", "farm_days"]
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = "") -> bool:
@@ -1276,3 +1302,141 @@ func delete_save(path: String = "") -> void:
 	if path == "": path = save_path
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+# ------------------------------------------------------------ garage homelab (data-center win path, lite)
+## Parody shops (original names). price $, watts drawn, "box": arrives as a box to build in the garage.
+const SHOPS := {"pceggo": "PCEggo", "rackbay": "RackBay", "kevin": "Kilowatt Kevin's Power & Cooling"}
+const CATALOG := {
+	"server": {"name": "Refurb 1U server (2x Xeon, smells like 2016)", "shop": "pceggo", "price": 60, "watts": 180, "box": true},
+	"drives": {"name": "4x used 2 TB drives (low hours, allegedly)", "shop": "pceggo", "price": 35, "watts": 20, "box": true},
+	"nic": {"name": "10GbE NIC 2-pack (one works great)", "shop": "pceggo", "price": 20, "watts": 10, "box": true},
+	"rack": {"name": "12U open-frame rack (some assembly, all regret)", "shop": "rackbay", "price": 45, "watts": 0, "box": true},
+	"switch": {"name": "24-port managed switch (ex-bank, LOUD)", "shop": "rackbay", "price": 25, "watts": 40, "box": true},
+	"ups": {"name": "1500VA UPS (new battery, old everything else)", "shop": "rackbay", "price": 70, "watts": 10, "box": true},
+	"fans": {"name": "Box-fan cooling wall (4 fans + zip ties)", "shop": "kevin", "price": 25, "watts": 120, "box": true},
+	"foam": {"name": "Acoustic foam panels (noise down, dignity down)", "shop": "kevin", "price": 18, "watts": 0, "box": true},
+	"electrician": {"name": "Electrician visit: dedicated 20 A circuit", "shop": "kevin", "price": 140, "watts": 0, "box": false},
+}
+const POWER_RATE := 0.16          # $/kWh
+const HOMELAB_SERVERS := 2
+const HOMELAB_NET := 20
+var farm := {}                    # item id -> installed count
+var orders: Array = []            # [item id, delivery day]
+var boxes: Array = []             # delivered, waiting in the garage
+var farm_income_total: int = 0    # net (income - power), all time this week
+var farm_outages: int = 0
+var farm_days: int = 0
+
+func farm_has(id: String) -> int:
+	return int(farm.get(id, 0))
+
+## Servers that can actually run: 1 on a shelf without a rack, 2 per household circuit
+## without the electrician, and only 1 without a switch.
+func farm_online() -> int:
+	var n := farm_has("server")
+	if farm_has("rack") == 0: n = mini(n, 1)
+	if farm_has("electrician") == 0: n = mini(n, 2)
+	if farm_has("switch") == 0: n = mini(n, 1)
+	return n
+
+func farm_watts() -> int:
+	var w := farm_online() * int(CATALOG["server"]["watts"])
+	for id in ["drives", "nic", "switch", "ups", "fans"]:
+		w += farm_has(id) * int(CATALOG[id]["watts"])
+	return w if farm_has("server") > 0 else 0
+
+func farm_heat() -> int:      # 0..10
+	return clampi(farm_online() * 2 + farm_has("switch") - farm_has("fans") * 3, 0, 10)
+
+func farm_noise() -> int:     # 0..10
+	return clampi(farm_online() * 2 + farm_has("switch") * 2 + farm_has("fans") - farm_has("foam") * 3, 0, 10)
+
+func farm_income_day() -> int:
+	var on := farm_online()
+	return on * 9 + mini(farm_has("drives"), on) * 4 + (2 if farm_has("nic") > 0 and on > 0 else 0)
+
+func farm_bill_day() -> int:
+	return int(round(farm_watts() * 24 / 1000.0 * POWER_RATE))
+
+func farm_status() -> String:
+	var pend := orders.map(func(o): return CATALOG[o[0]]["name"].split(" (")[0])
+	return "Servers online: %d / %d   Uptime this week: %s\nIncome: $%d/day   Power: %d W (~$%d/day)   Net so far: $%d\nHeat: %d/10   Noise: %d/10   Outages: %d\nBoxes in the garage: %d   On the way: %s" % [
+		farm_online(), farm_has("server"), ("%d%%" % int(100.0 * (farm_days - farm_outages) / maxf(1.0, farm_days))) if farm_days > 0 else "n/a",
+		farm_income_day(), farm_watts(), farm_bill_day(), farm_income_total, farm_heat(), farm_noise(), farm_outages, boxes.size(), ", ".join(pend) if not pend.is_empty() else "nothing"]
+
+## Checkout from the parody shops: money check, next-day delivery.
+func checkout(cart: Array) -> String:
+	if cart.is_empty(): return "Your cart is empty. Like the rack."
+	var total := 0
+	for id in cart: total += int(CATALOG[id]["price"])
+	if total > money: return "Card declined: total $%d, you have $%d. (The bank's fraud team thinks you're having a crisis. Fair.)" % [total, money]
+	money -= total
+	for id in cart: orders.append([id, day + 1])
+	if not notices_seen.has("first_order"):
+		notices_seen["first_order"] = true
+		lifeos_message.emit("LifeOS: Order confirmed. Jess has been cc'd on the receipt. LifeOS cc's Jess on everything over $50. You agreed to this in 2024.")
+	state_changed.emit()
+	return "Order placed: $%d. Arrives tomorrow morning. The garage is about to become a lifestyle." % total
+
+func _deliver() -> void:
+	var arrived: Array = []
+	var keep: Array = []
+	for o in orders:
+		if int(o[1]) <= day:
+			if CATALOG[o[0]]["box"]: boxes.append(o[0])
+			else: farm[o[0]] = farm_has(o[0]) + 1     # the electrician just installs it
+			arrived.append(o[0])
+		else:
+			keep.append(o)
+	orders = keep
+	if not arrived.is_empty():
+		lifeos_message.emit("LifeOS: Delivery: %d box%s on the porch (moved to the garage). %s" % [arrived.size(), "" if arrived.size() == 1 else "es",
+			"The electrician came and went. New circuit: live." if "electrician" in arrived else "Jess watched the truck. Jess has questions."])
+
+## Installs the first delivered box (the interactive assembly lives in Main).
+func build_box() -> String:
+	if boxes.is_empty(): return can_do("build_farm")
+	var id: String = boxes.pop_front()
+	farm[id] = farm_has(id) + 1
+	minutes = mini(minutes + BLOCK, DAY_END)
+	energy = clampi(energy - 6, 0, 100)
+	if minutes >= 1080 and phase != "weekend":
+		closeness = clampi(closeness - 2, 0, 100)   # garage time is evening time
+	today["built"] = int(today.get("built", 0)) + 1
+	state_changed.emit()
+	var line: String = {"server": "Racked, cabled, powered on. The fans spin up like a jet that has given up on flying.", "rack": "The rack stands. It is slightly crooked. It is yours.",
+		"switch": "Switch in. Twenty-four ports, twenty-two of them for later.", "ups": "UPS in. It beeps once, judgmentally, then settles.", "drives": "Drives in. The RAID rebuild estimate says 'soon'.",
+		"nic": "10GbE in. Now the bottleneck is you.", "fans": "Box-fan wall zip-tied. It's ugly. It's 6 degrees cooler.", "foam": "Foam up. The garage now sounds like a recording studio for one sad server."}.get(id, "Built.")
+	if id == "server" and farm_has("server") > farm_online():
+		line += " (It won't come online yet: %s.)" % ("you need a rack" if farm_has("rack") == 0 else ("you need a switch" if farm_has("switch") == 0 else "the house circuit can't take a third server; call an electrician"))
+	action_performed.emit("build_farm", line)
+	return line
+
+## Overnight: income, power bill, heat/noise costs, and possible home incidents.
+func _farm_night() -> String:
+	if farm_has("server") == 0: return ""
+	farm_days += 1
+	var income := farm_income_day()
+	var bill := farm_bill_day()
+	var note := ""
+	var p := 0.0
+	if farm_has("ups") == 0: p += 0.12
+	if farm_heat() >= 5: p += 0.15
+	if farm_online() > 0 and rng.randf() < p:
+		farm_outages += 1
+		income /= 2
+		stress = clampi(stress + 6, 0, 100)
+		closeness = clampi(closeness - 3, 0, 100)
+		note = ["The breaker tripped during the microwave popcorn. Movie night: dark. Servers: also dark.", "Heat alarm at 2 AM. You stood in the garage in boxers with a box fan. Jess filmed it.",
+			"Power blip. No UPS. The RAID is 'rebuilding' and so is your relationship with sleep."][rng.randi() % 3]
+		if farm_has("ups") > 0 and note.contains("No UPS"): note = "Heat alarm at 2 AM. The box fans lost."
+		lifeos_message.emit("LifeOS: HOME INCIDENT: " + note)
+	var noise := farm_noise()
+	if noise >= 4:
+		closeness = clampi(closeness - (noise - 3), 0, 100)
+		if noise >= 6: girls_connected = clampi(girls_connected - 2, 0, 100)
+	var net := income - bill
+	money += net
+	farm_income_total += net
+	return "Garage farm: +$%d income, -$%d power%s%s" % [income, bill, (" · noise %d/10 (Jess noticed)" % noise) if noise >= 4 else "", (" · OUTAGE: " + note) if note != "" else ""]

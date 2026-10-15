@@ -97,3 +97,6 @@ The calendar (top of the sidebar) has picture day, taco Wednesday, Lily's Thursd
   7th persona, `paperfan`, which watches cutscenes at 30 fps and judges typing, flaps, flips and framing.
 - Quick look at all sets: `xvfb-run -a godot --path . --rendering-driver opengl3 -s res://tools/paper_quick.gd -- /tmp/pq`;
   gameplay clip frames: `tools/paper_gif.gd`; regenerate paper 2D art: `python3 tools/gen_paper.py`.
+
+### Home PC + garage homelab
+At the house **PC desk**, [1] opens BrookOS: click icons for Tickets, Games, Bakery Script, the shops (PCEggo, RackBay, Kilowatt Kevin's), Cart and FarmStat. Esc closes a window, then the desktop. Orders arrive as boxes the next morning. Use the **Garage door** (lower left of the living room) to reach the garage. At the boxes, do the 3 build steps in order (click or 1–3). The rack and FarmStat show income, power, heat, noise and outages. The farm earns money overnight, but noise and outages cost you with Jess. Without the electrician you can run at most 2 servers; without a rack or switch, only 1.

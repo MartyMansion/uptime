@@ -540,7 +540,7 @@ func _process(_d: float) -> bool:
 	main.summary_root.visible = false
 	main.sync_location()
 	check(main.loc_name == "house", "home phase loads the house scene")
-	for n in ["house", "office", "gas_station", "school"]:
+	for n in ["house", "office", "gas_station", "school", "road", "garage"]:
 		main.load_location(n)
 		var ok := true
 		for sid in main.loc.stations:
@@ -593,6 +593,7 @@ func _process(_d: float) -> bool:
 	check(probs.is_empty(), "UI audit: no overlapping/out-of-bounds labels")
 	paper_tests(gs, main)
 	no_forced_gas_tests(gs, main)
+	farm_tests(gs, main)
 	print("TESTS DONE: %d failure(s)" % failures)
 	quit(1 if failures > 0 else 0)
 	return true
@@ -734,3 +735,94 @@ func no_forced_gas_tests(gs: Node, main: Node) -> void:
 		check(gs.at_place == "gas" and main.loc_name == "gas_station", "day %d: the Gas-N-Sip only when picked" % (d + 1))
 	main.close_map()
 	main.use_map = keep
+
+
+## Home PC desktop + parody shops + garage server farm (data-center path, lite).
+func farm_tests(gs: Node, main: Node) -> void:
+	gs.new_game(77)
+	main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""
+	main.close_map()
+	gs.day = 0; gs.phase = "home_pm"; gs.minutes = 1080
+	main.sync_location()
+	check(gs.CATALOG.size() >= 6 and gs.CATALOG.size() <= 10 and gs.SHOPS.size() == 3, "catalog: 6-10 items across 3 parody shops")
+	for bad in ["newegg", "ebay", "amazon", "dell", "cisco", "apc"]:
+		check(not JSON.stringify(gs.CATALOG).to_lower().contains(bad) and not JSON.stringify(gs.SHOPS).to_lower().contains(bad), "no real trademark: " + bad)
+	main.near_station = "desk"
+	check(main._current_actions().has("pc") and main._current_actions().has("gaming"), "desk offers the PC plus the old actions")
+	main.perform("pc")
+	check(main.desktop_open() and main.is_busy(), "PC desk opens the desktop")
+	main.desk_app("pceggo")
+	check(main.desk_window.visible and main.desk_title.text.begins_with("PCEggo"), "PCEggo window opens")
+	main.relayout(); main.relayout()
+	check(main.audit_ui().is_empty(), "desktop audit clean %s" % [main.audit_ui()])
+	for id in ["rackbay", "kevin", "cart", "farm"]:
+		main.desk_app(id)
+		main.relayout(); main.relayout()
+		check(main.desk_window.visible and main.audit_ui().is_empty(), "%s window opens cleanly %s" % [id, main.audit_ui()])
+	main.close_window()
+	check(not main.desk_window.visible and main.desktop_open(), "window closes, desktop stays")
+	# money check
+	gs.money = 50
+	main.cart.clear(); main.cart_add("server"); main.cart_add("rack")
+	var m0: int = gs.money
+	check(main.cart_checkout().begins_with("Card declined") and gs.money == m0 and gs.orders.is_empty(), "checkout refuses when money is short")
+	gs.money = 400
+	main.cart_add("switch"); main.cart_add("electrician")
+	check(main.cart_checkout().begins_with("Order placed") and gs.money == 400 - 60 - 45 - 25 - 140 and gs.orders.size() == 4 and main.cart.is_empty(), "checkout charges and orders")
+	check(gs.boxes.is_empty(), "nothing arrives the same day")
+	main.desk_app("games")
+	check(not main.desktop_open(), "Games icon runs the old gaming action")
+	main.skip_all_cutscenes()
+	# save mid-order, then next morning delivery
+	gs.end_day(); main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""
+	check(gs.boxes.size() == 3 and gs.farm_has("electrician") == 1 and gs.orders.is_empty(), "next morning: 3 boxes in the garage, electrician installed")
+	var tag := "user://farm_test.save"
+	check(gs.save_game(tag), "save with boxes")
+	gs.boxes = []
+	check(gs.load_game(tag) and gs.boxes.size() == 3, "load restores boxes")
+	gs.phase = "home_pm"; gs.minutes = 1020
+	main.in_garage = false; main.sync_location()
+	main.near_station = "garage"
+	main.perform("go_garage")
+	check(main.loc_name == "garage", "garage door goes to the garage")
+	main.near_station = "boxes"
+	main.perform("build_farm")
+	check(main.assembly_open(), "boxes open the assembly step")
+	var wrong: int = main.asm_order.find(2)
+	main.assembly_step(wrong)
+	check(main.asm_done == 0 and main.asm_mistakes == 1, "out-of-order step is refused")
+	main.lifeos_panel.visible = false
+	main.relayout(); main.relayout()
+	check(main.audit_ui().is_empty(), "assembly audit clean %s" % [main.audit_ui()])
+	main.assembly_auto()
+	check(not main.assembly_open() and gs.farm_has("server") == 1 and gs.boxes.size() == 2, "assembly installs the server")
+	check(main.diorama.farm_root != null and main.diorama.farm_root.get_children().any(func(c): return c.name.begins_with("Server")), "server visible in the garage diorama")
+	var n0: int = main.diorama.farm_root.get_children().filter(func(c): return not (c is Label3D or c.name.begins_with("Box"))).size()
+	while not gs.boxes.is_empty():
+		main.perform("build_farm"); main.assembly_auto()
+	check(gs.farm_has("rack") == 1 and gs.farm_has("switch") == 1 and gs.farm_online() == 1, "rack+switch built")
+	check(main.diorama.farm_root.get_children().filter(func(c): return not (c is Label3D or c.name.begins_with("Box"))).size() > n0, "farm visibly grows")
+	gs.farm["server"] = 3
+	check(gs.farm_online() == 3, "electrician circuit lets 3 servers run")
+	gs.farm["electrician"] = 0
+	check(gs.farm_online() == 2, "no circuit: 2 servers max")
+	gs.farm["electrician"] = 1
+	var money0: int = gs.money
+	var close0: int = gs.closeness
+	var s: Dictionary = gs.end_day()
+	main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""
+	check(str(s.get("farm", "")).begins_with("Garage farm") and gs.farm_days == 1, "nightly farm economics run")
+	check(gs.farm_income_total != 0 and gs.farm_bill_day() > 0, "income and power bill tracked (net %d)" % gs.farm_income_total)
+	check(gs.closeness < close0, "noise costs Jess's patience")
+	# outages: without a UPS some nights trip
+	gs.new_game(5); gs.farm = {"server": 2, "rack": 1, "switch": 1}
+	for k in 40: gs._farm_night()
+	var no_ups: int = gs.farm_outages
+	gs.new_game(5); gs.farm = {"server": 2, "rack": 1, "switch": 1, "ups": 1, "fans": 1}
+	for k in 40: gs._farm_night()
+	check(no_ups > 0 and gs.farm_outages < no_ups, "home incidents happen; UPS + fans cut them (%d -> %d)" % [no_ups, gs.farm_outages])
+	gs.new_game(6); gs.farm = {"server": 2, "rack": 1, "switch": 1}; gs.farm_income_total = 40; gs.closeness = 60; gs.stress = 20
+	check(gs.ending_id() == "homelab" and gs.ending_text().contains("Mercer Data Center"), "homelab ending reachable")
+	check(gs.can_do("pc") != "" and gs.do_action("pc") != "", "UI verbs can't run through do_action")
+	main.in_garage = false
+	gs.new_game(1); main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""; main.sync_location()

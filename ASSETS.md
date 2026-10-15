@@ -77,3 +77,6 @@ house, office, gas_station, school. Each builds its tiles/props in code, defines
 1. Keep filenames and sizes, drop new PNGs in place → done.
 2. Different sizes: characters → `Actor._frame()` and `offset`; props are placed by top-left and y-sorted by their bottom edge, so taller art just works.
 3. Delete or stop running `gen_sprites.py` so it doesn't overwrite the new files.
+
+## Desktop + garage (2026-10-15)
+All original and procedural. The BrookOS wallpaper is drawn in code (hills, sun, ink lines), and the icons are Unicode glyphs. Garage furniture, boxes, rack and servers are cardboard slabs in `diorama.gd`. Shop names (PCEggo, RackBay, Kilowatt Kevin's) are original parodies that use no real logos or trademarks.

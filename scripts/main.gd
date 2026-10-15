@@ -12,6 +12,7 @@ const LOCATIONS := {
 	"gas_station": "res://scenes/locations/gas_station.tscn",
 	"school": "res://scenes/locations/school.tscn",
 	"road": "res://scenes/locations/road.tscn",
+	"garage": "res://scenes/locations/garage.tscn",
 }
 const PHASE_LOC := {"home_am": "house", "work": "office", "drive": "road", "home_pm": "house", "weekend": "house"}
 const GLOBAL_KEYS := ["text_jess", "pouch", "rx_dose", "breathe"]
@@ -31,6 +32,7 @@ const INK := Color(0.13, 0.1, 0.1)
 const PAPER := Color(0.99, 0.96, 0.87)
 const KRAFT := Color(0.8, 0.64, 0.44)
 var loc: Location
+var in_garage := false           # home phases: Dan walked through the garage door
 var loc_name := ""
 var dan: Actor
 var near_station := ""
@@ -140,6 +142,8 @@ func _ready() -> void:
 	_build_ui()
 	if paper:
 		_build_paper()
+	_build_desktop()
+	_build_assembly()
 	GameState.state_changed.connect(_refresh)
 	GameState.lifeos_message.connect(show_lifeos)
 	GameState.day_ended.connect(_on_day_ended)
@@ -914,6 +918,7 @@ func _paper_sync() -> void:
 		_paper_key = key
 		diorama.build(loc, loc_name, _paper_place())
 		diorama.refresh_cozy(GameState.fridge_drawings, GameState.plant)
+		diorama.refresh_farm(GameState)
 
 ## Short proximity prompt for the paper tag over a station.
 func _tag_text() -> String:
@@ -1005,6 +1010,8 @@ func load_location(n: String) -> void:
 func phase_loc() -> String:
 	if GameState.phase == "drive" and GameState.at_place == "gas":
 		return "gas_station"
+	if in_garage and GameState.phase in ["home_am", "home_pm", "weekend"]:
+		return "garage"
 	return PHASE_LOC[GameState.phase]
 
 ## Puts the world in the right place for the current phase, with default NPCs.
@@ -1012,7 +1019,7 @@ func sync_location() -> void:
 	var want: String = phase_loc()
 	load_location(want)
 	var npcs := {}
-	match GameState.phase:
+	match GameState.phase if want != "garage" else "garage":
 		"home_am":
 			npcs = {"lily": "table_l", "june": "table_r"}
 		"home_pm", "weekend":
@@ -1060,7 +1067,7 @@ func _update_fridge() -> void:
 
 # ------------------------------------------------------------------ loop
 func is_busy() -> bool:
-	return cs_id != "" or summary_root.visible or term_open() or map_open()
+	return cs_id != "" or summary_root.visible or term_open() or map_open() or desktop_open() or assembly_open()
 
 func _process(delta: float) -> void:
 	if lifeos_panel.visible and not dialog_panel.visible:
@@ -1101,6 +1108,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	var k: Key = (event as InputEventKey).keycode
+	if assembly_open() and cs_id == "":
+		if k >= KEY_1 and k <= KEY_3: assembly_step(k - KEY_1)
+		elif k == KEY_ESCAPE: close_assembly()
+		return
+	if desktop_open() and cs_id == "":
+		if k == KEY_ESCAPE: (close_window() if desk_window.visible else close_desktop())
+		return
 	if map_open() and cs_id == "" and not summary_root.visible:
 		if k >= KEY_1 and k <= KEY_9:
 			var i: int = k - KEY_1
@@ -1167,7 +1181,7 @@ func _current_actions() -> Array[String]:
 	if near_station == "" or loc == null:
 		return out
 	for aid in loc.stations[near_station]["actions"]:
-		if GameState.phase in GameState.ACTIONS[aid]["phases"]:
+		if aid == "go_inside" or GameState.phase in GameState.ACTIONS[aid]["phases"]:
 			out.append(aid)
 	return out
 
@@ -1181,6 +1195,17 @@ func perform(aid: String) -> void:
 	if aid == "work_ticket" and use_terminal:
 		open_terminal()
 		return
+	match aid:
+		"pc": open_desktop(); return
+		"farm_check": open_desktop(); desk_app("farm"); return
+		"go_garage", "go_inside":
+			in_garage = aid == "go_garage"
+			sync_location()
+			_log("The garage. It smells like cardboard and ambition." if in_garage else "Back inside. The hum follows you a little.")
+			return
+		"build_farm":
+			if GameState.can_do(aid) != "": _log(GameState.can_do(aid)); return
+			open_assembly(); return
 	var res: String = GameState.do_action(aid)
 	_log(res)
 	_refresh_prompt()
@@ -1274,6 +1299,9 @@ func _next_cutscene() -> void:
 		return
 	var item: Array = cs_queue.pop_front()
 	cs_id = item[0]
+	if cs_id != "moment": in_garage = false
+	if desktop_open(): close_desktop()
+	if assembly_open(): close_assembly()
 	cs_steps = Cutscenes.build(cs_id, GameState, item[1])
 	cs_waiting = ""
 	if loc:
@@ -1437,6 +1465,8 @@ func _refresh_prompt() -> void:
 	var i := 1
 	for aid in _current_actions():
 		var a: Dictionary = GameState.ACTIONS[aid]
+		if a.get("ui", false):
+			parts.append("[%d] %s" % [i, a["name"]]); i += 1; continue
 		var cost := "%d min, %+d energy" % [GameState.action_blocks(aid) * GameState.BLOCK, int(a["energy"])]
 		if aid == "sleep":
 			cost = "ends the day"
@@ -1475,6 +1505,12 @@ func audit_ui() -> Array[String]:
 	var vp := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size).grow(1)
 	var labels: Array[Label] = []
 	_collect_labels(ui, labels)
+	labels = labels.filter(func(l: Label) -> bool:
+		var p := l.get_parent()
+		while p != null and p != ui:
+			if p is ScrollContainer: return (p as ScrollContainer).get_global_rect().intersects(l.get_global_rect())
+			p = p.get_parent()
+		return true)
 	for l in labels:
 		var r := l.get_global_rect()
 		if not vp.encloses(r):
@@ -1491,6 +1527,8 @@ func audit_ui() -> Array[String]:
 			var b := labels[j]
 			if _overlay_of(a) != _overlay_of(b):
 				continue
+			if a.size.x < 3 or a.size.y < 3 or b.size.x < 3 or b.size.y < 3:
+				continue
 			if a.get_global_rect().grow(-1).intersects(b.get_global_rect().grow(-1)):
 				problems.append("overlap: '%s' / '%s'" % [a.text.left(25), b.text.left(25)])
 	if map_open():
@@ -1505,7 +1543,7 @@ func audit_ui() -> Array[String]:
 
 func _overlay_of(n: Node) -> String:
 	while n != null and n != ui:
-		if n.name in ["LifeOS", "Dialogue", "Summary", "Terminal", "TownMap"]:
+		if n.name in ["LifeOS", "Dialogue", "Summary", "Terminal", "TownMap", "Desktop", "Assembly"]:
 			return n.name
 		n = n.get_parent()
 	return "HUD"
@@ -1517,3 +1555,341 @@ func _collect_labels(n: Node, out: Array[Label]) -> void:
 		out.append(n)
 	for c in n.get_children():
 		_collect_labels(c, out)
+
+
+# ------------------------------------------------------------------ home PC desktop (BrookOS)
+var desktop: Control
+var desk_window: PanelContainer
+var desk_title: Label
+var desk_body: VBoxContainer
+var desk_clock: Label
+var desk_start: PanelContainer
+var desk_tab: Button
+var desk_app_id := ""
+var cart: Array = []
+var desk_msg := ""
+const DESK_APPS := [["tickets", "▤", "Tickets"], ["games", "♞", "Vapor Games"], ["hustle", "✎", "Bakery Script"], ["pceggo", "◒", "PCEggo"],
+	["rackbay", "▦", "RackBay"], ["kevin", "ϟ", "Kilowatt Kevin's"], ["cart", "▣", "Cart"], ["farm", "≋", "FarmStat"]]
+const SHOP_TAG := {"pceggo": "PCEggo — parts with a little egg on them. Free next-day shipping on anything that fits in a box.",
+	"rackbay": "RackBay — pre-loved enterprise gear. Previous owner: a bank that no longer exists.",
+	"kevin": "Kilowatt Kevin's Power & Cooling — fans, foam, and a guy who knows a guy (licensed, mostly)."}
+
+func desktop_open() -> bool:
+	return desktop != null and desktop.visible
+
+func _build_desktop() -> void:
+	desktop = Control.new()
+	desktop.name = "Desktop"
+	world_slot.add_child(desktop)
+	desktop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var wall := Control.new()
+	wall.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wall.mouse_filter = Control.MOUSE_FILTER_STOP
+	wall.draw.connect(func():
+		var sz := wall.size
+		wall.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.55, 0.74, 0.86))
+		wall.draw_rect(Rect2(0, sz.y * 0.35, sz.x, sz.y * 0.1), Color(0.62, 0.79, 0.9))
+		wall.draw_circle(Vector2(sz.x * 0.8, sz.y * 0.24), 46, Color(1, 0.86, 0.4))
+		for k in 3:   # cut-paper hills with an ink edge
+			var pts := PackedVector2Array()
+			var base := sz.y * (0.62 + 0.08 * k)
+			for i in 33:
+				var x := sz.x * i / 32.0
+				pts.append(Vector2(x, base - 40 * sin(i * 0.4 + k * 1.7) - 18 * k))
+			pts.append(Vector2(sz.x, sz.y)); pts.append(Vector2(0, sz.y))
+			wall.draw_colored_polygon(pts, [Color(0.46, 0.66, 0.4), Color(0.4, 0.58, 0.34), Color(0.8, 0.64, 0.44)][k])
+			wall.draw_polyline(pts.slice(0, 33), INK, 2.0)
+		wall.draw_string(ThemeDB.fallback_font, Vector2(sz.x - 240, sz.y - 54), "BrookOS 98 · Home Edition", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.75)))
+	desktop.add_child(wall)
+	var icons := GridContainer.new()
+	icons.columns = 2
+	icons.position = Vector2(12, 10)
+	icons.add_theme_constant_override("h_separation", 8)
+	icons.add_theme_constant_override("v_separation", 6)
+	desktop.add_child(icons)
+	for a in DESK_APPS:
+		var b := Button.new()
+		b.name = "Icon_" + a[0]
+		b.text = "%s\n%s" % [a[1], a[2]]
+		b.custom_minimum_size = Vector2(118, 54)
+		b.add_theme_font_size_override("font_size", 13)
+		b.pressed.connect(desk_app.bind(a[0]))
+		icons.add_child(b)
+	var bar := PanelContainer.new()
+	bar.name = "Taskbar"
+	bar.add_theme_stylebox_override("panel", _paper_box(KRAFT, INK, 2, false))
+	bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bar.offset_top = -38
+	desktop.add_child(bar)
+	var hb := HBoxContainer.new()
+	bar.add_child(hb)
+	var st := Button.new()
+	st.text = "◆ Start"
+	st.pressed.connect(func(): desk_start.visible = not desk_start.visible)
+	hb.add_child(st)
+	desk_tab = Button.new()
+	desk_tab.text = ""
+	desk_tab.visible = false
+	hb.add_child(desk_tab)
+	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(sp)
+	desk_clock = _label("", 14)
+	desk_clock.custom_minimum_size = Vector2(130, 0)
+	desk_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	desk_clock.add_theme_color_override("font_color", INK)
+	hb.add_child(desk_clock)
+	desk_start = PanelContainer.new()
+	desk_start.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	desk_start.offset_bottom = -40; desk_start.offset_top = -40 - 300; desk_start.offset_right = 230
+	desk_start.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	desktop.add_child(desk_start)
+	var sv := VBoxContainer.new()
+	desk_start.add_child(sv)
+	for a in DESK_APPS:
+		var b := Button.new(); b.text = "%s  %s" % [a[1], a[2]]; b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.pressed.connect(func(): desk_start.visible = false; desk_app(a[0]))
+		sv.add_child(b)
+	var off := Button.new(); off.text = "⏻  Shut down (back to the room)"; off.pressed.connect(close_desktop)
+	sv.add_child(off)
+	desk_start.visible = false
+	desk_window = PanelContainer.new()
+	desk_window.name = "Window"
+	desk_window.set_anchors_preset(Control.PRESET_FULL_RECT)
+	desk_window.offset_left = 268; desk_window.offset_right = -16; desk_window.offset_top = 12; desk_window.offset_bottom = -48
+	desktop.add_child(desk_window)
+	var wv := VBoxContainer.new()
+	desk_window.add_child(wv)
+	var tb := PanelContainer.new()
+	tb.add_theme_stylebox_override("panel", _paper_box(Color(0.3, 0.42, 0.62), INK, 2, false))
+	wv.add_child(tb)
+	var th := HBoxContainer.new()
+	tb.add_child(th)
+	desk_title = _label("", 15)
+	desk_title.add_theme_color_override("font_color", Color(1, 1, 1))
+	desk_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	desk_title.clip_text = true
+	th.add_child(desk_title)
+	var x := Button.new(); x.text = "✕"; x.pressed.connect(close_window)
+	th.add_child(x)
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	wv.add_child(sc)
+	desk_body = VBoxContainer.new()
+	desk_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(desk_body)
+	desk_window.visible = false
+	desktop.visible = false
+
+func open_desktop() -> void:
+	desktop.visible = true
+	desk_start.visible = false
+	desk_msg = ""
+	close_window()
+	desk_clock.text = "%s  %s" % [GameState.day_name().left(3), GameState.clock_text()]
+	_log("BrookOS boots in 4 seconds. It used to take 90. You did that.")
+
+func close_desktop() -> void:
+	close_window()
+	desktop.visible = false
+	_refresh_prompt()
+
+func close_window() -> void:
+	desk_window.visible = false
+	desk_app_id = ""
+	desk_tab.visible = false
+
+func _dl(t: String, size := 14, col := INK) -> Label:
+	var l := _label(t, size, true)
+	l.add_theme_color_override("font_color", col)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.custom_minimum_size = Vector2(560, 0)
+	desk_body.add_child(l)
+	return l
+
+## Opens an app on the desktop (also the API the bots and tests use).
+func desk_app(id: String) -> void:
+	match id:
+		"tickets", "games", "hustle":
+			var aid: String = {"tickets": "work_ticket", "games": "gaming", "hustle": "side_hustle"}[id]
+			var why: String = GameState.can_do(aid)
+			if why != "":
+				desk_msg = why; _desk_popup(id, why); return
+			close_desktop()
+			perform(aid)
+			return
+	desk_app_id = id
+	desk_window.visible = true
+	desk_tab.visible = true
+	desk_start.visible = false
+	for c in desk_body.get_children(): c.free()
+	var names := {"pceggo": "PCEggo.web — Deals", "rackbay": "RackBay — Used Enterprise", "kevin": "Kilowatt Kevin's — Power & Cooling", "cart": "Cart — Checkout", "farm": "FarmStat 1.0 — Mercer Data Center"}
+	desk_title.text = names.get(id, id)
+	desk_tab.text = desk_title.text.left(18)
+	match id:
+		"pceggo", "rackbay", "kevin":
+			_dl(SHOP_TAG[id], 14, Color(0.3, 0.2, 0.15))
+			for iid in GameState.CATALOG:
+				var it: Dictionary = GameState.CATALOG[iid]
+				if it["shop"] != id: continue
+				var row := HBoxContainer.new()
+				desk_body.add_child(row)
+				var l := _label("%s — $%d%s" % [it["name"], it["price"], ("  · %d W" % it["watts"]) if it["watts"] > 0 else ""], 14, true)
+				l.add_theme_color_override("font_color", INK)
+				l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				l.custom_minimum_size = Vector2(440, 0)
+				row.add_child(l)
+				var b := Button.new(); b.text = "Add to cart"; b.pressed.connect(cart_add.bind(iid))
+				row.add_child(b)
+			_dl("Cart: %d item%s ($%d) · You have $%d · Delivery: tomorrow morning" % [cart.size(), "" if cart.size() == 1 else "s", cart_total(), GameState.money], 13)
+			if desk_msg != "": _dl(desk_msg, 13, Color(0.6, 0.2, 0.1))
+		"cart":
+			if cart.is_empty(): _dl("Your cart is empty. Like the rack.")
+			for i in cart.size():
+				var row := HBoxContainer.new()
+				desk_body.add_child(row)
+				var it: Dictionary = GameState.CATALOG[cart[i]]
+				var l := _label("%s (%s) — $%d" % [it["name"], GameState.SHOPS[it["shop"]], it["price"]], 14, true)
+				l.add_theme_color_override("font_color", INK)
+				l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				l.custom_minimum_size = Vector2(440, 0)
+				row.add_child(l)
+				var b := Button.new(); b.text = "Remove"; b.pressed.connect(func(): cart.remove_at(i); desk_app("cart"))
+				row.add_child(b)
+			_dl("Total: $%d   ·   Balance: $%d" % [cart_total(), GameState.money], 15)
+			var co := Button.new(); co.text = "Checkout (next-day delivery)"; co.pressed.connect(func(): cart_checkout())
+			desk_body.add_child(co)
+			if desk_msg != "": _dl(desk_msg, 13, Color(0.6, 0.2, 0.1))
+		"farm":
+			_dl(GameState.farm_status(), 15)
+			var bars := ""
+			for k in 10: bars += "█" if k < GameState.farm_heat() else "░"
+			_dl("Heat  " + bars, 14, Color(0.7, 0.25, 0.15))
+			bars = ""
+			for k in 10: bars += "█" if k < GameState.farm_noise() else "░"
+			_dl("Noise " + bars, 14, Color(0.3, 0.3, 0.6))
+			_dl("Tip: a rack, a switch and the electrician's circuit let more servers run. A UPS keeps blips from becoming outages. Fans fight heat; foam fights Jess's eyebrows.", 13, Color(0.35, 0.3, 0.25))
+
+func _desk_popup(id: String, t: String) -> void:
+	desk_app_id = id
+	desk_window.visible = true
+	desk_tab.visible = true
+	for c in desk_body.get_children(): c.free()
+	desk_title.text = "BrookOS"
+	_dl(t)
+
+func cart_total() -> int:
+	var t := 0
+	for id in cart: t += int(GameState.CATALOG[id]["price"])
+	return t
+
+func cart_add(id: String) -> void:
+	cart.append(id)
+	desk_msg = "Added: %s." % GameState.CATALOG[id]["name"].split(" (")[0]
+	if desktop_open() and desk_app_id != "": desk_app(desk_app_id)
+
+func cart_checkout() -> String:
+	var res: String = GameState.checkout(cart)
+	if res.begins_with("Order placed"): cart.clear()
+	desk_msg = res
+	_log(res)
+	if desktop_open(): desk_app("cart")
+	return res
+
+# ------------------------------------------------------------------ garage assembly (interactive build)
+var asm_panel: PanelContainer
+var asm_title: Label
+var asm_info: Label
+var asm_btns: Array[Button] = []
+var asm_steps: Array = []       # correct order
+var asm_order: Array = []       # display order (indices into asm_steps)
+var asm_done := 0
+var asm_mistakes := 0
+const ASM_STEPS := {"server": ["Slide it into the rack", "Cable power + network", "Power on"], "rack": ["Bolt the frame together", "Level it (ish)", "Anchor it to the wall"],
+	"switch": ["Mount the switch", "Patch the servers in", "Power on (cover your ears)"], "ups": ["Connect the battery", "Plug the rack into it", "Self-test"],
+	"drives": ["Screw drives into sleds", "Slide them into the bays", "Start the RAID build"], "nic": ["Open the server lid", "Seat the cards", "Plug in the fiber"],
+	"fans": ["Zip-tie the fans together", "Aim them at the rack", "Plug in"], "foam": ["Peel the backing", "Stick it to the walls", "Admire the silence"]}
+
+func assembly_open() -> bool:
+	return asm_panel != null and asm_panel.visible
+
+func _build_assembly() -> void:
+	asm_panel = PanelContainer.new()
+	asm_panel.name = "Assembly"
+	world_slot.add_child(asm_panel)
+	asm_panel.set_anchors_preset(Control.PRESET_CENTER)
+	asm_panel.custom_minimum_size = Vector2(620, 0)
+	asm_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	asm_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var v := VBoxContainer.new()
+	asm_panel.add_child(v)
+	asm_title = _label("", 18)
+	asm_title.add_theme_color_override("font_color", INK)
+	v.add_child(asm_title)
+	asm_info = _label("", 14, true)
+	asm_info.add_theme_color_override("font_color", INK)
+	asm_info.custom_minimum_size = Vector2(600, 0)
+	v.add_child(asm_info)
+	var h := HBoxContainer.new()
+	v.add_child(h)
+	for i in 3:
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(196, 40)
+		b.pressed.connect(assembly_step.bind(i))
+		h.add_child(b)
+		asm_btns.append(b)
+	asm_panel.visible = false
+
+func open_assembly() -> void:
+	var id: String = GameState.boxes[0]
+	asm_steps = ASM_STEPS.get(id, ["Unbox it", "Install it", "Test it"])
+	asm_order = [0, 1, 2]
+	var r := (GameState.day * 7 + GameState.boxes.size() * 3 + GameState.minutes) % 3   # shuffled, deterministic
+	for k in r: asm_order.push_back(asm_order.pop_front())
+	if r == 1: asm_order.reverse()
+	asm_done = 0
+	asm_mistakes = 0
+	asm_title.text = "Build: " + GameState.CATALOG[id]["name"].split(" (")[0]
+	asm_info.text = "Do the steps in the right order (click, or press 1-3). %d more box%s after this." % [GameState.boxes.size() - 1, "" if GameState.boxes.size() == 2 else "es"]
+	_asm_refresh()
+	asm_panel.visible = true
+
+func _asm_refresh() -> void:
+	for i in 3:
+		var si: int = asm_order[i]
+		asm_btns[i].text = ("✓ " if si < asm_done else "%d  " % (i + 1)) + asm_steps[si]
+		asm_btns[i].disabled = si < asm_done
+
+func assembly_step(i: int) -> void:
+	if not assembly_open() or i >= 3: return
+	var si: int = asm_order[i]
+	if si < asm_done: return
+	if si != asm_done:
+		asm_mistakes += 1
+		asm_info.text = ["You can't %s yet. The manual (one diagram, no words) disagrees." % asm_steps[si].to_lower(), "Not yet. A screw rolls under the car. It lives there now.", "Out of order. June, watching from the door: \"Daddy, that's backwards.\""][asm_mistakes % 3]
+		return
+	asm_done += 1
+	_asm_refresh()
+	if asm_done >= 3:
+		asm_panel.visible = false
+		var res: String = GameState.do_action("build_farm")
+		_log(res + (" (%d fumble%s)" % [asm_mistakes, "" if asm_mistakes == 1 else "s"] if asm_mistakes > 0 else ""))
+		if diorama: diorama.refresh_farm(GameState)
+		_refresh_prompt()
+	else:
+		asm_info.text = "Step %d/3 done: %s." % [asm_done, asm_steps[asm_done - 1]]
+
+func close_assembly() -> void:
+	asm_panel.visible = false
+	_log("You leave the box for later. It will wait. Boxes are patient.")
+
+## Bot/test helper: does the steps in order.
+func assembly_auto() -> void:
+	while assembly_open():
+		assembly_step(asm_order.find(asm_done))
+
+## Lays containers out now (tests/bots audit right after opening a window, before the next frame).
+func relayout(n: Node = null) -> void:
+	if n == null: n = world_slot
+	if n is Container: (n as Container).notification(Container.NOTIFICATION_SORT_CHILDREN)
+	for c in n.get_children(): relayout(c)

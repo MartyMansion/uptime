@@ -23,6 +23,7 @@ const SET_LIGHT := {   # set -> [ambient, sun colour, card tint]
 	"office": [Color(0.7, 0.74, 0.78), Color(0.92, 0.96, 1.0), Color(0.95, 0.97, 1.0)],
 	"gas_station": [Color(0.78, 0.72, 0.66), Color(1, 0.9, 0.72), Color(1.0, 0.96, 0.88)],
 	"road": [Color(0.8, 0.8, 0.78), Color(1, 0.95, 0.82), Color(1.0, 0.98, 0.92)],
+	"garage": [Color(0.7, 0.7, 0.72), Color(0.95, 0.92, 0.85), Color(0.97, 0.96, 0.92)],
 	"school": [Color(0.8, 0.8, 0.78), Color(1, 0.95, 0.82), Color(1.0, 0.98, 0.92)],
 }
 const PLACE_SETS := ["park", "pharmacy", "dental", "diner", "coffee", "school", "home", "gas"]
@@ -41,6 +42,8 @@ var tag: Label3D               # proximity prompt
 var tag_arrow: MeshInstance3D
 var fridge_root: Node3D
 var plant_node: Node3D
+var farm_root: Node3D
+var farm_key := ""
 var clock_hands: Array = []
 var signs: Array[Label3D] = []
 var zb := -4.2                 # back wall front face z
@@ -169,6 +172,8 @@ func clear() -> void:
 	clock_hands.clear()
 	fridge_root = null
 	plant_node = null
+	farm_root = null
+	farm_key = ""
 
 ## Builds the set for a Location. `place_id` picks a town-map destination set while driving.
 func build(loc: Location, loc_name: String, place_id := "") -> void:
@@ -188,6 +193,7 @@ func build(loc: Location, loc_name: String, place_id := "") -> void:
 			"gas_station": _dress_gas()
 			"school": _dress_school()
 			"road": _dress_road()
+			"garage": _dress_garage()
 	env.ambient_light_color = lt[0]
 	sun.light_color = lt[1]
 	stage_tint = lt[2]
@@ -457,6 +463,7 @@ func _dress_house() -> void:
 	slab(Vector3((215 - 160) * S, 2.4, zb + 0.06), Vector3(0.56, 0.42, 0.03), Color(0.95, 0.88, 0.7))
 	for k in 4:
 		slab(Vector3((215 - 160) * S - 0.18 + k * 0.12, 2.36, zb + 0.085), Vector3(0.08, 0.2 - 0.04 * int(k > 1), 0.01), [Color(0.36, 0.42, 0.52), Color(0.52, 0.74, 0.6), Color(0.95, 0.56, 0.7), Color(1, 0.8, 0.26)][k])
+	text3("GARAGE →", to3(Vector2(20, 158)) + Vector3(0, 1.6, 0), 24, Color(0.4, 0.3, 0.25))
 	text3("Mercer HQ", Vector3((270 - 160) * S, 1.65, zb + 0.06), 26, Color(0.5, 0.3, 0.3))
 	_foreground([
 		[30, 214, Vector3(0.9, 0.42, 0.6), Color(0.86, 0.8, 0.62), "LAUNDRY (day 4)"],
@@ -504,6 +511,75 @@ func _dress_school() -> void:
 		[40, 216, Vector3(0.6, 0.4, 0.05), Color(1, 0.85, 0.2), "SLOW: KIDS"],
 		[270, 222, Vector3(0.5, 0.4, 0.3), Color(0.9, 0.3, 0.45), "LOST & FOUND"],
 	])
+
+func _dress_garage() -> void:
+	_back_wall(Color(0.72, 0.72, 0.7))
+	wall_sign(112, 3.0, 2.6, 0.55, Color(0.2, 0.25, 0.3), "MERCER DATA CENTER · EST. THIS WEEK", Color(0.6, 1, 0.6), 30)
+	wall_sign(285, 2.9, 1.3, 0.5, Color(1, 0.95, 0.5), "MIND THE\nCAR (SOLD)", INK, 22)
+	for k in 6:   # pegboard + tools
+		slab(Vector3((20 - 160 + k * 9) * S, 2.0, zb + 0.03), Vector3(0.36, 0.1 + 0.08 * (k % 3), 0.03), [Color(0.8, 0.2, 0.2), Color(0.3, 0.3, 0.32), Color(0.95, 0.75, 0.2)][k % 3])
+	slab(Vector3(((300 - 160) * S), 1.0, zb + 0.03), Vector3(1.4, 2.0, 0.05), Color(0.85, 0.85, 0.82))  # garage roll door edge
+	var shop := OmniLight3D.new()   # bare shop bulb: the garage is always lit
+	shop.position = Vector3(0.6, 3.6, -1.0)
+	shop.light_color = Color(1, 0.95, 0.8)
+	shop.light_energy = 2.4
+	shop.omni_range = 9
+	set_root.add_child(shop)
+	_foreground([[40, 216, Vector3(1.2, 0.3, 0.5), Color(0.72, 0.58, 0.4), "BOXES (empty, kept 'just in case')"], [270, 220, Vector3(0.6, 0.5, 0.4), Color(0.3, 0.5, 0.3), "PAINT 2009"]])
+
+## The farm grows: delivered boxes, then rack, servers (LEDs), switch, UPS, fans, foam, circuit.
+func refresh_farm(gs) -> void:
+	if set_name != "garage" or set_root == null:
+		return
+	var key := JSON.stringify([gs.farm, gs.boxes, gs.farm_online()])
+	if key == farm_key: return
+	farm_key = key
+	if farm_root: farm_root.free()
+	farm_root = Node3D.new()
+	farm_root.name = "Farm"
+	set_root.add_child(farm_root)
+	var cardboard := Color(0.78, 0.6, 0.4)
+	for i in gs.boxes.size():   # delivered boxes, stacked at the boxes station
+		var p := to3(Vector2(52 + (i % 3) * 18, 130 - (i / 3) * 2)) + Vector3(0, 0.25 + 0.5 * (i / 3), 0)
+		var bx := slab(p, Vector3(0.8, 0.5, 0.6), cardboard, farm_root)
+		bx.name = "Box"
+		slab(p + Vector3(0, 0.26, 0), Vector3(0.82, 0.02, 0.1), Color(0.85, 0.75, 0.55), farm_root)   # tape
+		var l := text3(str(gs.boxes[i]).to_upper(), p + Vector3(0, 0, 0.31), 22, INK)
+		l.reparent(farm_root)
+	var rx := to3(Vector2(195, 46))
+	var has_rack: bool = gs.farm_has("rack") > 0
+	if has_rack:
+		for dx in [-0.55, 0.55]:
+			for dz in [-0.3, 0.3]:
+				slab(rx + Vector3(dx, 1.1, dz), Vector3(0.06, 2.2, 0.06), Color(0.15, 0.15, 0.17), farm_root).name = "RackPost"
+		slab(rx + Vector3(0, 2.2, 0), Vector3(1.2, 0.05, 0.66), Color(0.15, 0.15, 0.17), farm_root)
+	var on: int = gs.farm_online()
+	for i in gs.farm_has("server"):
+		var p := (rx + Vector3(0, 0.25 + i * 0.28, 0)) if has_rack else (to3(Vector2(150 + i * 26, 50)) + Vector3(0, 0.12, 0))
+		var sv := slab(p, Vector3(1.0, 0.22, 0.6), Color(0.3, 0.32, 0.36), farm_root)
+		sv.name = "Server"
+		for k in 3:
+			slab(p + Vector3(-0.35 + k * 0.1, 0, 0.31), Vector3(0.05, 0.05, 0.02), Color(0.3, 1, 0.4) if i < on else Color(1, 0.3, 0.2), farm_root, 0.8)
+	if gs.farm_has("switch") > 0:
+		var p := rx + Vector3(0, 2.0, 0) if has_rack else to3(Vector2(200, 50)) + Vector3(0, 0.06, 0)
+		slab(p, Vector3(1.0, 0.1, 0.5), Color(0.2, 0.4, 0.7), farm_root).name = "Switch"
+	if gs.farm_has("ups") > 0:
+		slab(to3(Vector2(232, 52)) + Vector3(0, 0.3, 0), Vector3(0.4, 0.6, 0.6), Color(0.12, 0.12, 0.12), farm_root).name = "UPS"
+	for k in gs.farm_has("fans"):
+		var f := slab(to3(Vector2(258 + k * 6, 60)) + Vector3(0, 0.45 + 0.3 * k, 0), Vector3(0.6, 0.6, 0.12), Color(0.9, 0.9, 0.88), farm_root)
+		f.name = "Fans"
+	for k in gs.farm_has("foam") * 4:
+		slab(Vector3((130 - 160 + k * 22) * S, 2.4 + 0.5 * (k % 2), zb + 0.05), Vector3(0.5, 0.5, 0.06), Color(0.3, 0.3, 0.34), farm_root).name = "Foam"
+	if gs.farm_has("electrician") > 0:
+		slab(Vector3((240 - 160) * S, 1.8, zb + 0.04), Vector3(0.05, 3.6, 0.05), Color(0.6, 0.6, 0.6), farm_root)
+		slab(Vector3((240 - 160) * S, 1.2, zb + 0.07), Vector3(0.4, 0.5, 0.08), Color(0.7, 0.7, 0.72), farm_root).name = "Circuit"
+	if on > 0:
+		var glow := OmniLight3D.new()
+		glow.position = rx + Vector3(0, 1.0, 0.8)
+		glow.light_color = Color(0.5, 1, 0.6)
+		glow.light_energy = 0.3 + 0.2 * on
+		glow.omni_range = 4
+		farm_root.add_child(glow)
 
 func _dress_road() -> void:
 	_backdrop(Color(0.7, 0.84, 0.95))

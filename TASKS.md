@@ -111,3 +111,11 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [ ] Camera: per-room framing presets for the house (bedroom/kitchen/girls/living)
 - [ ] Phone/page voice-over lines: show the caller as a small card in the banner
 - [ ] nmap / reboot / telnet responses (sysadmin probes still hit "command not found")
+
+## Home PC + garage homelab (done 2026-10-15)
+- [x] No forced Gas-N-Sip after work (neutral Main Street + map; tests on every weekday)
+- [x] BrookOS desktop at the PC desk: taskbar, Start, clock, windows, old PC actions as icons
+- [x] Parody shops PCEggo / RackBay / Kilowatt Kevin's, 9 items, cart, checkout, money check, next-day delivery
+- [x] Garage room with boxes, ordered 3-step assembly, and a farm that visibly grows
+- [x] Nightly income, power bill, heat/noise, Jess and family costs, home incidents (UPS and fans reduce them), homelab ending
+- [ ] Next: Town Sentiment, a second rack, colo contracts, the full Win Path B from design doc §B

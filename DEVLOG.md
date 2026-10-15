@@ -159,3 +159,17 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - Incident SLAs scale with skill and include curveballs. Hints and typos are cheap for a new Dan.
 - 7 personas (including the new `paperfan`) × 100 weeks, plus the legacy bot: 0 problems. Hand-solved incident breaches are 20% overall. Report: `uptime-build/PAPER_PORT_REPORT.md`.
 - Fixed: narration lines never typed out, the banner covered signs, the camera could see past the stage, cards overlapped, parallel bot saves collided.
+
+## 2026-10-15 — No forced Gas-N-Sip; home PC + garage homelab
+- Fix (Marty's playtest): leaving work used to drop Dan at the Gas-N-Sip every day. Now he lands on a neutral Main Street set and the town map opens. The Gas-N-Sip is one optional pin, and the radio cutscene plays on every route. Tests cover all 5 weekdays.
+- The home PC desk opens **BrookOS 98**, a paper-styled fake desktop with a wallpaper, taskbar, Start menu, clock, icons and windows you can close. Tickets, Vapor Games and Bakery Script are icons for the old actions.
+- Three parody shops sell 9 items, with a cart, checkout and a money check. Orders arrive the next morning. The shops are **PCEggo** (servers, drives, NICs), **RackBay** (used rack, switch, UPS) and **Kilowatt Kevin's** (box fans, foam, electrician for a 20 A circuit).
+- The new **garage** room is through the house's garage door. Delivered boxes stack up, and each build is a 3-step assembly that must go in order (rack, cable, power on). The diorama shows the rack, servers with LEDs, switch, UPS, fans, foam and circuit as they are added.
+- Tycoon-lite rules:
+  - Server limits: 1 without a rack or switch; 2 per house circuit until the electrician comes.
+  - Each night brings income and a power bill (0.16 $/kWh).
+  - Heat and noise cost Jess's patience (and the girls' sleep).
+  - Home incidents (breaker trips, heat alarms) happen less often with a UPS and fans.
+  - Evening garage time costs closeness.
+  - New ending: "Mercer Data Center" (2+ servers online, net ≥ $20, Jess ≥ 40).
+- All of it saves and loads. Persona bots `sysadmin`, `completionist` and `paperfan` shop and build through the real UI and audit it.

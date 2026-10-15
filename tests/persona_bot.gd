@@ -57,6 +57,7 @@ func _run() -> void:
 	f.store_line("PSTATS " + JSON.stringify(ps))
 	f.store_line("MAP opens %d waits %d dest %s missed_pickups %d" % [int(stats.get("map_opens", 0)), int(stats.get("map_waits", 0)), JSON.stringify(stats.get("map_dest", {})), int(stats.get("missed_pickups", 0))])
 	f.store_line("ENDINGS " + JSON.stringify(stats["endings_by"]))
+	f.store_line("FARM runs %d orders %d builds %d servers_online %d net $%d outages %d" % [int(stats.get("farm_runs", 0)), int(ps.get("farm_orders", 0)), int(ps.get("farm_builds", 0)), int(stats.get("farm_servers_online", 0)), int(stats.get("farm_net", 0)), int(stats.get("farm_outages", 0))])
 	f.store_line("ACHIEVEMENTS " + JSON.stringify(all_ach))
 	f.store_line("MOMENTS %d kinds %s" % [all_moments.size(), JSON.stringify(all_moments)])
 	f.store_line("ACTIONS " + JSON.stringify(stats["actions_used"]))
@@ -141,7 +142,52 @@ func check_state() -> void:
 	if gs.girls_fed == 0: inc("girls_fed_zero_moments")
 	if gs.girls_fed < 25: inc("girls_fed_low_moments")
 
+const FARM_PLAN := ["server", "rack", "switch", "server", "ups", "fans", "drives", "foam", "electrician", "server", "nic"]
+
+## Homelab builders: shop on the home PC, build boxes in the garage (exercises the desktop + assembly UI).
+func farm_routine(rng: RandomNumberGenerator) -> void:
+	if not (persona in ["sysadmin", "completionist", "paperfan"]) or main.is_busy(): return
+	if not (gs.phase in ["home_pm", "weekend"]) or rng.randf() > 0.4: return
+	if not gs.boxes.is_empty():
+		main.near_station = "garage"; main.perform("go_garage")
+		if main.loc_name != "garage": bad("garage door did not open the garage")
+		main.near_station = "boxes"; main.perform("build_farm")
+		if not main.assembly_open(): bad("boxes did not open the assembly"); return
+		if persona == "paperfan": main.assembly_step(main.asm_order.find(2)); inc("farm_fumbles")
+		main.relayout(); main.relayout()
+		for p in main.audit_ui(): bad("assembly UI: " + p)
+		var n0: int = gs.farm_has(gs.boxes[0])
+		var id: String = gs.boxes[0]
+		main.assembly_auto()
+		if gs.farm_has(id) != n0 + 1: bad("assembly did not install " + id)
+		inc("farm_builds")
+		main.perform("go_inside")
+		return
+	var have := {}
+	for x in gs.farm: have[x] = int(gs.farm[x])
+	for o in gs.orders: have[o[0]] = int(have.get(o[0], 0)) + 1
+	var need := {}
+	for id in FARM_PLAN:
+		need[id] = int(need.get(id, 0)) + 1
+		if int(need[id]) > int(have.get(id, 0)):
+			if gs.CATALOG[id]["price"] > gs.money - 40: return
+			main.near_station = "desk"; main.perform("pc")
+			if not main.desktop_open(): bad("PC did not open the desktop"); return
+			main.desk_app(gs.CATALOG[id]["shop"])
+			main.relayout(); main.relayout()
+			for p in main.audit_ui(): bad("desktop UI: " + p)
+			main.cart_add(id)
+			main.desk_app("cart")
+			var m0: int = gs.money
+			var res: String = main.cart_checkout()
+			if not res.begins_with("Order placed") or gs.money != m0 - int(gs.CATALOG[id]["price"]): bad("checkout failed: " + res)
+			inc("farm_orders")
+			main.desk_app("farm")
+			main.close_desktop()
+			return
+
 func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String:
+	farm_routine(rng)
 	var pref: Array = []
 	match persona:
 		"sysadmin":
