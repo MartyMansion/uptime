@@ -39,6 +39,8 @@ const ACTIONS := {
 	"head_home": {"name": "Head home", "blocks": 1, "energy": 0, "phases": ["work"]},
 	"buy_beer": {"name": "Grab a six-pack ($12)", "blocks": 0, "energy": 0, "money": -12, "phases": ["drive"]},
 	"buy_pouches": {"name": "Grab a tin of nic pouches ($7)", "blocks": 0, "energy": 0, "money": -7, "phases": ["drive"]},
+	"buy_patch": {"name": "Nicotine patches instead ($15)", "blocks": 0, "energy": 0, "money": -15, "phases": ["drive"]},
+	"call_doctor": {"name": "Call Dr. Patel about the Rx", "blocks": 1, "energy": -2, "stress": -4, "once": true, "phases": ["work"]},
 	"pickup_girls": {"name": "Just drive on and pick up the girls", "blocks": 1, "energy": -3, "phases": ["drive"]},
 	"play_girls": {"name": "Play with Lily & June", "blocks": 1, "energy": -5, "stress": -5, "connected": 12, "phases": HOME},
 	"bedtime_story": {"name": "Bedtime story", "blocks": 1, "energy": -5, "connected": 20, "after": 1170, "before": 1260, "once": true, "phases": HOME},
@@ -165,6 +167,8 @@ var rx_extra_total: int = 0
 var rx_until: int = -1        # minute the current dose wears off
 var rx_last_dose: int = -1
 var notices_seen := {}
+var patch_days: int = 0            # patches blunt pouch cravings
+var rx_plan := false               # talked to the doctor: gentler crash
 var honesty: int = 50              # hidden; moved by choices in cutscenes
 var fridge_drawings: int = 0       # cozy loop: grows with time spent with the girls
 var moments_seen := {}              # relationship moments already played
@@ -198,6 +202,8 @@ func new_game(seed_value: int = 0) -> void:
 	notices_seen = {}
 	fridge_drawings = 0
 	honesty = 50
+	patch_days = 0
+	rx_plan = false
 	moments_seen = {}
 	clean = {"drink": 0, "pouch": 0, "rx_extra": 0}
 	used_ever = {"drink": false, "pouch": false, "rx_extra": false}
@@ -211,6 +217,14 @@ func _start_day() -> void:
 	phase = "weekend" if day >= 5 else "home_am"
 	if day > 0 and day < 5:
 		stress = clampi(stress + 10, 0, 100)   # the inbox refilled overnight
+	# Mild cravings the day after using: the cost of quitting is real but small.
+	if day > 0 and clean.get("pouch", 0) <= 1 and used_ever.get("pouch", false):
+		if patch_days > 0:
+			patch_days -= 1
+		else:
+			stress = clampi(stress + 4, 0, 100)
+	if day > 0 and clean.get("drink", 0) <= 1 and used_ever.get("drink", false):
+		stress = clampi(stress + 3, 0, 100)
 	rx_until = -1
 	rx_last_dose = -1
 	today = {"tickets": 0, "text_jess": 0, "bedtime_story": 0, "kid_actions": 0, "gaming": 0,
@@ -346,6 +360,13 @@ func do_action(id: String) -> String:
 			line = "Closed ticket: " + TICKETS[rng.randi() % TICKETS.size()]
 			if rx_active():
 				line += "\n(Everything is very clear. Almost too clear.)"
+		"buy_patch":
+			patch_days += 5
+			line = "Patches. The cashier raises an eyebrow, then gives you a tiny nod. Gas-N-Sip solidarity."
+		"call_doctor":
+			rx_plan = true
+			honesty = clampi(honesty + 10, 0, 100)
+			line = "You call Dr. Patel and tell her about the extra doses. She doesn't gasp. She adjusts the plan. Hold music: pan flute, but supportive."
 		"coffee_break":
 			line = "Coffee with the team. Karen shows everyone her new puppy. You feel a little more human."
 		"breathe":
@@ -455,7 +476,7 @@ func do_action(id: String) -> String:
 		stress = clampi(stress + 6, 0, 100)
 		lifeos = "PAGER: [P2] Backup job failed (it's fine, it re-ran). LifeOS: The pager woke up. You put it back to sleep from the couch in 4 minutes. Legend."
 	_check_relationships()
-	if lifeos == "" and id == "work_ticket" and is_on_fumes() and rx_last_dose >= 0 and not rx_active() and rx_pills > 0:
+	if lifeos == "" and id == "work_ticket" and is_on_fumes() and not rx_plan and rx_last_dose >= 0 and not rx_active() and rx_pills > 0:
 		lifeos = "LifeOS: Energy low. Maybe a snack or a short walk? (LifeOS is not a doctor. LifeOS is an app that worries.)"
 	today["log"].append(line)
 	action_performed.emit(id, line)
@@ -513,9 +534,10 @@ func _update_clean_streaks() -> void:
 func _check_crash() -> void:
 	if rx_last_dose >= 0 and not rx_active() and not today["crashed"]:
 		today["crashed"] = true
-		energy = clampi(energy - 20, 0, 100)
+		var drop := 10 if rx_plan else 20
+		energy = clampi(energy - drop, 0, 100)
 		stress = clampi(stress + 8, 0, 100)
-		lifeos_message.emit("LifeOS: Focus session ended. Looks like lunch got skipped. Energy: -20. Maybe eat something?")
+		lifeos_message.emit("LifeOS: Focus session ended. Looks like lunch got skipped. Energy: -%d. Maybe eat something?" % drop)
 
 func _lifeos_comment(id: String) -> String:
 	match id:
@@ -659,7 +681,7 @@ func apply_choice(eid: String) -> String:
 const SAVE_PATH := "user://uptime_save.json"
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
-	"fridge_drawings", "honesty", "moments_seen", "clean", "used_ever", "week_moments"]
+	"fridge_drawings", "honesty", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = SAVE_PATH) -> bool:

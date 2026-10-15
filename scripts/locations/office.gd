@@ -20,7 +20,7 @@ func build() -> void:
 	prop("office_desk", Vector2(250, 130))   # Gary's
 	prop("plant", Vector2(290, 128))
 	prop("door", Vector2(150, 170))
-	station("desk", "Your desk", Rect2(40, 70, 32, 20), ["work_ticket", "coffee_break"])
+	station("desk", "Your desk", Rect2(40, 70, 32, 20), ["work_ticket", "coffee_break", "call_doctor"])
 	station("exit", "Exit (head home)", Rect2(150, 170, 20, 30), ["head_home"])
 	spots = {"entry": Vector2(160, 186), "door": Vector2(160, 192), "desk": Vector2(56, 100),
 		"gary_desk": Vector2(266, 166), "gary_talk": Vector2(84, 104), "cooler": Vector2(198, 62)}

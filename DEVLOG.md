@@ -67,3 +67,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **"Shoes, a Postmortem" (Monday):** run a root cause analysis, escalate to Mommy, or declare the shoes deprecated ($30, light-up).
 - **Jess real-talk:** the first evening after 8+ drinks in a week, Jess asks quietly. You can be honest (closeness +8, Honesty +15, counts as clean day one, gets a line in the review), deflect, or joke. No lectures; the cost of deflecting is a nod that's "somehow worse."
 - Hidden `honesty` value is saved. The bot picks choices at random; all 6 outcomes were hit across 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 7–8: content + recovery that plays
+- Content: tickets 8 → 25 (each ends in a small win: "PC LOAD LETTER… It always just wanted paper"), LifeOS notes 5 → 18, Jess texts 5 → 9. Running on Fumes turns a thoughtful text into "k 👍 (You meant so much more…)" for less closeness.
+- **Recovery tools:** *Nicotine patches instead* at the Gas-N-Sip counter ($15, blocks 5 days of pouch cravings). *Call Dr. Patel about the Rx* at your work desk (once a week, sets an Rx plan: crash -10 instead of -20, and LifeOS stops nudging extra doses).
+- **Cravings are mild and honest:** the day after using, stress is +4 for pouches (none on patches) and +3 for beer. Clean streaks still pay out through people at 2 and 4 days.
+- 100 weeks, 0 problems. Tests pass.

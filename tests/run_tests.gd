@@ -171,6 +171,18 @@ func _process(_d: float) -> bool:
 	var c0: int = gs.closeness
 	gs.apply_choice("talk_honest")
 	check(gs.closeness == c0 + 8 and gs.honesty == 65 and gs.weekly_review().contains("Honesty"), "honest answer: closeness + honesty, noted in review")
+	# --- Recovery tools
+	gs.new_game(31)
+	gs.do_action("feed_girls"); gs.do_action("leave_for_work")
+	gs.do_action("call_doctor")
+	check(gs.rx_plan, "calling the doctor sets an Rx plan")
+	gs.do_action("rx_dose")
+	var en: int = gs.energy
+	gs.minutes = gs.rx_until
+	gs._check_crash()
+	check(gs.energy == maxi(en - 10, 0), "with a plan the Rx crash is gentler (-10)")
+	gs.minutes = gs.OFF_WORK; gs.do_action("head_home"); gs.do_action("buy_patch")
+	check(gs.patch_days == 5, "patches bought at the Gas-N-Sip")
 	# --- Scenes, cutscenes, assets, UI
 	main.skip_all_cutscenes()
 	main.dismiss_summary() if main.summary_root.visible else null

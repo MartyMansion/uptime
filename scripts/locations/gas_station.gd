@@ -16,7 +16,7 @@ func build() -> void:
 	prop("gas_pump", Vector2(200, 110))
 	prop("car", Vector2(130, 108))
 	station("beer", "Beer cooler", Rect2(20, 8, 40, 32), ["buy_beer"])
-	station("counter", "Counter", Rect2(200, 24, 40, 22), ["buy_pouches"])
+	station("counter", "Counter", Rect2(200, 24, 40, 22), ["buy_pouches", "buy_patch"])
 	station("car", "Your car", Rect2(130, 108, 32, 46), ["pickup_girls"])
 	spots = {"entry": Vector2(124, 150), "car": Vector2(124, 150), "door": Vector2(140, 74),
 		"beer": Vector2(40, 52), "counter": Vector2(220, 58)}

@@ -143,7 +143,8 @@ func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String
 			if gs.day < 2:
 				pref = ["pouch", "leave_for_work", "rx_dose", "work_ticket", "head_home", "buy_beer", "buy_pouches", "pickup_girls", "drink", "sleep"]
 			else:
-				pref = ["breathe", "text_jess", "feed_girls", "pancakes", "leave_for_work", "coffee_break", "work_ticket", "head_home", "pickup_girls", "walk_block", "family_dinner", "tea_jess", "bedtime_story", "sleep"]
+				pref = ["breathe", "text_jess", "feed_girls", "pancakes", "leave_for_work", "call_doctor", "coffee_break", "work_ticket", "head_home", "buy_patch", "pickup_girls", "walk_block", "family_dinner", "tea_jess", "bedtime_story", "sleep"]
+				if gs.patch_days > 0: pref.erase("buy_patch")
 				if gs.today.get("tickets", 0) >= 4: pref.erase("work_ticket")
 				if gs.today.get("coffee_break", 0) >= 1: pref.erase("coffee_break")
 		"balanced", "stardew":
