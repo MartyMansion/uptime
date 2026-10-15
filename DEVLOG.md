@@ -127,3 +127,10 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **Porch tomato** (a new station by the front door, once a day, free): June waters it (and your shoes), names it "Server," reads it stories, and on day 6 it's red. She cuts it into 4 pieces "with great ceremony." The plant visibly grows and blushes. It counts as June one-on-one time.
 - **Soak:** 300 bot weeks (2,100 days, 53k actions, 4.8k UI audits): 0 problems. Endings: cozy 73, foggy 92, uptime 47, turning 42, crispy 25, real 21.
 - UI screenshot audit at 800x600, 1024x768, 1366x768, 1280x720 and 1920x1080: 0 problems.
+
+## 2026-10-14 — Terminal ticket minigame, skills, incidents
+- "Work a ticket" is now a TermOS terminal on the TriCounty network. It covers 8 randomized root causes (port, service, dns, disk, cert, printer, vlan, lockout) and has real-ish commands, clickable suggestions, and hints. Rx focus highlights the next step and makes hints free; fumes add typos and cut hints. Grades (great/good/slow/autopilot) scale time, energy, perf, and stress.
+- Dan's skills: XP per category with a bar in the terminal; autopilot unlocks at Lv 3.
+- Incidents: 6 multi-stage incidents with a 90-min SLA, Gary escalation, after-hours pages that cost family time, and blameless postmortems.
+- Fixes: summary/postmortem popups confined to the game area (auto-shrinks long weekly reviews); Girls Fed gets packed lunches, slower decay at work, and a low-fed LifeOS warning.
+- Bot: 100 weeks, 0 problems; ~6.9k terminal tickets, ~180 incidents, 0 SLA breaches; avg skill Lv 3.4–4.3 by week end.

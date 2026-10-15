@@ -59,6 +59,33 @@ var pending_title := ""
 var summary_is_week := false
 var did_jess_home := false
 var autoload_save := true    # tests turn this off
+# Terminal minigame (Work a ticket)
+var use_terminal := true
+var term: TicketSim
+var term_panel: PanelContainer
+var term_header: Label
+var term_out: Label
+var term_prompt: Label
+var term_input: LineEdit
+var term_suggest: HFlowContainer
+var term_status: Label
+var term_hint_btn: Button
+var term_done := false
+var term_xp_bar: ProgressBar
+var term_xp_label: Label
+var term_ap_btn: Button
+# incident state
+var inc_id := ""
+var inc_idx := 0
+var inc_used := 0
+var inc_breached := false
+var inc_after_hours := false
+var inc_cmds := 0
+var inc_hints := 0
+const INC_BUDGET := 90
+const INC_CMD_MIN := 3
+var summary_kind := ""     # "", "week", "postmortem"
+var term_rng := RandomNumberGenerator.new()
 var cs_choices: Array = []          # [[label, effect], ...] while a choice is open
 var random_choices := false         # bot: pick choices at random when skipping
 var choice_rng := RandomNumberGenerator.new()
@@ -276,13 +303,18 @@ func _build_ui() -> void:
 	summary_root = ColorRect.new()
 	summary_root.name = "Summary"
 	(summary_root as ColorRect).color = Color(0, 0, 0, 0.55)
+	# Lives inside the game area (not over the sidebar) so it never clips the meters.
+	world_slot.add_child(summary_root)
 	summary_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ui.add_child(summary_root)
-	var cc := CenterContainer.new()
+	var cc := MarginContainer.new()
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for mside in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		cc.add_theme_constant_override(mside, 18)
 	summary_root.add_child(cc)
 	var sp := PanelContainer.new()
-	sp.custom_minimum_size = Vector2(760, 0)
+	sp.custom_minimum_size = Vector2(0, 0)
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cc.add_child(sp)
 	var svb := VBoxContainer.new()
 	svb.add_theme_constant_override("separation", 12)
@@ -291,12 +323,276 @@ func _build_ui() -> void:
 	summary_title.add_theme_color_override("font_color", Color(1, 0.85, 0.45))
 	svb.add_child(summary_title)
 	summary_label = _label("", 16, true)
-	summary_label.custom_minimum_size = Vector2(720, 0)
+	summary_label.custom_minimum_size = Vector2(0, 0)
 	svb.add_child(summary_label)
 	summary_hint = _label("", 14)
 	summary_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	svb.add_child(summary_hint)
 	summary_root.visible = false
+	_build_terminal()
+
+const TERM_GREEN := Color(0.45, 1.0, 0.55)
+
+func _build_terminal() -> void:
+	term_panel = PanelContainer.new()
+	term_panel.name = "Terminal"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.02, 0.04, 0.03, 0.97)
+	sb.border_color = Color(0.25, 0.8, 0.4)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(12)
+	term_panel.add_theme_stylebox_override("panel", sb)
+	world_slot.add_child(term_panel)
+	term_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	term_panel.offset_left = 12; term_panel.offset_top = 10; term_panel.offset_right = -12; term_panel.offset_bottom = -10
+	var mono := SystemFont.new()
+	mono.font_names = PackedStringArray(["DejaVu Sans Mono", "Consolas", "Menlo", "Courier New", "monospace"])
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	term_panel.add_child(v)
+	term_header = _label("", 15, true)
+	term_header.add_theme_color_override("font_color", Color(1, 0.85, 0.45))
+	v.add_child(term_header)
+	var xr := HBoxContainer.new()
+	xr.add_theme_constant_override("separation", 10)
+	v.add_child(xr)
+	term_xp_label = _label("", 13)
+	term_xp_label.add_theme_color_override("font_color", TERM_GREEN)
+	xr.add_child(term_xp_label)
+	term_xp_bar = _bar(Color(0.3, 0.85, 0.45))
+	term_xp_bar.custom_minimum_size = Vector2(160, 12)
+	term_xp_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	term_xp_bar.show_percentage = false
+	xr.add_child(term_xp_bar)
+	term_out = _label("", 14, true)
+	term_out.add_theme_font_override("font", mono)
+	term_out.add_theme_color_override("font_color", TERM_GREEN)
+	term_out.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	term_out.clip_text = true
+	term_out.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	v.add_child(term_out)
+	var row := HBoxContainer.new()
+	v.add_child(row)
+	term_prompt = _label("dan-laptop$", 14)
+	term_prompt.add_theme_font_override("font", mono)
+	term_prompt.add_theme_color_override("font_color", TERM_GREEN)
+	row.add_child(term_prompt)
+	term_input = LineEdit.new()
+	term_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	term_input.add_theme_font_override("font", mono)
+	term_input.add_theme_font_size_override("font_size", 14)
+	term_input.add_theme_color_override("font_color", TERM_GREEN)
+	term_input.placeholder_text = "type a command, or click one below"
+	term_input.text_submitted.connect(func(t): term_submit(t, false))
+	row.add_child(term_input)
+	term_suggest = HFlowContainer.new()
+	term_suggest.add_theme_constant_override("h_separation", 6)
+	v.add_child(term_suggest)
+	var br := HBoxContainer.new()
+	br.add_theme_constant_override("separation", 8)
+	v.add_child(br)
+	term_hint_btn = Button.new(); term_hint_btn.text = "Hint (H)"; term_hint_btn.pressed.connect(term_hint); br.add_child(term_hint_btn)
+	var ap := Button.new(); ap.text = "Autopilot (worse results)"; ap.pressed.connect(term_autopilot); br.add_child(ap)
+	term_ap_btn = ap
+	var wa := Button.new(); wa.text = "Walk away (Esc)"; wa.pressed.connect(term_close.bind(false)); br.add_child(wa)
+	term_status = _label("", 13, true)
+	term_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	term_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	br.add_child(term_status)
+	term_panel.visible = false
+
+func term_open() -> bool:
+	return term_panel != null and term_panel.visible
+
+func _cat() -> String:
+	return GameState.skill_of(term.kind) if term else "networking"
+
+func autopilot_allowed() -> bool:
+	if term == null: return false
+	if inc_id != "":
+		for k in TicketSim.INCIDENTS[inc_id]["stages"]:
+			if not GameState.autopilot_unlocked(GameState.skill_of(k)): return false
+		return true
+	return GameState.autopilot_unlocked(_cat())
+
+## Opens a multi-stage incident (at work, or after hours from a page).
+func open_incident(id: String, after_hours := false) -> void:
+	inc_id = id; inc_idx = 0; inc_used = 0; inc_breached = false; inc_after_hours = after_hours; inc_cmds = 0; inc_hints = 0
+	term_rng.seed = GameState.rng.randi()
+	term = TicketSim.make_stage(term_rng, id, 0)
+	term_done = false
+	term_panel.visible = true
+	term_input.editable = true
+	term_input.text = ""
+	if loc: dan.stop_walking()
+	_term_refresh()
+
+func open_terminal(kind := "") -> void:
+	var why := GameState.can_do("work_ticket")
+	if why != "":
+		_log(why)
+		return
+	inc_id = ""
+	# Occasionally a ticket is really an incident (at work, max 2 a week).
+	if kind == "" and GameState.phase == "work" and GameState.incidents_week < 2 and GameState.minutes <= GameState.DAY_END - 180 and GameState.rng.randf() < 0.07:
+		open_incident(TicketSim.INCIDENTS.keys()[GameState.rng.randi() % TicketSim.INCIDENTS.size()])
+		return
+	term_rng.seed = GameState.rng.randi()
+	term = TicketSim.new(term_rng, kind)
+	term_done = false
+	term_panel.visible = true
+	term_input.editable = true
+	term_input.text = ""
+	if loc: dan.stop_walking()
+	_term_refresh()
+	if is_inside_tree() and term_input.is_inside_tree():
+		term_input.grab_focus.call_deferred()
+
+func _max_hints() -> int:
+	return GameState.max_hints(_cat())
+
+func _term_refresh() -> void:
+	var focus := GameState.rx_active()
+	var flags := ""
+	if focus: flags = "   [FOCUS: next step highlighted, free hints]"
+	elif GameState.is_on_fumes(): flags = "   [RUNNING ON FUMES: typos likely, 1 hint]"
+	var cat := _cat()
+	var pr: Array = GameState.skill_progress(cat)
+	term_xp_label.text = "Dan's %s: Lv %d  %s" % [GameState.SKILL_NAMES[cat], GameState.skill_level(cat), ("%d/%d XP" % pr) if pr[1] > 0 else "MAX"]
+	term_xp_bar.max_value = maxi(1, pr[1]); term_xp_bar.value = pr[0] if pr[1] > 0 else 1
+	if inc_id != "":
+		flags += "   [INCIDENT: %d/%d min%s]" % [inc_used, INC_BUDGET, " — SLA BREACHED" if inc_breached else ""]
+	var unlocked := autopilot_allowed()
+	term_ap_btn.disabled = term_done or not unlocked
+	term_ap_btn.text = ("Autopilot (%s)" % ("decent results" if GameState.autopilot_grade(cat) == "good" else "worse results")) if unlocked else "Autopilot locked (needs Lv %d)" % GameState.PROFICIENT
+	term_header.text = "TermOS · %s · %d command%s · hints %d/%s%s" % [term.title, term.commands, "" if term.commands == 1 else "s", term.hints_used, "∞" if focus else str(_max_hints()), flags]
+	var lines := term.log_lines.slice(maxi(0, term.log_lines.size() - 14))
+	term_out.text = "\n".join(lines)
+	term_prompt.text = term.cur_host + "$"
+	for c in term_suggest.get_children():
+		term_suggest.remove_child(c); c.queue_free()
+	if term_done:
+		var b := Button.new(); b.text = "Close ticket (Enter)"; b.pressed.connect(term_close.bind(true)); term_suggest.add_child(b)
+	else:
+		var sug := term.suggestions(focus)
+		for i in sug.size():
+			var b := Button.new()
+			b.text = ("▶ " if focus and i == 0 else "") + sug[i]
+			b.add_theme_font_size_override("font_size", 13)
+			var cmd: String = sug[i]
+			b.pressed.connect(func(): _term_click(cmd))
+			term_suggest.add_child(b)
+	term_hint_btn.disabled = term_done or (not focus and term.hints_used >= _max_hints())
+	term_status.text = "Estimated grade: %s" % term.grade().capitalize() if not term_done else "Solved! Grade: %s" % term.grade().capitalize()
+
+func _term_click(cmd: String) -> void:
+	if cmd.ends_with(" …"):
+		term_input.text = cmd.trim_suffix(" …") + " "
+		term_input.caret_column = term_input.text.length()
+		term_input.grab_focus()
+	else:
+		term_submit(cmd, true)
+
+## Runs a command in the ticket. Low energy can fumble typed (not clicked) commands.
+func term_submit(cmd: String, clicked := false) -> void:
+	if term == null or term_done or cmd.strip_edges() == "":
+		return
+	cmd = cmd.strip_edges()
+	if not clicked and GameState.is_on_fumes() and cmd.length() > 4 and term_rng.randf() < 0.25:
+		var i := 1 + term_rng.randi() % (cmd.length() - 2)
+		cmd = cmd.substr(0, i) + cmd[i + 1] + cmd[i] + cmd.substr(i + 2)
+		term.log_lines.append("(your fingers are tired)")
+	term.run(cmd)
+	term_input.text = ""
+	if inc_id != "":
+		inc_cmds += 1
+		inc_used += INC_CMD_MIN
+		if inc_used > INC_BUDGET and not inc_breached:
+			inc_breached = true
+			term.log_lines.append("Gary: Hey. We're past the SLA. That's okay. Just... keep going. I'm telling the CEO you're 'in the zone'.")
+		if term.solved and inc_idx + 1 < TicketSim.INCIDENTS[inc_id]["stages"].size():
+			inc_hints += term.hints_used
+			var done_line: String = "✔ Stage %d done. %s" % [inc_idx + 1, term.reply]
+			inc_idx += 1
+			term = TicketSim.make_stage(term_rng, inc_id, inc_idx)
+			term.log_lines.insert(0, done_line)
+			_term_refresh()
+			return
+	if term.solved:
+		term_done = true
+		term_input.editable = false
+		term.log_lines.append("")
+		term.log_lines.append("✔ TICKET RESOLVED. " + term.reply)
+	_term_refresh()
+
+func term_hint() -> void:
+	if term == null or term_done:
+		return
+	var focus := GameState.rx_active()
+	if not focus and term.hints_used >= _max_hints():
+		return
+	var h := term.hint()
+	if focus: term.hints_used -= 1   # Rx focus: hints are free
+	term.log_lines.append(h)
+	_term_refresh()
+
+func _finish_incident(autopilot: bool) -> void:
+	var id := inc_id
+	inc_hints += term.hints_used if term else 0
+	var used := inc_used if not autopilot else 75
+	var pm: String = GameState.resolve_incident(id, maxi(used, 15), inc_breached, inc_after_hours, autopilot, inc_cmds, inc_hints)
+	inc_id = ""
+	term_panel.visible = false
+	term = null
+	_log("Incident resolved. Postmortem filed.")
+	if not summary_root.visible and pending_summary == "":
+		summary_title.text = "POSTMORTEM"
+		summary_label.text = pm.substr(pm.find("\n") + 1)
+		summary_hint.text = "[Enter] Back to it"
+		_fit_summary()
+		summary_kind = "postmortem"
+		summary_root.visible = true
+	_refresh_prompt()
+
+func term_autopilot() -> void:
+	if term == null:
+		return
+	if not autopilot_allowed():
+		return
+	if inc_id != "":
+		_finish_incident(true)
+		return
+	var res := GameState.resolve_ticket(GameState.autopilot_grade(_cat()), term.title, "%s: Thanks! It works now. (You couldn't tell anyone why.)" % term.from, term.kind)
+	term_panel.visible = false
+	term = null
+	_log(res)
+	_refresh_prompt()
+
+func term_close(resolve: bool) -> void:
+	if term == null:
+		term_panel.visible = false
+		return
+	if inc_id != "":
+		if resolve and term_done:
+			_finish_incident(false)
+		else:
+			_log("You hand the incident to Gary, who hands it to 'the vendor'. It gets fixed tomorrow. Performance -6.")
+			GameState.performance = clampi(GameState.performance - 6, 0, 100)
+			GameState.stress = clampi(GameState.stress + 5, 0, 100)
+			inc_id = ""
+			term_panel.visible = false
+			term = null
+			GameState.state_changed.emit()
+		return
+	if resolve and term_done:
+		var res := GameState.resolve_ticket(term.grade(), term.title, term.reply, term.kind)
+		_log(res)
+	else:
+		_log("You walk away from the ticket. It'll still be there. Tickets are loyal like that.")
+	term_panel.visible = false
+	term = null
+	_refresh_prompt()
 
 func _layout_world() -> void:
 	if world_slot == null:
@@ -373,7 +669,7 @@ func _update_fridge() -> void:
 
 # ------------------------------------------------------------------ loop
 func is_busy() -> bool:
-	return cs_id != "" or summary_root.visible
+	return cs_id != "" or summary_root.visible or term_open()
 
 func _process(delta: float) -> void:
 	if lifeos_panel.visible and not dialog_panel.visible:
@@ -408,6 +704,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	var k: Key = (event as InputEventKey).keycode
+	if term_open():
+		if k == KEY_ESCAPE:
+			term_close(false)
+		elif term_done and (k == KEY_ENTER or k == KEY_KP_ENTER or k == KEY_SPACE):
+			term_close(true)
+		elif k == KEY_H and not term_input.has_focus():
+			term_hint()
+		return
 	var confirm := k == KEY_ENTER or k == KEY_SPACE or k == KEY_KP_ENTER
 	if cs_id != "" and cs_waiting == "choice":
 		if k >= KEY_1 and k < KEY_1 + cs_choices.size():
@@ -461,6 +765,9 @@ func _current_actions() -> Array[String]:
 	return out
 
 func perform(aid: String) -> void:
+	if aid == "work_ticket" and use_terminal:
+		open_terminal()
+		return
 	var res: String = GameState.do_action(aid)
 	_log(res)
 	_refresh_prompt()
@@ -505,10 +812,25 @@ func show_summary() -> void:
 	summary_label.text = pending_summary
 	summary_hint.text = "[Enter] Play the week again" if summary_is_week else "[Enter] Next day"
 	summary_root.visible = true
+	_fit_summary()
 	pending_summary = ""
+
+func _fit_summary() -> void:
+	# Long weeks make long reviews: shrink text until the panel fits the game area.
+	var lines := summary_label.text.count("\n") + 1 + int(summary_label.text.length() / 90)
+	var avail := world_slot.size.y - 120.0
+	var fs := 16
+	while fs > 10 and lines * fs * 1.45 > avail:
+		fs -= 1
+	summary_label.add_theme_font_size_override("font_size", fs)
 
 func dismiss_summary() -> void:
 	summary_root.visible = false
+	if summary_kind == "postmortem":
+		summary_kind = ""
+		if pending_summary != "":
+			show_summary()
+		return
 	if summary_is_week:
 		summary_is_week = false
 		GameState.new_game()
@@ -534,6 +856,7 @@ func _next_cutscene() -> void:
 		else:
 			dimmer.color.a = 0.0
 			sync_location()
+			_check_pending_incident()
 		return
 	var item: Array = cs_queue.pop_front()
 	cs_id = item[0]
@@ -600,6 +923,7 @@ func _run_step(st: Array, instant: bool) -> void:
 			if instant:
 				var pick: int = choice_rng.randi() % opts.size() if random_choices else 0
 				_log(GameState.apply_choice(opts[pick][1]))
+				_check_pending_incident.call_deferred()
 			else:
 				cs_choices = opts
 				dialog_name.text = "Your call"
@@ -641,9 +965,16 @@ func pick_choice(i: int) -> void:
 	if cs_waiting != "choice" or i < 0 or i >= cs_choices.size():
 		return
 	_log(GameState.apply_choice(cs_choices[i][1]))
+	_check_pending_incident.call_deferred()
 	cs_choices = []
 	cs_waiting = ""
 	dialog_panel.visible = false
+
+func _check_pending_incident() -> void:
+	if GameState.pending_incident != "" and cs_id == "" and not term_open():
+		var id := GameState.pending_incident
+		GameState.pending_incident = ""
+		open_incident(id, true)
 
 func advance() -> void:
 	if cs_waiting == "say":
@@ -727,6 +1058,10 @@ func audit_ui() -> Array[String]:
 			problems.append("out of bounds: '%s' %s" % [l.text.left(30), r])
 		if not l.clip_text and l.autowrap_mode == TextServer.AUTOWRAP_OFF and l.get_minimum_size().x > l.size.x + 1:
 			problems.append("clipped: '%s'" % l.text.left(30))
+	var game_area := world_slot.get_global_rect().grow(1)
+	for l in labels:
+		if _overlay_of(l) != "HUD" and not game_area.encloses(l.get_global_rect()):
+			problems.append("popup outside game area (covers sidebar): '%s'" % l.text.left(30))
 	for i in labels.size():
 		for j in range(i + 1, labels.size()):
 			var a := labels[i]
@@ -739,7 +1074,7 @@ func audit_ui() -> Array[String]:
 
 func _overlay_of(n: Node) -> String:
 	while n != null and n != ui:
-		if n.name in ["LifeOS", "Dialogue", "Summary"]:
+		if n.name in ["LifeOS", "Dialogue", "Summary", "Terminal"]:
 			return n.name
 		n = n.get_parent()
 	return "HUD"

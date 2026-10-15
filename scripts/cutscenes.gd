@@ -11,7 +11,7 @@ class_name Cutscenes
 ##  ["wait", seconds]
 ## Lines adapted from the design doc (§4.12, §5.4).
 
-const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more", "triage", "page", "phone"]
+const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more", "triage", "page", "phone", "incident_page"]
 
 static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 	var d: int = gs.day
@@ -169,6 +169,12 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			var latest: String = gs.JESS_TEXTS[(d * 3 + int(gs.today.get("text_jess", 0))) % gs.JESS_TEXTS.size()].trim_prefix("Jess: ")
 			return [["say", "jess", "📱 " + latest],
 				["choice", [["Write something thoughtful (-2 energy)", "phone_thoughtful"], ["k 👍", "phone_k"], ["Draft three paragraphs, delete, send a heart", "phone_draft"]]]]
+		"incident_page":
+			var ids: Array = TicketSim.INCIDENTS.keys()
+			var iid: String = ctx.get("id", ids[gs.rng.randi() % ids.size()])
+			return [["say", "", "Your phone buzzes on the table. PAGER: [P1] %s" % TicketSim.INCIDENTS[iid]["name"]],
+				["say", "june", "Is that the computer again? Tell it it's bedtime."],
+				["choice", [["Take it now (laptop at the kitchen table)", "incident_take:" + iid], ["Hand it to the on-call partner (Raj owes you)", "incident_handoff"]]]]
 		"one_more":
 			return [["lifeos", "It's late. Your squad is queuing again. LifeOS has no opinion. (LifeOS has an opinion.)"],
 				["choice", [["Log off. Go to bed like an adult.", "match_bed"], ["One more match.", "match_more"]]]]

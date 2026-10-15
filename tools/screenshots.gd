@@ -81,7 +81,49 @@ func run() -> void:
 	gs.minutes = 990
 	await walk_dan_to("desk")
 	main.perform("rx_dose")
+	# Terminal minigame shots
+	main.open_terminal("port")
+	await shot("T1_terminal_new_ticket")
+	main.term_submit("ping " + main.term.host, true)
+	main.term_submit("ssh " + main.term.host, true)
+	main.term_submit("ss -tlnp", false)
+	main.term_hint()
+	await shot("T2_terminal_hint")
+	main.term_submit("firewall list", true)
+	main.term_submit("firewall allow %d" % main.term.port, true)
+	await shot("T3_terminal_solved")
+	main.term_close(true)
+	gs.do_action("rx_dose")
+	main.open_terminal("vlan")
+	main.term_submit("ipconfig desk-%d" % main.term.sw_port, true)
+	await shot("T4_terminal_rx_focus")
+	main.term_close(false)
+	var e_keep: int = gs.energy
+	gs.energy = 10
+	main.open_terminal("dns")
+	main.term_submit("nslookup " + main.term.svc, false)
+	main.term_submit("ssh tc-dc01", false)
+	await shot("T5_terminal_fumes")
+	main.term_close(false)
+	gs.energy = e_keep
+	main.open_incident("ransomware")
+	main.term_submit("ssh tc-dc01", true)
+	main.term_submit("aduser " + main.term.user, true)
+	await shot("T6_incident_stage1")
+	var g := 0
+	while not main.term_done and g < 30:
+		g += 1
+		main.term_submit(main.term.next_step(), true)
+	main.term_close(true)
+	await shot("T7_postmortem")
+	main.dismiss_summary()
+	gs.skills["printers"] = 300
+	main.open_terminal("printer")
+	await shot("T8_terminal_skill_max")
+	main.term_close(false)
+	main.use_terminal = false
 	main.perform("work_ticket")
+	main.use_terminal = true
 	await shot("05_office_desk")
 	await walk_dan_to("exit")
 	main.perform("head_home")

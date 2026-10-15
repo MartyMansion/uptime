@@ -7,7 +7,8 @@ const STRATS := ["random", "workaholic", "family_first", "heavy", "all_skip", "n
 var problems: Array[String] = []
 var lines := {}            # dialogue/text line -> count
 var stats := {"runs": 0, "days": 0, "actions": 0, "cutscenes": {}, "actions_used": {}, "endings": 0, "endings_by": {}, "audits": 0}
-var bal := {}   # strat -> sums of end-of-week meters
+var bal := {}
+var skill_sum := {}   # strat -> sums of end-of-week meters
 var gs: Node
 var main: Node
 var cur := ""
@@ -47,6 +48,9 @@ func _run() -> void:
 	f.store_line("RUNS %d DAYS %d ACTIONS %d AUDITS %d PROBLEMS %d" % [stats["runs"], stats["days"], stats["actions"], stats["audits"], problems.size()])
 	f.store_line("CUTSCENES " + JSON.stringify(stats["cutscenes"]))
 	f.store_line("ACTIONS " + JSON.stringify(stats["actions_used"]))
+	f.store_line("TERMINAL tickets %d autopilot %d (locked attempts %d) walked %d great %d good %d slow %d kinds %s" % [int(stats.get("terminal", 0)), int(stats.get("t_autopilot", 0)), int(stats.get("t_autopilot_locked", 0)), int(stats.get("t_walk", 0)), int(stats.get("grade_great", 0)), int(stats.get("grade_good", 0)), int(stats.get("grade_slow", 0)), JSON.stringify(stats.get("kinds", {}))])
+	f.store_line("INCIDENTS %d (after-hours %d, SLA breached %d) %s" % [int(stats.get("incidents", 0)), int(stats.get("inc_after_hours", 0)), int(stats.get("inc_breached", 0)), JSON.stringify(stats.get("inc_ids", {}))])
+	f.store_line("SKILLS avg end-of-week level " + JSON.stringify(skill_sum))
 	f.store_line("SAVELOAD round trips %d" % int(stats.get("saveloads", 0)))
 	f.store_line("ENDINGS " + JSON.stringify(stats["endings_by"]))
 	f.store_line("BALANCE (avg end of week)  strat | stress perf jess girls | drawings bedtimes | drinks pouches rx_extra | money")
@@ -67,7 +71,8 @@ func _run() -> void:
 	for id in gs.ACTIONS:
 		if not stats["actions_used"].has(id): missing.append(id)
 	for id in Cutscenes.IDS:
-		if not stats["cutscenes"].has(id): missing.append("cutscene:" + id)
+		# "triage" is the legacy quick-choice; the terminal minigame replaced it in play
+		if not stats["cutscenes"].has(id) and id != "triage": missing.append("cutscene:" + id)
 	if not missing.is_empty():
 		problems.append("never triggered: " + ", ".join(missing))
 	print("PLAYTEST DONE runs=%d days=%d actions=%d unique_lines=%d problems=%d" % [stats["runs"], stats["days"], stats["actions"], lines.size(), problems.size()])
@@ -170,6 +175,57 @@ func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String
 			if p in allowed: return p
 	return allowed[rng.randi() % allowed.size()] if not allowed.is_empty() else ""
 
+## Terminal minigame: solve like a human of this strategy would.
+func play_terminal(strat: String, rng: RandomNumberGenerator) -> void:
+	stats["terminal"] = int(stats.get("terminal", 0)) + 1
+	var is_inc: bool = main.inc_id != ""
+	if is_inc:
+		stats["incidents"] = int(stats.get("incidents", 0)) + 1
+		stats["inc_ids"] = stats.get("inc_ids", {})
+		stats["inc_ids"][main.inc_id] = int(stats["inc_ids"].get(main.inc_id, 0)) + 1
+		if main.inc_after_hours: stats["inc_after_hours"] = int(stats.get("inc_after_hours", 0)) + 1
+	var t: TicketSim = main.term
+	stats["kinds"] = stats.get("kinds", {})
+	stats["kinds"][t.kind] = int(stats["kinds"].get(t.kind, 0)) + 1
+	var roll := rng.randf()
+	if (strat == "all_skip" or roll < 0.25) and main.autopilot_allowed():
+		main.term_autopilot(); stats["t_autopilot"] = int(stats.get("t_autopilot", 0)) + 1
+		await _after_terminal(); return
+	if not main.autopilot_allowed() and (strat == "all_skip" or roll < 0.25):
+		stats["t_autopilot_locked"] = int(stats.get("t_autopilot_locked", 0)) + 1
+	if roll > 0.96:
+		main.term_close(false); stats["t_walk"] = int(stats.get("t_walk", 0)) + 1
+		await _after_terminal(); return
+	if strat in ["random", "broke", "night_owl"] or roll < 0.5:
+		for i in rng.randi() % 6:
+			var sug: Array[String] = main.term.suggestions(false)
+			main.term_submit(sug[rng.randi() % sug.size()].trim_suffix(" …"), rng.randf() < 0.5)
+			note("TERM " + main.term.log_lines[-1])
+		if rng.randf() < 0.5: main.term_hint()
+		if rng.randf() < 0.3: main.term_hint()
+	if rng.randf() < 0.2: await audit("terminal")
+	var guard := 0
+	while main.term_open() and not main.term_done and guard < 40:
+		guard += 1
+		main.term_submit(main.term.next_step(), true)
+	if not main.term_done:
+		bad("terminal %s not solvable via next_step (%s)" % [main.term.kind, main.term.steps])
+		main.term_close(false); return
+	note("TERM " + main.term.reply)
+	if is_inc:
+		stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0)
+	else:
+		stats["grade_" + main.term.grade()] = int(stats.get("grade_" + main.term.grade(), 0)) + 1
+	if rng.randf() < 0.1: await audit("terminal solved")
+	main.term_close(true)
+	await _after_terminal()
+
+func _after_terminal() -> void:
+	if main.summary_root.visible and main.summary_kind == "postmortem":
+		note(main.summary_label.text)
+		await audit("postmortem")
+		main.dismiss_summary()
+
 func play_week(strat: String, seed_v: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v
@@ -233,10 +289,16 @@ func play_week(strat: String, seed_v: int) -> void:
 				main.queue_cutscene("phone")   # the T key path: phone overlay with reply choices
 			else:
 				main.perform(a)
+			if main.term_open():
+				await play_terminal(strat, rng)
 			if gs.minutes < before_min and gs.day == last_day and not gs.week_over: bad("clock went backwards on " + a)
 		check_state()
 		if rng.randf() < 0.05: await audit("play")
 		await drain(rng.randf() < 0.3)
+		await process_frame
+		if main.term_open():
+			await play_terminal(strat, rng)
+			await drain()
 		if main.summary_root.visible:
 			main.dismiss_summary() if not gs.week_over else null
 			if gs.week_over:
@@ -249,6 +311,8 @@ func play_week(strat: String, seed_v: int) -> void:
 	b["drawings"] += gs.fridge_drawings; b["bedtimes"] += gs.week_stats["bedtimes"]; b["drinks"] += gs.week_stats["drinks"]
 	b["pouches"] += gs.week_stats["pouches"]; b["rx_extra"] += gs.week_stats["rx_extra"]; b["money"] += gs.money
 	bal[strat] = b
+	for c in gs.skills:
+		skill_sum[c] = snappedf(float(skill_sum.get(c, 0.0)) + gs.skill_level(c) / 100.0, 0.01)
 	var en: String = gs.ending_id()
 	stats["endings_by"][en] = int(stats["endings_by"].get(en, 0)) + 1
 	main.summary_root.visible = false

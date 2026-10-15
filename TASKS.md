@@ -26,7 +26,7 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 
 ## M1 — Grey-box day (design doc Phase 1)
 - [x] Phone overlay with 3 real text threads + reply choices (thoughtful / "k 👍" / draft-and-delete)
-- [ ] Ticket Triage minigame (drag tickets to Fix / Escalate / Schedule / Off-and-on)
+- [x] Ticket minigame: TermOS terminal troubleshooting (8 root causes, hints, autopilot, Rx/fumes effects)
 - [x] Per-girl needs (Fed / Rested / Connected for Lily and June)
 - [x] Stress effects; Running on Fumes greys out kind options
 - [x] Collision with furniture; door transitions between rooms
@@ -62,7 +62,8 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [x] Calendar + Lily's concert; relationship heart events; achievements (5); six endings
 - [x] Recovery: patches, doctor call / Rx plan, clean-day streaks, Jess real-talk choice + hidden Honesty
 - [x] Ticket triage choices; Wednesday bedtime page; AI side hustle tier 1 (Marisol's bakery)
-- [ ] Next: Lily/June visible meters, porch plant, multi-week arcs, real ticket-triage minigame UI, sound
+- [ ] Next: Lily/June visible meters, multi-week arcs, sound
+- [ ] Terminal v2: visual patch-panel view for VLAN/cable tickets, multi-cause tickets, on-call outage chain, command history (↑)
 
 ## Marty ideas backlog
 - [x] Subtle substance-use thread: alcohol (marriage, sleep), nicotine pouches (gum damage, cancer risk via dentist), prescription amphetamines (focus/crash, extra-dose temptation) — skeleton in M0.5
@@ -70,3 +71,8 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [x] Recovery/quitting paths that are as playable as the habits (patches, "dry January" LifeOS upsell, talking to Jess)
 - [ ] Withdrawal/tolerance tuning across multiple weeks
 - [x] Sprites for everyone, fix overlapping fonts, real scenes + cutscenes (after Windows playtest) — M0.6
+
+- [x] Dan skills + XP bar; autopilot locked until Lv 3
+- [x] Incident response / DR (6 incidents, SLA, postmortem, after-hours pages)
+- [x] Bug: end-of-day summary clipped sidebar → popups confined to game area
+- [x] Bug: Girls Fed hit 0% silently → lunches, slower decay, LifeOS warning

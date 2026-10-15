@@ -34,7 +34,7 @@ const ACTIONS := {
 	"feed_girls": {"name": "Make breakfast with the girls", "blocks": 1, "energy": -5, "fed": 35, "connected": 5, "once": true, "phases": ["home_am"]},
 	"cereal": {"name": "Cereal and screens", "blocks": 1, "energy": 0, "fed": 20, "connected": -5, "once": true, "phases": ["home_am"]},
 	"leave_for_work": {"name": "Drop girls at school, drive to work", "blocks": 2, "energy": -3, "phases": ["home_am"]},
-	"work_ticket": {"name": "Work a ticket", "blocks": 2, "energy": -10, "stress": 5, "perf": 4, "phases": ["work", "home_pm", "weekend"]},
+	"work_ticket": {"name": "Work a ticket (terminal)", "blocks": 2, "energy": -10, "stress": 5, "perf": 4, "phases": ["work", "home_pm", "weekend"]},
 	"coffee_break": {"name": "Coffee break with the team", "blocks": 1, "energy": 8, "stress": -4, "phases": ["work"]},
 	"head_home": {"name": "Head home", "blocks": 1, "energy": 0, "phases": ["work"]},
 	"buy_beer": {"name": "Grab a six-pack ($12)", "blocks": 0, "energy": 0, "money": -12, "phases": ["drive"]},
@@ -171,12 +171,14 @@ var rx_last_dose: int = -1
 var notices_seen := {}
 var patch_days: int = 0            # patches blunt pouch cravings
 var rx_plan := false               # talked to the doctor: gentler crash
+var terminal_ticket := false       # set while a terminal ticket resolves (no triage popup)
 var pending_choice := ""          # Main turns this into a choice cutscene after the action
 var hustle: int = 0                 # side hustle sessions (AI script for Marisol's bakery)
 var achievements: Array[String] = []
 var girl_time := {"lily": 0, "june": 0}   # per-girl attention this week (hidden)
 var girl_quiet := {"lily": 0, "june": 0}  # consecutive days with no one-on-one
 var plant: int = 0                 # porch tomato growth (cozy loop)
+var skills := {}                   # category -> xp
 var honesty: int = 50              # hidden; moved by choices in cutscenes
 var fridge_drawings: int = 0       # cozy loop: grows with time spent with the girls
 var moments_seen := {}              # relationship moments already played
@@ -208,8 +210,12 @@ func new_game(seed_value: int = 0) -> void:
 	rx_pills = 30
 	rx_extra_total = 0
 	notices_seen = {}
+	incidents_week = 0
+	pending_incident = ""
 	fridge_drawings = 0
 	honesty = 50
+	skills = {}
+	for c in SKILL_NAMES: skills[c] = 0
 	plant = 0
 	girl_time = {"lily": 0, "june": 0}
 	girl_quiet = {"lily": 0, "june": 0}
@@ -350,13 +356,14 @@ func do_action(id: String) -> String:
 	girls_fed = clampi(girls_fed + int(a.get("fed", 0)), 0, 100)
 	girls_connected = clampi(girls_connected + int(a.get("connected", 0)), 0, 100)
 	money += int(a.get("money", 0))
-	girls_fed = clampi(girls_fed - blocks * 2, 0, 100)
+	girls_fed = clampi(girls_fed - blocks * (1 if phase in ["work", "drive"] else 2), 0, 100)  # at school they get lunch
 	today[id] = int(today.get(id, 0)) + 1
 	var line: String = a["name"]
 	var lifeos := ""
 	var before_min: int = minutes - blocks * BLOCK
 	match id:
 		"leave_for_work":
+			girls_fed = clampi(girls_fed + 20, 0, 100)   # packed lunches (Jess made them; you remembered them)
 			phase = "work"
 			line = ["School drop-off: both shoes found! You badge in at %s.", "Drop-off: June hugs the crossing guard. Lily pretends not to know you. You badge in at %s.",
 				"Drop-off: picture day hair held for 11 whole minutes. You badge in at %s.", "Drop-off: Lily practices her recorder in the car. Your ears badge in at %s.",
@@ -377,7 +384,7 @@ func do_action(id: String) -> String:
 			today["tickets"] += 1
 			week_stats["tickets"] += 1
 			line = "Closed ticket: " + TICKETS[rng.randi() % TICKETS.size()]
-			if phase == "work" and rng.randf() < 0.2:
+			if phase == "work" and rng.randf() < 0.2 and not terminal_ticket:
 				pending_choice = "triage"
 			if rx_active():
 				line += "\n(Everything is very clear. Almost too clear.)"
@@ -541,6 +548,12 @@ func do_action(id: String) -> String:
 	if lifeos == "" and CALENDAR[day]["id"] == "oncall" and before_min < 900 and minutes >= 900:
 		stress = clampi(stress + 6, 0, 100)
 		lifeos = "PAGER: [P2] Backup job failed (it's fine, it re-ran). LifeOS: The pager woke up. You put it back to sleep from the couch in 4 minutes. Legend."
+	if pending_choice == "" and phase == "home_pm" and day < 5 and minutes >= 1140 and minutes <= 1320 and incidents_week < 2 and not today.get("paged", false) and rng.randf() < 0.07:
+		today["paged"] = true
+		pending_choice = "incident_page"
+	if lifeos == "" and girls_fed < 25 and not today.get("fed_warned", false) and phase in ["home_pm", "weekend", "drive"]:
+		today["fed_warned"] = true
+		lifeos = "LifeOS: Girls: Fed is low. June is eating dry cereal straight from the box and calling it 'dinner crunch'. (Family dinner: Kitchen, after 5 PM)"
 	_check_relationships()
 	if lifeos == "" and id == "work_ticket" and is_on_fumes() and not rx_plan and rx_last_dose >= 0 and not rx_active() and rx_pills > 0:
 		lifeos = "LifeOS: Energy low. Maybe a snack or a short walk? (LifeOS is not a doctor. LifeOS is an app that worries.)"
@@ -679,7 +692,7 @@ func end_day() -> Dictionary:
 		performance = clampi(performance - (20 if today["tickets"] == 0 else 15), 0, 100)  # the queue refills overnight
 	if phase == "work" or phase == "drive":
 		girls_connected = clampi(girls_connected - 15, 0, 100)  # never made it home
-	girls_fed = clampi(girls_fed - 20, 0, 100)
+	girls_fed = clampi(girls_fed - 15, 0, 100)
 	stress = clampi(stress + (5 if slept_min * quality < 360 else -10), 0, 100)
 	energy = clampi(energy + restore, 0, 100)
 	var q := "" if notes.is_empty() else " (" + "; ".join(notes) + ")"
@@ -779,6 +792,127 @@ func _fmt(m: int) -> String:
 		h12 = 12
 	return "%d:%02d %s" % [h12, m % 60, "AM" if h < 12 else "PM"]
 
+# ------------------------------------------------------------------ Dan's skills
+const SKILL_NAMES := {"networking": "Networking & ports", "dns": "DNS", "storage": "Storage", "services": "Services",
+	"accounts": "Accounts & auth", "certs": "Certificates", "printers": "Printers"}
+const KIND_SKILL := {"port": "networking", "vlan": "networking", "dns": "dns", "disk": "storage", "service": "services",
+	"lockout": "accounts", "cert": "certs", "printer": "printers"}
+const SKILL_LEVELS := [0, 40, 100, 180, 300]     # xp needed for Lv 1..5 (index = level-1)
+const PROFICIENT := 3                            # autopilot unlocks at this level
+const XP_FOR := {"great": 30, "good": 20, "slow": 12, "autopilot": 4, "incident": 45}
+
+func skill_of(kind: String) -> String:
+	return KIND_SKILL.get(kind, "networking")
+
+func skill_level(cat: String) -> int:
+	var xp: int = int(skills.get(cat, 0))
+	var lv := 1
+	for i in SKILL_LEVELS.size():
+		if xp >= SKILL_LEVELS[i]: lv = i + 1
+	return lv
+
+## [xp into this level, xp needed for next] (next = 0 at max level)
+func skill_progress(cat: String) -> Array:
+	var lv := skill_level(cat)
+	var xp: int = int(skills.get(cat, 0))
+	if lv >= SKILL_LEVELS.size(): return [xp - SKILL_LEVELS[-1], 0]
+	return [xp - SKILL_LEVELS[lv - 1], SKILL_LEVELS[lv] - SKILL_LEVELS[lv - 1]]
+
+func autopilot_unlocked(cat: String) -> bool:
+	return skill_level(cat) >= PROFICIENT
+
+## Hints per ticket: 2 + level/2 (1 when running on fumes).
+func max_hints(cat: String) -> int:
+	return 1 if is_on_fumes() else 2 + skill_level(cat) / 2
+
+## Autopilot quality grows with skill: Lv3 "autopilot", Lv5 "good".
+func autopilot_grade(cat: String) -> String:
+	return "good" if skill_level(cat) >= 5 else "autopilot"
+
+func add_xp(cat: String, grade: String) -> String:
+	var before := skill_level(cat)
+	skills[cat] = int(skills.get(cat, 0)) + int(XP_FOR.get(grade, 10))
+	var after := skill_level(cat)
+	if after > before:
+		var msg := "LifeOS: %s Lv %d! %s" % [SKILL_NAMES[cat], after, "Autopilot unlocked for this category. Use responsibly. (You won't.)" if after == PROFICIENT else "Your future self is slightly less tired."]
+		lifeos_message.emit(msg)
+		return msg
+	return ""
+
+# ------------------------------------------------------------------ terminal tickets
+## Applies a finished terminal ticket. grade: great / good / slow / autopilot.
+## Baseline work_ticket = 60 min, -10 energy, +4 perf, +5 stress; the grade bends it.
+const TICKET_GRADES := {
+	"great": {"min": -30, "energy": 3, "perf": 2, "stress": -6, "tag": "Clean fix. Root cause found, nothing broken, nobody had to reboot anything twice."},
+	"good": {"min": 0, "energy": 1, "perf": 1, "stress": -2, "tag": "Solid fix. A little wandering, but you got there."},
+	"slow": {"min": 30, "energy": -3, "perf": -1, "stress": 2, "tag": "Fixed, eventually. The scenic route. The user waited, kindly."},
+	"autopilot": {"min": 0, "energy": 0, "perf": -2, "stress": 3, "tag": "Autopilot: you ran the runbook without reading it. It worked. You learned nothing. Gary noticed nothing."},
+}
+func resolve_ticket(grade: String, title: String, reply: String, kind := "") -> String:
+	if can_do("work_ticket") != "":
+		return can_do("work_ticket")
+	var d0 := day
+	terminal_ticket = true
+	var line := do_action("work_ticket")
+	terminal_ticket = false
+	if day != d0 or week_over:
+		return line
+	var g: Dictionary = TICKET_GRADES.get(grade, TICKET_GRADES["good"])
+	minutes = clampi(minutes + int(g["min"]), DAY_START, DAY_END)
+	energy = clampi(energy + int(g["energy"]), 0, 100)
+	performance = clampi(performance + int(g["perf"]), 0, 100)
+	stress = clampi(stress + int(g["stress"]), 0, 100)
+	week_stats["ticket_" + grade] = int(week_stats.get("ticket_" + grade, 0)) + 1
+	if kind != "":
+		add_xp(skill_of(kind), "autopilot" if grade == "autopilot" else grade)
+	var out := "Closed ticket: %s\n%s\n%s" % [title, g["tag"], reply]
+	today["log"][-1] = out
+	state_changed.emit()
+	if minutes >= DAY_END:
+		end_day()
+	return out
+
+# ------------------------------------------------------------------ incidents
+var pending_incident := ""          # set by the after-hours page choice; Main opens it
+var incidents_week := 0
+
+## Applies a finished incident. Returns the postmortem text.
+func resolve_incident(inc_id: String, used_min: int, breached: bool, after_hours: bool, autopilot := false, commands := 0, hints := 0) -> String:
+	var inc: Dictionary = TicketSim.INCIDENTS[inc_id]
+	incidents_week += 1
+	week_stats["incidents"] = int(week_stats.get("incidents", 0)) + 1
+	var blocks := maxi(1, int(ceil(used_min / float(BLOCK))))
+	minutes = mini(minutes + blocks * BLOCK, DAY_END)
+	energy = clampi(energy - 6 * blocks, 0, 100)
+	var perf := 3 if autopilot else (4 if breached else 10)
+	performance = clampi(performance + perf, 0, 100)
+	stress = clampi(stress + (14 if breached else 6), 0, 100)
+	if after_hours:
+		closeness = clampi(closeness - 4, 0, 100)
+		girls_connected = clampi(girls_connected - 5, 0, 100)
+	for k in inc["stages"]:
+		add_xp(skill_of(k), "autopilot" if autopilot else "incident")
+	today["tickets"] += 1
+	week_stats["tickets"] += 1
+	var lines: Array[String] = [
+		"POSTMORTEM — %s" % inc["name"],
+		"Time to resolve: %d min (SLA: 90)%s" % [used_min, "  ⚠ SLA breached" if breached else "  ✔ within SLA"],
+		"Stages: %s" % " → ".join(inc["stages"].map(func(k): return SKILL_NAMES[skill_of(k)])),
+		"Commands: %d   Hints: %d%s" % [commands, hints, "   (autopilot)" if autopilot else ""],
+		"Blameless root cause: %s" % {"site_outage": "a 'temporary' firewall rule and a tired service.", "ransomware": "a convincing fake invoice. Karen has been hugged and enrolled in training.",
+			"backup_restore": "the backup disk filled up in March. Nobody was watching the watcher.", "db_corruption": "the DB crashed mid-write on a full disk.",
+			"ups_failure": "a UPS battery older than June.", "cert_outage": "auto-renew was set to 'later'. Later came."}[inc_id],
+		"Action items: add a monitor, add a calendar reminder, add a nap.",
+		"Impact on home: %s" % ("you missed part of the evening. Jess saved you a plate and a look. The girls drew you a 'server hero' picture anyway." if after_hours else "none. You made it home on time-ish."),
+		"Gary: %s" % ("\"Thank you. Truly. Go home.\"" if not breached else "\"We got there. That's what counts. Let's write the postmortem and never speak of it.\""),
+	]
+	if after_hours:
+		_moment("Saved the servers, missed the dragon voice.")
+	state_changed.emit()
+	if minutes >= DAY_END:
+		end_day()
+	return "\n".join(lines)
+
 # ------------------------------------------------------------------ cutscene choices
 ## effect id -> [deltas, result line]. Applied by Main when a choice is picked.
 const CHOICES := {
@@ -803,11 +937,15 @@ const CHOICES := {
 	"page_take": [{"performance": 5, "connected": -3}, "You take the page. Lily says \"It's okay, Daddy.\" She means it. That's the hard part. Jess finishes the dragon voice. It's a different dragon."],
 	"phone_k": [{"closeness": 1}, "You: k 👍\nJess: 👍\n(A perfectly functional marriage protocol. Low bandwidth.)"],
 	"phone_draft": [{"closeness": 2, "stress": 1}, "You type three paragraphs about how much you appreciate her. Delete. Send: ❤\nJess: ❤❤\n(She got all three paragraphs anyway.)"],
+	"incident_handoff": [{"performance": -3, "stress": 2, "closeness": 2}, "You hand it to Raj. He owes you from the Great Printer Fire. You stay for the dragon voice. Raj handles it."],
 	"talk_honest": [{"closeness": 8, "honesty": 15, "stress": -6}, "\"Yeah. It's been more than I want it to be.\" Jess takes your hand. \"Okay. We'll figure it out. Together, like the IKEA bed.\""],
 	"talk_deflect": [{"closeness": -4, "honesty": -10}, "\"Just a long week.\" Jess nods. She doesn't push. That's somehow worse."],
 	"talk_joke": [{"closeness": -2, "honesty": -5}, "\"The recycling is just very enthusiastic.\" Jess smiles, but only with her mouth."],
 }
 func apply_choice(eid: String) -> String:
+	if eid.begins_with("incident_take:"):
+		pending_incident = eid.split(":")[1]
+		return "You open the laptop at the kitchen table. Jess hands you a coffee and a look that says 'go save the internet'."
 	if eid == "phone_thoughtful":
 		return do_action("text_jess")
 	if not CHOICES.has(eid):
@@ -831,11 +969,11 @@ func apply_choice(eid: String) -> String:
 const SAVE_PATH := "user://uptime_save.json"
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
-	"fridge_drawings", "honesty", "plant", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
+	"fridge_drawings", "honesty", "skills", "incidents_week", "plant", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = SAVE_PATH) -> bool:
-	var d := {"version": 1}
+	var d := {"version": 2}
 	for v in SAVE_VARS:
 		d[v] = get(v)
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -852,7 +990,7 @@ func load_game(path: String = SAVE_PATH) -> bool:
 	if not FileAccess.file_exists(path):
 		return false
 	var d = JSON.parse_string(FileAccess.get_file_as_string(path))
-	if not (d is Dictionary) or int(d.get("version", 0)) != 1:
+	if not (d is Dictionary) or int(d.get("version", 0)) != 2:
 		return false
 	for v in SAVE_VARS:
 		if not d.has(v):

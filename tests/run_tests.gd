@@ -218,6 +218,98 @@ func _process(_d: float) -> bool:
 	check(gs.energy == maxi(en - 10, 0), "with a plan the Rx crash is gentler (-10)")
 	gs.minutes = gs.OFF_WORK; gs.do_action("head_home"); gs.do_action("buy_patch")
 	check(gs.patch_days == 5, "patches bought at the Gas-N-Sip")
+	# --- Terminal minigame
+	var sims_ok := true
+	for kind in TicketSim.TYPES:
+		for sd in 4:
+			var r := RandomNumberGenerator.new(); r.seed = 100 + sd
+			var ts := TicketSim.new(r, kind)
+			for cmd_ in ts.solution(): ts.run(cmd_)
+			if not ts.solved or ts.grade() != "great":
+				sims_ok = false
+				printerr("ticket ", kind, " seed ", sd, " solved=", ts.solved, " grade=", ts.grade(), " steps=", ts.solution())
+	check(sims_ok, "all 8 ticket types solve via their optimal path with grade Great")
+	var r2 := RandomNumberGenerator.new(); r2.seed = 7
+	var tw := TicketSim.new(r2, "service")
+	for cmd_ in ["ping tc-web01", "df -h", "nslookup foo", "whoami", "tail log", "ss -tlnp"]: tw.run(cmd_)
+	tw.hint(); tw.hint(); tw.hint()
+	for cmd_ in tw.solution(): tw.run(cmd_)
+	check(tw.solved and tw.grade() == "slow", "wandering + 3 hints still solves, grade Slow")
+	var td := TicketSim.new(r2, "dns")
+	check(td.run("dns records").begins_with("bash: not here"), "host-specific commands need ssh first")
+	check(td.hint().contains("nslookup"), "hint points at the next step")
+	gs.new_game(81); gs.do_action("feed_girls"); gs.do_action("leave_for_work")
+	var g0 := [gs.minutes, gs.energy, gs.performance]
+	gs.resolve_ticket("great", "t", "r")
+	check(gs.minutes == g0[0] + 30 and gs.energy == g0[1] - 7 and gs.performance == g0[2] + 6, "great fix: 30 min, -7 energy, +6 perf")
+	var g1 := [gs.minutes, gs.performance]
+	gs.resolve_ticket("autopilot", "t", "r")
+	check(gs.minutes == g1[0] + 60 and gs.performance == g1[1] + 2, "autopilot: 60 min, only +2 perf")
+	main.skip_all_cutscenes(); main.summary_root.visible = false
+	main.sync_location()
+	main.perform("work_ticket")
+	check(main.term_open() and main.term != null, "Work a ticket opens the terminal")
+	for cmd_ in main.term.solution(): main.term_submit(cmd_, true)
+	check(main.term_done, "terminal solves via clicked commands")
+	var tk: int = gs.today["tickets"]
+	main.term_close(true)
+	check(not main.term_open() and gs.today["tickets"] == tk + 1, "closing a solved ticket counts it")
+	main.perform("work_ticket")
+	main.term_autopilot()
+	check(main.term_open() and not main.autopilot_allowed(), "autopilot is locked until Dan is proficient (Lv 3)")
+	gs.skills[gs.skill_of(main.term.kind)] = 100
+	check(main.autopilot_allowed(), "autopilot unlocks at Lv 3")
+	main.term_autopilot()
+	check(not main.term_open() and gs.today["tickets"] == tk + 2, "autopilot closes the ticket")
+	# --- Skills
+	gs.new_game(82)
+	check(gs.skill_level("dns") == 1 and gs.max_hints("dns") == 2, "skills start at Lv 1 with 2 hints")
+	gs.do_action("feed_girls"); gs.do_action("leave_for_work")
+	for i in 3: gs.resolve_ticket("great", "t", "r", "dns")
+	check(gs.skill_level("dns") == 2 and gs.skills["dns"] == 90, "great DNS fixes earn XP and level up")
+	gs.skills["dns"] = 300
+	check(gs.skill_level("dns") == 5 and gs.autopilot_grade("dns") == "good" and gs.max_hints("dns") == 4, "max skill: better autopilot, more hints")
+	# --- Incidents
+	var mstart: int = gs.minutes
+	var pm: String = gs.resolve_incident("ransomware", 60, false, true, false, 8, 1)
+	check(pm.begins_with("POSTMORTEM") and pm.contains("within SLA") and gs.minutes == mstart + 60, "incident resolves with a postmortem and costs its time")
+	var all_inc := true
+	for iid in TicketSim.INCIDENTS:
+		var rr := RandomNumberGenerator.new(); rr.seed = 5
+		for si in TicketSim.INCIDENTS[iid]["stages"].size():
+			var st := TicketSim.make_stage(rr, iid, si)
+			for cmd_ in st.solution(): st.run(cmd_)
+			all_inc = all_inc and st.solved
+	check(all_inc, "all 6 incidents are solvable stage by stage")
+	main.skip_all_cutscenes(); main.summary_root.visible = false
+	gs.new_game(83); gs.do_action("feed_girls"); gs.do_action("leave_for_work")
+	main.skip_all_cutscenes(); main.summary_root.visible = false
+	main.sync_location()
+	main.open_incident("site_outage")
+	var guard := 0
+	while main.term_open() and not main.term_done and guard < 30:
+		guard += 1
+		main.term_submit(main.term.next_step(), true)
+	check(main.term_done and main.inc_idx == 1, "incident advances through both stages in the terminal")
+	main.term_close(true)
+	check(main.summary_root.visible and main.summary_kind == "postmortem" and main.summary_label.text.contains("Blameless"), "postmortem summary shown")
+	main.dismiss_summary()
+	check(not main.summary_root.visible and main.cs_id == "", "dismissing the postmortem goes back to work (no wake-up)")
+	main.skip_all_cutscenes(); main.summary_root.visible = false
+	gs.apply_choice("incident_take:cert_outage")
+	main._check_pending_incident()
+	check(main.term_open() and main.inc_after_hours, "after-hours page opens an incident at home")
+	main.term_close(false)
+	# --- Girls fed
+	gs.new_game(84)
+	var fedmsgs: Array = []
+	gs.lifeos_message.connect(func(x): fedmsgs.append(x))
+	gs.do_action("cereal"); gs.do_action("leave_for_work")
+	while gs.minutes < gs.OFF_WORK: gs.resolve_ticket("good", "t", "r", "port")
+	gs.do_action("head_home"); gs.do_action("pickup_girls")
+	check(gs.girls_fed >= 25 or fedmsgs.any(func(x): return "Girls: Fed is low" in str(x)), "girls aren't starving silently: lunch + low-fed warning")
+	gs.minutes = 1080; gs.do_action("family_dinner")
+	check(gs.girls_fed >= 50, "family dinner feeds the girls")
 	# --- Scenes, cutscenes, assets, UI
 	main.skip_all_cutscenes()
 	main.dismiss_summary() if main.summary_root.visible else null
