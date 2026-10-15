@@ -48,3 +48,22 @@ The calendar (top of the sidebar) has picture day, taco Wednesday, Lily's Thursd
 - **After-hours pages:** on weekday evenings Dan might get paged. Take it now and the family meters take the hit, or hand it to Raj.
 - **Girls: Fed:** packed lunches (+20 when leaving for work), slower decay while you're at work, a LifeOS nudge below 25%, and family dinner tops it up.
 - Summary and postmortem popups stay inside the game area. Long text shrinks to fit.
+
+### Shorter workday (Marty's playtest)
+- At the office a ticket takes about 2.5 in-game hours. **Head home** unlocks after **2 tickets**, or from 1:30 PM.
+- A 3rd ticket counts as **staying late**: Jess -5, Girls -6. There is no 4th ticket.
+- Job performance drifts down 3 per workday, so it now has to be earned. Office tickets give +3 base, adjusted by grade. Tickets worked from home give at most +1 base, max 2 per day.
+
+### Terminal quality-of-life
+- **Live suggestions:** after every step, the button row shows the real next command for this ticket (correct host and args), plus 1–2 plausible alternatives and `help`. With Rx focus the right one comes first, marked ▶.
+- **Grading:** a run done only by clicking caps at **Good**. If you type or Tab-complete at least half the commands yourself, you keep **Great** and get **+6 XP**.
+- **Tab completion** works like bash for commands, hostnames, users, services and subcommands. Pressing Tab twice lists the options.
+- The command input keeps focus after Enter.
+- Walking away after 3+ commands still costs the time you spent (30–60 min).
+
+### Town map
+- Leaving a place opens a top-down pixel-art map of Brookfield. Click a place, or press its number; arrows + Enter also work. Press M from the car to reopen it.
+- Places: Home, School (after-care pickup 2:30–6:30 PM), Gas-N-Sip, Riverside Park, Pharmacy (Rx refill), Dental (Dr. Lin), Lou's Diner (feeds the girls), and the Office (mornings only, with drop-off on the way).
+- Each place shows its travel time. Places are locked by time or phase, and the lock reason is listed.
+- Home stays locked until the girls are picked up, except on Wednesday, when Jess has pickup.
+- Missing the after-care window means Jess leaves work to get them: Girls -15, Jess -8, stress +8.

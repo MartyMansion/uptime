@@ -87,6 +87,7 @@ const INC_CMD_MIN := 3
 var summary_kind := ""     # "", "week", "postmortem"
 var term_rng := RandomNumberGenerator.new()
 var cs_choices: Array = []          # [[label, effect], ...] while a choice is open
+var choice_policy: Callable          # bot personas: opts -> index
 var random_choices := false         # bot: pick choices at random when skipping
 var choice_rng := RandomNumberGenerator.new()
 
@@ -330,6 +331,7 @@ func _build_ui() -> void:
 	svb.add_child(summary_hint)
 	summary_root.visible = false
 	_build_terminal()
+	_build_map()
 
 const TERM_GREEN := Color(0.45, 1.0, 0.55)
 
@@ -385,6 +387,8 @@ func _build_terminal() -> void:
 	term_input.add_theme_color_override("font_color", TERM_GREEN)
 	term_input.placeholder_text = "type a command, or click one below"
 	term_input.text_submitted.connect(func(t): term_submit(t, false))
+	term_input.gui_input.connect(_term_input_key)
+	if "keep_editing_on_text_submit" in term_input: term_input.set("keep_editing_on_text_submit", true)
 	row.add_child(term_input)
 	term_suggest = HFlowContainer.new()
 	term_suggest.add_theme_constant_override("h_separation", 6)
@@ -435,7 +439,7 @@ func open_terminal(kind := "") -> void:
 		return
 	inc_id = ""
 	# Occasionally a ticket is really an incident (at work, max 2 a week).
-	if kind == "" and GameState.phase == "work" and GameState.incidents_week < 2 and GameState.minutes <= GameState.DAY_END - 180 and GameState.rng.randf() < 0.07:
+	if kind == "" and GameState.phase == "work" and GameState.incidents_week < 2 and GameState.minutes <= GameState.DAY_END - 180 and GameState.rng.randf() < 0.12:
 		open_incident(TicketSim.INCIDENTS.keys()[GameState.rng.randi() % TicketSim.INCIDENTS.size()])
 		return
 	term_rng.seed = GameState.rng.randi()
@@ -503,8 +507,10 @@ func term_submit(cmd: String, clicked := false) -> void:
 		var i := 1 + term_rng.randi() % (cmd.length() - 2)
 		cmd = cmd.substr(0, i) + cmd[i + 1] + cmd[i] + cmd.substr(i + 2)
 		term.log_lines.append("(your fingers are tired)")
+	if clicked: term.clicked_cmds += 1
 	term.run(cmd)
 	term_input.text = ""
+	_tab_last = ""
 	if inc_id != "":
 		inc_cmds += 1
 		inc_used += INC_CMD_MIN
@@ -518,6 +524,7 @@ func term_submit(cmd: String, clicked := false) -> void:
 			term = TicketSim.make_stage(term_rng, inc_id, inc_idx)
 			term.log_lines.insert(0, done_line)
 			_term_refresh()
+			_term_focus()
 			return
 	if term.solved:
 		term_done = true
@@ -525,6 +532,36 @@ func term_submit(cmd: String, clicked := false) -> void:
 		term.log_lines.append("")
 		term.log_lines.append("✔ TICKET RESOLVED. " + term.reply)
 	_term_refresh()
+	_term_focus()
+
+var _tab_last := ""
+## Tab: complete commands, hosts and args; a second Tab with nothing to add lists the options.
+func term_tab() -> void:
+	if term == null or term_done: return
+	var line := term_input.text
+	var r: Array = term.complete(line)
+	if r[0] != line:
+		term_input.text = r[0]
+		_tab_last = ""
+	elif not (r[1] as Array).is_empty():
+		if _tab_last == line:
+			term.log_lines.append(term.cur_host + "$ " + line)
+			term.log_lines.append("  ".join(r[1]))
+			_term_refresh()
+		_tab_last = line
+	term_input.caret_column = term_input.text.length()
+	_term_focus()
+
+func _term_input_key(e: InputEvent) -> void:
+	if e is InputEventKey and e.pressed and (e as InputEventKey).keycode == KEY_TAB:
+		term_tab()
+		term_input.accept_event()
+
+## Keep the cursor in the prompt so you can keep typing (Marty's playtest bug).
+func _term_focus() -> void:
+	if term_open() and not term_done and term_input.is_inside_tree() and term_input.is_visible_in_tree():
+		term_input.grab_focus()
+		term_input.grab_focus.call_deferred()   # again after the suggestion buttons are rebuilt
 
 func term_hint() -> void:
 	if term == null or term_done:
@@ -577,6 +614,7 @@ func term_close(resolve: bool) -> void:
 		if resolve and term_done:
 			_finish_incident(false)
 		else:
+			GameState.charge_walkaway(maxi(inc_cmds, 3) if inc_cmds > 0 else 0)
 			_log("You hand the incident to Gary, who hands it to 'the vendor'. It gets fixed tomorrow. Performance -6.")
 			GameState.performance = clampi(GameState.performance - 6, 0, 100)
 			GameState.stress = clampi(GameState.stress + 5, 0, 100)
@@ -586,13 +624,141 @@ func term_close(resolve: bool) -> void:
 			GameState.state_changed.emit()
 		return
 	if resolve and term_done:
-		var res := GameState.resolve_ticket(term.grade(), term.title, term.reply, term.kind)
+		var res := GameState.resolve_ticket(term.grade(), term.title, term.reply, term.kind, term.typed_bonus())
 		_log(res)
 	else:
-		_log("You walk away from the ticket. It'll still be there. Tickets are loyal like that.")
+		var spent: int = GameState.charge_walkaway(term.commands)
+		_log("You walk away from the ticket. It'll still be there. Tickets are loyal like that." + (" (%d min you won't get back.)" % spent if spent > 0 else ""))
 	term_panel.visible = false
 	term = null
 	_refresh_prompt()
+
+# ------------------------------------------------------------ town map
+var use_map := true
+var map_root: Control
+var map_header: Label
+var map_tex: TextureRect
+var map_hint: Label
+var map_btns := {}
+var map_order: Array = []
+
+func _build_map() -> void:
+	map_root = ColorRect.new()
+	map_root.name = "TownMap"
+	(map_root as ColorRect).color = Color(0.05, 0.07, 0.05, 0.9)
+	world_slot.add_child(map_root)
+	map_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var mc := MarginContainer.new()
+	mc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]: mc.add_theme_constant_override("margin_" + side, 8)
+	map_root.add_child(mc)
+	var vb := VBoxContainer.new()
+	mc.add_child(vb)
+	map_header = _label("", 18)
+	map_header.add_theme_color_override("font_color", Color(1, 0.85, 0.45))
+	vb.add_child(map_header)
+	var ar := AspectRatioContainer.new()
+	ar.ratio = 16.0 / 9.0
+	ar.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vb.add_child(ar)
+	map_tex = TextureRect.new()
+	map_tex.texture = load("res://assets/map/town_map.png")
+	map_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	map_tex.stretch_mode = TextureRect.STRETCH_SCALE
+	map_tex.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	ar.add_child(map_tex)
+	for id in GameState.PLACES:
+		var b := Button.new()
+		b.name = "Place_" + id
+		b.add_theme_font_size_override("font_size", 12)
+		var p: Array = GameState.PLACES[id]
+		b.anchor_left = p[1]; b.anchor_right = p[1]; b.anchor_top = p[2]; b.anchor_bottom = p[2]
+		b.grow_horizontal = Control.GROW_DIRECTION_BOTH if p[1] < 0.8 else Control.GROW_DIRECTION_BEGIN
+		if p[1] >= 0.8: b.offset_left = 30; b.offset_right = 30
+		b.grow_vertical = Control.GROW_DIRECTION_END
+		b.offset_top = 14
+		b.pressed.connect(map_pick.bind(id))
+		map_tex.add_child(b)
+		map_btns[id] = b
+	map_hint = _label("Click a place, or press its number. Arrows + Enter work too. M opens the map from the car.", 13, true)
+	vb.add_child(map_hint)
+	map_root.visible = false
+
+func map_open() -> bool:
+	return map_root != null and map_root.visible
+
+func _map_can_close() -> bool:
+	return GameState.phase == "home_am" or GameState.at_place == "gas"
+
+func open_map() -> void:
+	map_root.visible = true
+	if loc: dan.stop_walking()
+	_map_refresh()
+
+func close_map() -> void:
+	map_root.visible = false
+	_refresh_prompt()
+
+func _map_refresh() -> void:
+	var opts: Array = GameState.map_options()
+	map_order = []
+	var n := 0
+	var first_ok: Button = null
+	for o in opts:
+		var b: Button = map_btns[o[0]]
+		var why: String = o[3]
+		var short: String = str(o[1]).split(" (")[0]
+		if why == "You're here." or (GameState.phase == "home_am" and o[0] != "office"):
+			b.visible = o[0] == "home" or why == "You're here."
+			b.disabled = true
+			b.text = "• " + short + " (you)"
+			if b.visible and o[0] != "home" and GameState.phase == "home_am": b.visible = false
+			continue
+		b.visible = true
+		n += 1
+		map_order.append(o[0])
+		b.disabled = why != ""
+		b.text = "[%d] %s · %d min" % [n, short, o[2]] if why == "" else "[%d] %s 🔒" % [n, short]
+		b.tooltip_text = str(GameState.PLACES[o[0]][6]) if why == "" else why
+		if why == "" and first_ok == null: first_ok = b
+	var who := "with the girls" if GameState.girls_picked else ("Jess has the girls" if GameState.jess_has_girls() else "girls at after-care")
+	map_header.text = "Brookfield · %s · %s · Where to?" % [GameState.clock_text(), who if GameState.phase == "drive" else "school run"]
+	var locked: Array[String] = []
+	for o in opts:
+		if o[3] != "" and o[0] in map_order: locked.append("%s: %s" % [str(o[1]).split(" (")[0], o[3]])
+	map_hint.text = ("🔒 " + "  ·  ".join(locked) + "\n" if not locked.is_empty() else "") + "Click a place or press its number (arrows + Enter work too). M reopens the map from the car."
+	if first_ok and is_inside_tree() and first_ok.is_inside_tree() and first_ok.is_visible_in_tree():
+		first_ok.grab_focus()
+
+## Player picked a destination on the map.
+func map_pick(id: String) -> void:
+	var why := ""
+	for o in GameState.map_options():
+		if o[0] == id: why = o[3]
+	if why != "":
+		_log(why); _map_refresh(); return
+	map_root.visible = false
+	if id == "office":
+		perform_direct("leave_for_work")
+	elif id == "home":
+		perform_direct("pickup_girls")
+	else:
+		var res: String = GameState.travel(id)
+		_log(res)
+		if id != "gas" and GameState.phase == "drive":
+			open_map()
+	sync_location()
+	_refresh_prompt()
+
+func perform_direct(aid: String) -> void:
+	var res: String = GameState.do_action(aid)
+	_log(res)
+	_refresh_prompt()
+
+## In town without being at the Gas-N-Sip: the map is the world (after cutscenes finish).
+func auto_map() -> void:
+	if use_map and GameState.phase == "drive" and GameState.at_place != "gas" and not map_open() and cs_id == "" and not summary_root.visible and not term_open():
+		open_map()
 
 func _layout_world() -> void:
 	if world_slot == null:
@@ -669,7 +835,7 @@ func _update_fridge() -> void:
 
 # ------------------------------------------------------------------ loop
 func is_busy() -> bool:
-	return cs_id != "" or summary_root.visible or term_open()
+	return cs_id != "" or summary_root.visible or term_open() or map_open()
 
 func _process(delta: float) -> void:
 	if lifeos_panel.visible and not dialog_panel.visible:
@@ -677,6 +843,7 @@ func _process(delta: float) -> void:
 		if lifeos_timer <= 0:
 			lifeos_panel.visible = false
 	_cs_tick(delta)
+	auto_map()
 	if is_busy() or loc == null:
 		return
 	var dir := Vector2.ZERO
@@ -704,6 +871,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	var k: Key = (event as InputEventKey).keycode
+	if map_open() and cs_id == "" and not summary_root.visible:
+		if k >= KEY_1 and k <= KEY_9:
+			var i: int = k - KEY_1
+			if i < map_order.size(): map_pick(map_order[i])
+		elif k == KEY_ESCAPE and _map_can_close():
+			close_map()
+		return
+	if k == KEY_M and GameState.phase == "drive" and cs_id == "" and not term_open():
+		open_map(); return
 	if term_open():
 		if k == KEY_ESCAPE:
 			term_close(false)
@@ -741,7 +917,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_R: perform("rx_dose")
 		KEY_B: perform("breathe")
 		KEY_F6:
-			show_lifeos("LifeOS: Saved. Your progress is safe. Your inbox is not." if GameState.save_game() else "LifeOS: Save failed. Classic.")
+			show_lifeos("LifeOS: Saved (the morning of %s; F7 rewinds to it). Your progress is safe. Your inbox is not." % GameState.day_name() if GameState.save_game() else "LifeOS: Save failed. Classic.")
 		KEY_F7:
 			if GameState.load_game():
 				cs_queue.clear(); cs_id = ""; summary_root.visible = false
@@ -765,6 +941,12 @@ func _current_actions() -> Array[String]:
 	return out
 
 func perform(aid: String) -> void:
+	# Leaving a place opens the town map (Marty: Stardew-style travel instead of a fixed sequence).
+	if use_map and ((aid == "leave_for_work" and GameState.phase == "home_am") or (aid == "pickup_girls" and GameState.phase == "drive")):
+		if GameState.can_do(aid) != "":
+			_log(GameState.can_do(aid)); return
+		open_map()
+		return
 	if aid == "work_ticket" and use_terminal:
 		open_terminal()
 		return
@@ -922,6 +1104,7 @@ func _run_step(st: Array, instant: bool) -> void:
 			var opts: Array = st[1]
 			if instant:
 				var pick: int = choice_rng.randi() % opts.size() if random_choices else 0
+				if choice_policy.is_valid(): pick = clampi(int(choice_policy.call(opts)), 0, opts.size() - 1)
 				_log(GameState.apply_choice(opts[pick][1]))
 				_check_pending_incident.call_deferred()
 			else:
@@ -1016,7 +1199,7 @@ func _refresh_prompt() -> void:
 	var i := 1
 	for aid in _current_actions():
 		var a: Dictionary = GameState.ACTIONS[aid]
-		var cost := "%d min, %+d energy" % [int(a["blocks"]) * GameState.BLOCK, int(a["energy"])]
+		var cost := "%d min, %+d energy" % [GameState.action_blocks(aid) * GameState.BLOCK, int(a["energy"])]
 		if aid == "sleep":
 			cost = "ends the day"
 		var blocked := GameState.can_do(aid)
@@ -1070,11 +1253,19 @@ func audit_ui() -> Array[String]:
 				continue
 			if a.get_global_rect().grow(-1).intersects(b.get_global_rect().grow(-1)):
 				problems.append("overlap: '%s' / '%s'" % [a.text.left(25), b.text.left(25)])
+	if map_open():
+		var btns: Array = map_btns.values()
+		for i in btns.size():
+			var r: Rect2 = btns[i].get_global_rect()
+			if not game_area.encloses(r): problems.append("map button outside game area: '%s'" % btns[i].text.left(25))
+			for j in range(i + 1, btns.size()):
+				if r.grow(-1).intersects(btns[j].get_global_rect().grow(-1)):
+					problems.append("map buttons overlap: '%s' / '%s'" % [btns[i].text.left(20), btns[j].text.left(20)])
 	return problems
 
 func _overlay_of(n: Node) -> String:
 	while n != null and n != ui:
-		if n.name in ["LifeOS", "Dialogue", "Summary", "Terminal"]:
+		if n.name in ["LifeOS", "Dialogue", "Summary", "Terminal", "TownMap"]:
 			return n.name
 		n = n.get_parent()
 	return "HUD"

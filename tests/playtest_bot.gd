@@ -51,6 +51,7 @@ func _run() -> void:
 	f.store_line("TERMINAL tickets %d autopilot %d (locked attempts %d) walked %d great %d good %d slow %d kinds %s" % [int(stats.get("terminal", 0)), int(stats.get("t_autopilot", 0)), int(stats.get("t_autopilot_locked", 0)), int(stats.get("t_walk", 0)), int(stats.get("grade_great", 0)), int(stats.get("grade_good", 0)), int(stats.get("grade_slow", 0)), JSON.stringify(stats.get("kinds", {}))])
 	f.store_line("INCIDENTS %d (after-hours %d, SLA breached %d) %s" % [int(stats.get("incidents", 0)), int(stats.get("inc_after_hours", 0)), int(stats.get("inc_breached", 0)), JSON.stringify(stats.get("inc_ids", {}))])
 	f.store_line("SKILLS avg end-of-week level " + JSON.stringify(skill_sum))
+	f.store_line("MAP opens %d waits %d dest %s missed_pickups %d" % [int(stats.get("map_opens", 0)), int(stats.get("map_waits", 0)), JSON.stringify(stats.get("map_dest", {})), int(stats.get("missed_pickups", 0))])
 	f.store_line("SAVELOAD round trips %d" % int(stats.get("saveloads", 0)))
 	f.store_line("ENDINGS " + JSON.stringify(stats["endings_by"]))
 	f.store_line("BALANCE (avg end of week)  strat | stress perf jess girls | drawings bedtimes | drinks pouches rx_extra | money")
@@ -220,6 +221,50 @@ func play_terminal(strat: String, rng: RandomNumberGenerator) -> void:
 	main.term_close(true)
 	await _after_terminal()
 
+## Town map: choose destinations like this kind of player would.
+func map_pref(strat: String, rng: RandomNumberGenerator) -> Array:
+	match strat:
+		"heavy", "quitter", "rx_spam", "broke": return ["gas", "school", "home"] if rng.randf() < 0.7 else ["school", "gas", "home"]
+		"cozy", "stardew", "family_first", "balanced": return ["school", "park", "diner", "home"] if rng.randf() < 0.5 else ["school", "home"]
+		"workaholic", "all_skip": return ["school", "home"]
+	var all: Array = gs.PLACES.keys()
+	all.shuffle()
+	return all
+
+func play_map(strat: String, rng: RandomNumberGenerator) -> void:
+	var guard := 0
+	var visited := {}
+	while main.map_open() and guard < 10:
+		guard += 1
+		stats["map_opens"] = int(stats.get("map_opens", 0)) + 1
+		if rng.randf() < 0.1: await audit("map")
+		var ok: Array = []
+		for o in gs.map_options():
+			if o[3] == "": ok.append(o[0])
+		var pick := ""
+		for p in map_pref(strat, rng):
+			if p in ok and not visited.has(p): pick = p; break
+		if pick == "" and "home" in ok: pick = "home"
+		if pick == "" and "school" in ok: pick = "school"
+		if pick == "" and "office" in ok: pick = "office"
+		if pick == "":
+			# nothing useful open (e.g. waiting for after-care): the car line
+			main.close_map(); main.perform_direct("pickup_girls")
+			stats["map_waits"] = int(stats.get("map_waits", 0)) + 1
+			break
+		visited[pick] = true
+		stats["map_dest"] = stats.get("map_dest", {})
+		stats["map_dest"][pick] = int(stats["map_dest"].get(pick, 0)) + 1
+		if rng.randf() < 0.5:
+			var ev := InputEventKey.new(); ev.pressed = true; ev.keycode = (KEY_1 + main.map_order.find(pick)) as Key
+			main._unhandled_input(ev)
+		else:
+			main.map_btns[pick].emit_signal("pressed")
+		await drain()
+	if main.map_open() and guard >= 10:
+		bad("map loop: never left town (%s at %s)" % [gs.at_place, gs.clock_text()])
+		main.close_map()
+
 func _after_terminal() -> void:
 	if main.summary_root.visible and main.summary_kind == "postmortem":
 		note(main.summary_label.text)
@@ -248,10 +293,11 @@ func play_week(strat: String, seed_v: int) -> void:
 			stats["days"] += 1
 			if gs.day == 3 and seed_v % 5 == 0:
 				# save/load round trip mid-week must restore the exact morning
+				if not gs.save_game("user://bot_save_%d.json" % OS.get_process_id()): bad("save failed")
+				gs.load_game("user://bot_save_%d.json" % OS.get_process_id())   # saves are "morning of": compare against that morning
 				var snap := [gs.day, gs.energy, gs.closeness, gs.fridge_drawings, gs.money, gs.drinks_week]
-				if not gs.save_game("user://bot_save.json"): bad("save failed")
 				gs.energy = 3; gs.closeness = 1; gs.fridge_drawings = 99
-				if not gs.load_game("user://bot_save.json"): bad("load failed")
+				if not gs.load_game("user://bot_save_%d.json" % OS.get_process_id()): bad("load failed")
 				var snap2 := [gs.day, gs.energy, gs.closeness, gs.fridge_drawings, gs.money, gs.drinks_week]
 				if snap != snap2: bad("save/load mismatch %s vs %s" % [snap, snap2])
 				stats["saveloads"] = int(stats.get("saveloads", 0)) + 1
@@ -268,7 +314,7 @@ func play_week(strat: String, seed_v: int) -> void:
 		for id in gs.phase_actions():
 			if gs.can_do(id) == "": allowed.append(id)
 		# zero-time actions can loop forever; cap them per strategy step
-		var timed: Array = allowed.filter(func(a): return int(gs.ACTIONS[a]["blocks"]) > 0 or a == "sleep")
+		var timed: Array = allowed.filter(func(a): return gs.action_blocks(a) > 0 or a == "sleep")
 		if timed.is_empty() and not allowed.is_empty() and gs.phase != "drive":
 			bad("softlock: only zero-time actions in %s at %s (energy %d): %s" % [gs.phase, gs.clock_text(), gs.energy, allowed])
 		if allowed.is_empty():
@@ -291,6 +337,7 @@ func play_week(strat: String, seed_v: int) -> void:
 				main.perform(a)
 			if main.term_open():
 				await play_terminal(strat, rng)
+			await play_map(strat, rng)
 			if gs.minutes < before_min and gs.day == last_day and not gs.week_over: bad("clock went backwards on " + a)
 		check_state()
 		if rng.randf() < 0.05: await audit("play")
@@ -299,6 +346,8 @@ func play_week(strat: String, seed_v: int) -> void:
 		if main.term_open():
 			await play_terminal(strat, rng)
 			await drain()
+		main.auto_map()
+		await play_map(strat, rng)
 		if main.summary_root.visible:
 			main.dismiss_summary() if not gs.week_over else null
 			if gs.week_over:
@@ -313,6 +362,7 @@ func play_week(strat: String, seed_v: int) -> void:
 	bal[strat] = b
 	for c in gs.skills:
 		skill_sum[c] = snappedf(float(skill_sum.get(c, 0.0)) + gs.skill_level(c) / 100.0, 0.01)
+	stats["missed_pickups"] = int(stats.get("missed_pickups", 0)) + int(gs.week_stats.get("missed_pickups", 0))
 	var en: String = gs.ending_id()
 	stats["endings_by"][en] = int(stats["endings_by"].get(en, 0)) + 1
 	main.summary_root.visible = false

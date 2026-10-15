@@ -76,3 +76,6 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [x] Incident response / DR (6 incidents, SLA, postmortem, after-hours pages)
 - [x] Bug: end-of-day summary clipped sidebar → popups confined to game area
 - [x] Bug: Girls Fed hit 0% silently → lunches, slower decay, LifeOS warning
+- [x] Multi-persona playtest (6 bots × 100 weeks) + MULTI_PLAYTEST_REPORT.md
+- [x] Marty: input refocus, Tab completion, live suggestions, shorter workday, town map
+- [ ] Design recs from MULTI_PLAYTEST_REPORT (not implemented yet; see the report)

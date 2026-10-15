@@ -3,6 +3,20 @@ extends SceneTree
 
 var failures := 0
 
+func await_free_audit(main: Node) -> void:
+	var probs: Array = main.audit_ui().filter(func(x): return "map" in str(x))
+	check(probs.is_empty(), "map buttons inside the game area, no overlap %s" % [probs])
+
+func main_walkaway_check(wm: int) -> void:
+	var gs: Node = root.get_node("GameState")
+	check(gs.charge_walkaway(2) == 0 and gs.minutes == wm, "a quick peek and walk away is free")
+	check(gs.charge_walkaway(5) == 30 and gs.minutes == wm + 30, "walking away after 5 commands costs 30 min")
+	check(gs.charge_walkaway(20) == 60, "walking away after 20 commands costs an hour")
+	gs.minutes = gs.DAY_END
+	check(gs.can_do("head_home") == "", "at the desk at 1 AM you can still drive home (no softlock)")
+	gs.do_action("head_home"); gs.travel("gas")
+	check(gs.phase in ["drive", "home_am"] and gs.minutes <= gs.DAY_END, "driving home at 1 AM ends the day cleanly")
+
 func check(cond: bool, msg: String) -> void:
 	if cond:
 		print("PASS: ", msg)
@@ -13,6 +27,7 @@ func check(cond: bool, msg: String) -> void:
 func _initialize() -> void:
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	main.autoload_save = false
+	main.use_map = false   # map has its own tests below
 	root.add_child(main)
 
 ## Plays a standard day: breakfast, work tickets until 4, drive stop, evening.
@@ -30,9 +45,9 @@ func play_day(gs: Node, buy: Array, drinks: int, pouches: int) -> void:
 		return
 	gs.do_action("feed_girls")
 	gs.do_action("leave_for_work")
-	while gs.minutes < gs.OFF_WORK:
+	while not gs.can_leave_work() and gs.can_do("work_ticket") == "":
 		gs.do_action("work_ticket")
-	gs.do_action("head_home")
+	gs.do_action("head_home"); gs.travel("gas")
 	for b in buy:
 		gs.do_action(b)
 	gs.do_action("pickup_girls")
@@ -57,11 +72,11 @@ func _process(_d: float) -> bool:
 	gs.do_action("leave_for_work")
 	check(gs.phase == "work" and gs.minutes == 480, "leave for work: 2 blocks, phase=work")
 	gs.do_action("work_ticket")
-	check(gs.minutes == 540 and gs.energy == 82 and gs.performance == 54, "ticket costs 2 blocks / 10 energy, +4 perf")
+	check(gs.minutes == 630 and gs.energy == 80 and gs.performance == 53, "office ticket ~2.5 h / 12 energy, +3 perf (got %d %d %d)" % [gs.minutes, gs.energy, gs.performance])
 	var m: int = gs.minutes
 	gs.do_action("text_jess")
 	check(gs.minutes == m and gs.closeness == 56, "texting Jess costs no time, +closeness")
-	check(gs.can_do("head_home") != "", "can't leave before 4 PM")
+	check(gs.can_do("head_home") != "", "can't leave after just 1 ticket in the morning")
 	# --- Rx: focus, crash, extra dose
 	var e: int = gs.energy
 	gs.do_action("rx_dose")
@@ -69,17 +84,23 @@ func _process(_d: float) -> bool:
 	e = gs.energy
 	var p: int = gs.performance
 	gs.do_action("work_ticket")
-	check(gs.energy == e - 5 and gs.performance == p + 7, "focused ticket: -5 energy, +7 perf")
+	check(gs.energy == e - 5 and gs.performance == p + 6, "focused ticket: -5 energy, +6 perf")
+	check(gs.can_leave_work() and gs.can_do("head_home") == "", "2 tickets -> Head home unlocks (Marty: shorter workday)")
+	var cl0: int = gs.closeness
+	var gc0: int = gs.girls_connected
+	gs.do_action("work_ticket")
+	check(gs.closeness == cl0 - 5 and gs.girls_connected == gc0 - 6, "3rd ticket = staying late: costs family time")
+	check(gs.can_do("work_ticket") != "", "no 4th office ticket")
 	e = gs.energy
 	while gs.rx_active():
-		gs.do_action("work_ticket")
+		gs.do_action("coffee_break")
 	check(gs.today["crashed"], "Rx wears off -> crash")
 	gs.do_action("rx_dose")
 	check(gs.rx_extra_total == 1 and gs.week_stats["rx_extra"] == 1, "second dose counted as extra")
 	# --- Drive home stop
-	while gs.minutes < gs.OFF_WORK:
+	while not gs.can_leave_work() and gs.can_do("work_ticket") == "":
 		gs.do_action("work_ticket")
-	gs.do_action("head_home")
+	gs.do_action("head_home"); gs.travel("gas")
 	check(gs.phase == "drive", "head home -> gas station stop")
 	var money: int = gs.money
 	gs.do_action("buy_beer")
@@ -125,7 +146,7 @@ func _process(_d: float) -> bool:
 	gs.energy = 3
 	check(gs.can_do("coffee_break") == "" and gs.can_do("work_ticket") != "", "exhausted at work: coffee break available")
 	gs.minutes = gs.OFF_WORK
-	gs.do_action("head_home")
+	gs.do_action("head_home"); gs.travel("gas")
 	gs.energy = 0
 	check(gs.can_do("pickup_girls") == "", "0 energy: Dan can still pick up the girls")
 	gs.new_game(6)
@@ -153,12 +174,27 @@ func _process(_d: float) -> bool:
 	gs.pouches = 5; gs.do_action("pouch")
 	var msgs: Array = []
 	gs.lifeos_message.connect(func(t): msgs.append(t))
+	gs.fridge_drawings = 7
 	gs.end_day(); gs.end_day(); gs.end_day()
 	check(gs.clean["pouch"] == 2 and msgs.any(func(t): return "Cravings" in str(t)), "quitting pouches: clean streak + reward line")
 	gs.fridge_drawings = 7
 	check(gs.save_game("user://test_save.json"), "save game")
 	gs.new_game(13)
 	check(gs.load_game("user://test_save.json") and gs.fridge_drawings == 7 and gs.day == 3 and gs.clean["pouch"] == 2, "load game restores the morning")
+	# Persona bug (speedrunner): mid-day saves stored afternoon meters + loading re-applied the morning stress.
+	var sv_st: int = gs.stress
+	var sv_en: int = gs.energy
+	gs.do_action("leave_for_work")
+	gs.stress = 77; gs.money += 500; gs.performance = 3
+	check(gs.save_game("user://test_save.json"), "mid-day save")
+	gs.load_game("user://test_save.json")
+	check(gs.stress == sv_st and gs.energy == sv_en and gs.performance != 3 and gs.minutes == gs.DAY_START, "mid-day save + load = the exact morning (no afternoon meters)")
+	gs.load_game("user://test_save.json"); gs.load_game("user://test_save.json")
+	check(gs.stress == sv_st, "reloading the same save doesn't stack morning stress (%d vs %d)" % [gs.stress, sv_st])
+	# Persona bug (newbie): walking away was free, freezing the clock at the desk.
+	gs.new_game(5); gs.do_action("leave_for_work")
+	var wm: int = gs.minutes
+	main_walkaway_check(wm)
 	gs.delete_save("user://test_save.json")
 	check(not gs.load_game("user://nope.json"), "missing save fails cleanly")
 	# --- Choices in cutscenes
@@ -171,6 +207,52 @@ func _process(_d: float) -> bool:
 	var c0: int = gs.closeness
 	gs.apply_choice("talk_honest")
 	check(gs.closeness == c0 + 8 and gs.honesty == 65 and gs.weekly_review().contains("Honesty"), "honest answer: closeness + honesty, noted in review")
+	# --- Town map (Marty: Stardew-style travel)
+	main.use_map = true
+	gs.new_game(91); main.skip_all_cutscenes(); main.summary_root.visible = false; main.sync_location()
+	main.perform("leave_for_work")
+	check(main.map_open() and gs.phase == "home_am", "leaving the house opens the town map")
+	check(main.map_order == ["office"], "morning: only the office (drop-off on the way) is selectable")
+	var ek := InputEventKey.new(); ek.keycode = KEY_1; ek.pressed = true
+	main._unhandled_input(ek)
+	check(not main.map_open() and gs.phase == "work", "keyboard [1] travels to the office")
+	main.skip_all_cutscenes()
+	gs.today["tickets"] = 2
+	main.perform("head_home"); main.skip_all_cutscenes(); main.auto_map()
+	check(main.map_open() and gs.phase == "drive" and gs.at_place == "road", "badging out shows the map")
+	var opts := {}
+	for o in gs.map_options(): opts[o[0]] = o
+	check(opts["home"][3] != "" and "Pick up" in opts["home"][3], "home is locked until the girls are picked up")
+	check(opts["office"][3] != "" and opts["gas"][3] == "" and int(opts["gas"][2]) == 10, "office locked, Gas-N-Sip open with travel time")
+	check(gs.minutes < gs.PICKUP_OPEN and opts["school"][3] != "", "school pickup locked before the after-care window")
+	main.map_pick("gas")
+	check(not main.map_open() and gs.at_place == "gas" and gs.can_do("buy_beer") == "", "Gas-N-Sip: map closes, store open")
+	main.perform("pickup_girls")
+	check(main.map_open(), "'Back in the car' reopens the map")
+	main.map_pick("park")
+	check(main.map_open() and gs.at_place == "park", "park visit, map stays up")
+	gs.minutes = maxi(gs.minutes, gs.PICKUP_OPEN)
+	main._map_refresh()
+	main.map_btns["school"].emit_signal("pressed")
+	check(gs.girls_picked and main.map_open(), "mouse click on school picks up the girls")
+
+	main.map_pick("home")
+	check(gs.phase == "home_pm" and not main.map_open(), "home after pickup -> evening")
+	# missed window: Jess has to get them, meters drop
+	gs.new_game(92); gs.do_action("leave_for_work"); gs.today["tickets"] = 2
+	gs.do_action("head_home")
+	var gc1: int = gs.girls_connected
+	var cl1: int = gs.closeness
+	gs.minutes = gs.PICKUP_CLOSE - 10
+	gs.travel("diner")
+	check(gs.girls_picked and gs.girls_connected <= gc1 - 15 and gs.closeness <= cl1 - 8 and int(gs.week_stats.get("missed_pickups", 0)) == 1, "missing the pickup window costs family meters (Jess picks up)")
+	check(gs.travel("home") != "" and gs.phase == "home_pm", "then home is open")
+	gs.new_game(93); gs.day = 2; gs._start_day(); gs.do_action("leave_for_work"); gs.today["tickets"] = 2; gs.do_action("head_home")
+	var o2 := {}
+	for o in gs.map_options(): o2[o[0]] = o
+	check(o2["home"][3] == "" and o2["school"][3] != "", "Wednesday: Jess has pickup, home open")
+	check(gs.travel("dental") != "" and gs.travel("dental") == "You're here.", "dentist visit, can't stack it")
+	main.use_map = false
 	# --- Endings
 	gs.new_game(41)
 	gs.closeness = 80; gs.girls_connected = 80; gs.stress = 20
@@ -216,7 +298,7 @@ func _process(_d: float) -> bool:
 	gs.minutes = gs.rx_until
 	gs._check_crash()
 	check(gs.energy == maxi(en - 10, 0), "with a plan the Rx crash is gentler (-10)")
-	gs.minutes = gs.OFF_WORK; gs.do_action("head_home"); gs.do_action("buy_patch")
+	gs.minutes = gs.OFF_WORK; gs.do_action("head_home"); gs.travel("gas"); gs.do_action("buy_patch")
 	check(gs.patch_days == 5, "patches bought at the Gas-N-Sip")
 	# --- Terminal minigame
 	var sims_ok := true
@@ -241,10 +323,11 @@ func _process(_d: float) -> bool:
 	gs.new_game(81); gs.do_action("feed_girls"); gs.do_action("leave_for_work")
 	var g0 := [gs.minutes, gs.energy, gs.performance]
 	gs.resolve_ticket("great", "t", "r")
-	check(gs.minutes == g0[0] + 30 and gs.energy == g0[1] - 7 and gs.performance == g0[2] + 6, "great fix: 30 min, -7 energy, +6 perf")
+	check(gs.minutes == g0[0] + 120 and gs.energy == g0[1] - 9 and gs.performance == g0[2] + 5, "great office fix: 2 h, -9 energy, +5 perf")
 	var g1 := [gs.minutes, gs.performance]
 	gs.resolve_ticket("autopilot", "t", "r")
-	check(gs.minutes == g1[0] + 60 and gs.performance == g1[1] + 2, "autopilot: 60 min, only +2 perf")
+	check(gs.minutes == g1[0] + 150 and gs.performance == g1[1] + 1, "autopilot: 2.5 h, only +1 perf")
+	gs.today["tickets"] = 0   # fresh desk for the UI tests below
 	main.skip_all_cutscenes(); main.summary_root.visible = false
 	main.sync_location()
 	main.perform("work_ticket")
@@ -254,13 +337,67 @@ func _process(_d: float) -> bool:
 	var tk: int = gs.today["tickets"]
 	main.term_close(true)
 	check(not main.term_open() and gs.today["tickets"] == tk + 1, "closing a solved ticket counts it")
+	# Marty's playtest: live suggestions show the real next command (+1-2 alternatives) after every step.
+	for kd in TicketSim.TYPES:
+		var lr := RandomNumberGenerator.new(); lr.seed = 77
+		var lt := TicketSim.new(lr, kd)
+		var ok := true
+		var g := 0
+		while not lt.solved and g < 20:
+			g += 1
+			var sg: Array[String] = lt.suggestions(false)
+			if not (lt.next_step() in sg) or sg.size() < 3 or sg.size() > 4: ok = false
+			lt.clicked_cmds += 1
+			lt.run(lt.next_step())
+		check(ok and lt.solved, "%s: suggestions always contain the exact next command, solvable by clicking" % kd)
+		check(lt.grade() == "good" and not lt.typed_bonus(), "%s: all-clicked perfect run grades Good (not Great), no typed bonus" % kd)
+	var tr2 := RandomNumberGenerator.new(); tr2.seed = 78
+	var tt := TicketSim.new(tr2, "dns")
+	var first: Array[String] = tt.suggestions(true)
+	check(first[0] == tt.next_step(), "Rx focus: next step is first (highlighted)")
+	for cmd_ in tt.solution(): tt.run(cmd_)
+	check(tt.grade() == "great" and tt.typed_bonus(), "typing it yourself: Great + typed bonus")
+	var sug_a: Array[String] = TicketSim.new(tr2, "port").suggestions(false)
+	var keep := [gs.minutes, gs.energy, gs.performance, gs.stress, gs.skills.duplicate(), gs.today.duplicate(true), gs.week_stats.duplicate(true)]
+	gs.skills["dns"] = 0
+	gs.resolve_ticket("great", "t", "r", "dns", true)
+	check(gs.skills["dns"] == 36, "typed bonus: +6 XP on top of Great (got %d)" % gs.skills["dns"])
+	gs.minutes = keep[0]; gs.energy = keep[1]; gs.performance = keep[2]; gs.stress = keep[3]; gs.skills = keep[4]; gs.today = keep[5]; gs.week_stats = keep[6]
+	# Marty's playtest: input keeps focus after Enter; Tab completion like bash.
+	gs.today["tickets"] = 0
+	main.perform("work_ticket")
+	main.term_input.release_focus()
+	main.term_input.text = "whoami"
+	main.term_input.text_submitted.emit("whoami")
+	check(main.term_input.has_focus() and main.term_input.text == "", "command input keeps focus after Enter (keep typing)")
+	main.term_input.text = "nsl"; main.term_tab()
+	check(main.term_input.text == "nslookup ", "Tab completes a command (nsl -> nslookup)")
+	main.term_input.text = "ping tc-w"; main.term_tab()
+	check(main.term_input.text == "ping tc-web01 ", "Tab completes a hostname")
+	main.term_input.text = "systemctl r"; main.term_tab()
+	check(main.term_input.text == "systemctl restart ", "Tab completes a subcommand")
+	main.term_input.text = "ping tc-"; main.term_tab()
+	check(main.term_input.text == "ping tc-", "ambiguous Tab: no change on first press")
+	var nlog: int = main.term.log_lines.size()
+	main.term_tab()
+	check(main.term.log_lines.size() == nlog + 2 and "tc-dc01" in main.term.log_lines[-1] and "tc-web01" in main.term.log_lines[-1], "double-Tab lists the options")
+	main.term_input.text = "s"; main.term_tab()
+	check(main.term_input.text == "s", "Tab extends to common prefix only")
+	main.term_input.text = "unlock "; check(main.term.complete_candidates("unlock ").has("karen"), "Tab completes usernames")
+	var ev := InputEventKey.new(); ev.keycode = KEY_TAB; ev.pressed = true
+	main.term_input.text = "certb"; main._term_input_key(ev)
+	check(main.term_input.text == "certbot ", "Tab key in the input completes (not focus-next)")
+	main.term_input.text = ""
+	main.term_close(false)
+	gs.today["tickets"] = 0
 	main.perform("work_ticket")
 	main.term_autopilot()
 	check(main.term_open() and not main.autopilot_allowed(), "autopilot is locked until Dan is proficient (Lv 3)")
 	gs.skills[gs.skill_of(main.term.kind)] = 100
 	check(main.autopilot_allowed(), "autopilot unlocks at Lv 3")
+	var tk2: int = gs.today["tickets"]
 	main.term_autopilot()
-	check(not main.term_open() and gs.today["tickets"] == tk + 2, "autopilot closes the ticket")
+	check(not main.term_open() and gs.today["tickets"] == tk2 + 1, "autopilot closes the ticket")
 	# --- Skills
 	gs.new_game(82)
 	check(gs.skill_level("dns") == 1 and gs.max_hints("dns") == 2, "skills start at Lv 1 with 2 hints")
@@ -305,8 +442,8 @@ func _process(_d: float) -> bool:
 	var fedmsgs: Array = []
 	gs.lifeos_message.connect(func(x): fedmsgs.append(x))
 	gs.do_action("cereal"); gs.do_action("leave_for_work")
-	while gs.minutes < gs.OFF_WORK: gs.resolve_ticket("good", "t", "r", "port")
-	gs.do_action("head_home"); gs.do_action("pickup_girls")
+	while not gs.can_leave_work(): gs.resolve_ticket("good", "t", "r", "port")
+	gs.do_action("head_home"); gs.travel("gas"); gs.do_action("pickup_girls")
 	check(gs.girls_fed >= 25 or fedmsgs.any(func(x): return "Girls: Fed is low" in str(x)), "girls aren't starving silently: lunch + low-fed warning")
 	gs.minutes = 1080; gs.do_action("family_dinner")
 	check(gs.girls_fed >= 50, "family dinner feeds the girls")

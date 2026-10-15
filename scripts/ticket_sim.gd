@@ -142,21 +142,35 @@ func hint() -> String:
 	var verb := n.split(" ")[0]
 	return "HINT: %s Try: %s" % [why.get(verb, "Keep going."), n]
 
-## Clickable suggestions: what a helpful senior admin would mutter, plus a couple of red herrings.
+var clicked_cmds := 0   # commands run by clicking a suggestion (typed/Tab-completed ones earn the shell bonus)
+
+## Clickable suggestions, live: the actual next correct command for THIS ticket (right host/args),
+## plus 1-2 plausible alternatives a senior admin might also try, and 'help'.
+## Without Rx focus the correct one moves around, so it's a small read-the-room choice, not a free answer.
 func suggestions(focus := false) -> Array[String]:
-	var out: Array[String] = []
 	var n := next_step()
-	if focus:
-		out.append(n)
-	var pool: Array[String] = ["help", "whoami", "ping %s" % (host if host != "" else "tc-dc01"), "ss -tlnp", "df -h", "tail log", "traceroute %s" % host]
-	if not cur_host.begins_with("tc-") and host.begins_with("tc-"): pool.append("ssh %s" % host)
-	for st in steps:
-		if not st.begins_with("ssh ") and not (st in _done):
-			pool.append(st.split(" ")[0] + ("" if st.split(" ").size() == 1 else " …"))
+	var alts: Array[String] = []
+	var h := host if host != "" else "tc-dc01"
+	var pool: Array[String] = []
+	if not cur_host.begins_with("tc-"):
+		pool = ["ping %s" % h, "traceroute %s" % h, "nslookup %s" % h, "whoami"]
+	else:
+		pool = ["tail log", "df -h", "ss -tlnp", "systemctl status %s" % (svc if svc != "" else "sshd"), "firewall list", "hostname"]
 	for p in pool:
-		if not (p in out) and out.size() < 7:
-			out.append(p)
+		if p != n and not (p in _done) and alts.size() < 2:
+			alts.append(p)
+	var out: Array[String] = []
+	if focus:
+		out.append(n); out.append_array(alts)
+	else:
+		out.append_array(alts)
+		out.insert((commands * 7 + log_lines.size()) % (alts.size() + 1), n)
+	out.append("help")
 	return out
+
+## Typed (or Tab-completed) most of it yourself? Small bonus: XP + keeps a "great" grade.
+func typed_bonus() -> bool:
+	return commands >= 2 and clicked_cmds * 2 <= commands
 
 ## Runs one command, returns its output. Counts toward efficiency.
 func run(cmd: String) -> String:
@@ -341,7 +355,8 @@ func _exec(v: String, arg: String, a: PackedStringArray, cmd: String) -> String:
 ## Grade: great / good / slow. Fewer commands and hints = better.
 func grade() -> String:
 	var extra := commands - optimal()
-	if hints_used == 0 and extra <= 1: return "great"
+	# Clicking only the live suggestions caps at "good": fair, approachable, not free.
+	if hints_used == 0 and extra <= 1 and clicked_cmds * 2 <= commands: return "great"
 	if extra <= 5 and hints_used <= 2: return "good"
 	return "slow"
 
@@ -381,3 +396,45 @@ static func make_stage(r: RandomNumberGenerator, inc_id: String, idx: int) -> Ti
 	t.body = inc["gary"][mini(idx, inc["gary"].size() - 1)]
 	t.log_lines = ["⚠ TermOS INCIDENT MODE — " + inc["name"], inc["runbook"], "STAGE %d/%d: %s" % [idx + 1, inc["stages"].size(), t.body]]
 	return t
+
+# ------------------------------------------------------------ Tab completion
+const VERBS := ["aduser", "cancel", "certbot", "certcheck", "df", "dns", "du", "exit", "firewall", "help", "hostname", "ip", "ipconfig",
+	"logrotate", "lpstat", "netstat", "nslookup", "openssl", "ping", "set", "show", "ss", "ssh", "systemctl", "tail", "traceroute", "unlock", "whoami"]
+const SUBS := {"firewall": ["list", "allow"], "systemctl": ["status", "restart"], "show": ["port"], "set": ["port"], "ss": ["-tlnp"],
+	"df": ["-h"], "du": ["-sh"], "tail": ["log"], "certbot": ["renew"], "lpstat": ["-o"], "cancel": ["-a"], "ip": ["a"]}
+const SERVICES := ["nginx", "smbd", "cups", "payrolld", "sshd"]
+
+## Candidates for the word being typed (bash-style: verbs first, then subcommands/hosts/users/services).
+func complete_candidates(line: String) -> Array[String]:
+	var words := line.split(" ", true)
+	var cur_w: String = words[-1]
+	var out: Array[String] = []
+	var pool: Array = []
+	if words.size() == 1:
+		pool = VERBS
+	else:
+		var v: String = words[0]
+		if words.size() == 2 and SUBS.has(v): pool += SUBS[v]
+		if v in ["ping", "ssh", "traceroute", "nslookup", "certcheck", "openssl"]: pool += HOSTS.keys()
+		if v in ["aduser", "unlock"]: pool += USERS
+		if v == "systemctl" and words.size() == 3: pool += SERVICES
+		if v == "firewall" and words.size() == 3 and port > 0: pool.append(str(port))
+		if v in ["show", "set"] and words.size() == 3 and sw_port > 0: pool.append(str(sw_port))
+		if v == "set" and words.size() == 4: pool += ["vlan"]
+		if v == "set" and words.size() == 5: pool += [str(good_vlan)]
+	for c in pool:
+		if str(c).begins_with(cur_w) and not (str(c) in out): out.append(str(c))
+	out.sort()
+	return out
+
+## Returns [new_line, listing]: completes unique matches (adds a space), extends to the common
+## prefix, or (when there's nothing to add) returns the options to list on a double-Tab.
+func complete(line: String) -> Array:
+	var c := complete_candidates(line)
+	if c.is_empty(): return [line, []]
+	var head := line.substr(0, line.length() - line.split(" ", true)[-1].length())
+	if c.size() == 1: return [head + c[0] + " ", []]
+	var pre: String = c[0]
+	for x in c:
+		while not str(x).begins_with(pre): pre = pre.substr(0, pre.length() - 1)
+	return [head + pre, c]

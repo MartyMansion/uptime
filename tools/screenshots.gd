@@ -15,6 +15,7 @@ func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(out)
 	main = load("res://scenes/main.tscn").instantiate()
 	main.autoload_save = false
+	main.use_map = false   # the scripted tour drives phases directly; map shots at the end
 	root.add_child(main)
 	gs = root.get_node("GameState")
 	run()
@@ -63,6 +64,7 @@ func run() -> void:
 		await walk_dan_to("kitchen")
 		gs.lifeos_message.emit("LifeOS: Tip: Your daughters can't be optimized. Our engineers say this is a feature. This is a long notification to check wrapping at odd window sizes.")
 		await shot("02_house_morning")
+		await map_shots()
 		print("AUDIT TOTAL: ", problems)
 		quit(0)
 		return
@@ -82,6 +84,7 @@ func run() -> void:
 	await walk_dan_to("desk")
 	main.perform("rx_dose")
 	# Terminal minigame shots
+	gs.today["tickets"] = 0
 	main.open_terminal("port")
 	await shot("T1_terminal_new_ticket")
 	main.term_submit("ping " + main.term.host, true)
@@ -94,18 +97,28 @@ func run() -> void:
 	await shot("T3_terminal_solved")
 	main.term_close(true)
 	gs.do_action("rx_dose")
+	gs.today["tickets"] = 0
 	main.open_terminal("vlan")
 	main.term_submit("ipconfig desk-%d" % main.term.sw_port, true)
 	await shot("T4_terminal_rx_focus")
 	main.term_close(false)
 	var e_keep: int = gs.energy
-	gs.energy = 10
+	gs.energy = 13
+	gs.today["tickets"] = 0
 	main.open_terminal("dns")
 	main.term_submit("nslookup " + main.term.svc, false)
 	main.term_submit("ssh tc-dc01", false)
 	await shot("T5_terminal_fumes")
 	main.term_close(false)
 	gs.energy = e_keep
+	gs.today["tickets"] = 0
+	main.open_terminal("service")
+	main.term_submit("ping " + main.term.host, false)
+	main.term_input.text = "ssh tc-"; main.term_tab(); main.term_tab()
+	main.term_input.text = "sys"; main.term_tab()
+	await shot("T9_terminal_tab_complete")
+	main.term_input.text = ""
+	main.term_close(false)
 	main.open_incident("ransomware")
 	main.term_submit("ssh tc-dc01", true)
 	main.term_submit("aduser " + main.term.user, true)
@@ -118,10 +131,12 @@ func run() -> void:
 	await shot("T7_postmortem")
 	main.dismiss_summary()
 	gs.skills["printers"] = 300
+	gs.today["tickets"] = 0
 	main.open_terminal("printer")
 	await shot("T8_terminal_skill_max")
 	main.term_close(false)
 	main.use_terminal = false
+	gs.today["tickets"] = 0
 	main.perform("work_ticket")
 	main.use_terminal = true
 	await shot("05_office_desk")
@@ -182,5 +197,24 @@ func run() -> void:
 			main.summary_root.visible = false
 	main.skip_all_cutscenes()
 	await shot("14_weekly_review")
+	await map_shots()
 	print("AUDIT TOTAL: ", problems)
 	quit(0)
+
+func map_shots() -> void:
+	main.use_map = true
+	main.summary_root.visible = false
+	gs.new_game(17)
+	main.skip_all_cutscenes(); main.sync_location()
+	main.perform("leave_for_work")
+	await shot("M1_town_map_morning")
+	main.map_pick("office"); main.skip_all_cutscenes()
+	gs.today["tickets"] = 2
+	gs.minutes = 840
+	main.perform_direct("head_home"); main.skip_all_cutscenes(); main.auto_map()
+	await shot("M2_town_map_after_work")
+	gs.minutes = gs.PICKUP_OPEN + 30
+	main.map_pick("school")
+	await shot("M3_town_map_with_girls")
+	main.close_map()
+	main.use_map = false

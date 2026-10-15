@@ -134,3 +134,14 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - Incidents: 6 multi-stage incidents with a 90-min SLA, Gary escalation, after-hours pages that cost family time, and blameless postmortems.
 - Fixes: summary/postmortem popups confined to the game area (auto-shrinks long weekly reviews); Girls Fed gets packed lunches, slower decay at work, and a low-fed LifeOS warning.
 - Bot: 100 weeks, 0 problems; ~6.9k terminal tickets, ~180 incidents, 0 SLA breaches; avg skill Lv 3.4–4.3 by week end.
+
+## 2026-10-14 (evening): Multi-persona playtest + Marty's feedback
+- `tests/persona_bot.gd` adds 6 persona bots (sysadmin, cozy, speedrunner, newbie, struggling, completionist) × 100 weeks, plus the legacy bot. Final result: 0 problems. See `uptime-build/MULTI_PLAYTEST_REPORT.md`.
+- Bugs found by the bots: the save-scum / stacking-stress bug (saves are now "morning of"), free walk-aways (they now cost time), and a 1 AM desk softlock (travel is exempt from the end-of-day rule).
+- Marty's requests:
+  - The terminal input refocuses after Enter.
+  - Bash-style Tab completion.
+  - Live next-step suggestions; clicking caps at Good, and typing earns Great + 6 XP.
+  - A shorter workday: ~2.5 h tickets, leave after 2, a 3rd means staying late.
+  - Performance rebalance: -3 drift per workday, home tickets capped.
+  - Town map: Stardew-style travel with time locks, pickup window consequences, and park/pharmacy/dental/diner.

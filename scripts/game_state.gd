@@ -20,7 +20,12 @@ const DAY_START := 390   # 6:30 AM, in minutes
 const DAY_END := 1500    # 1:00 AM next day
 const BLOCK := 30        # one time block = 30 min
 const FUMES := 20
-const OFF_WORK := 960    # 4:00 PM: earliest Dan can head home
+const OFF_WORK := 810    # 1:30 PM: earliest Dan can head home (or after WORK_TICKETS_TO_LEAVE tickets)
+const WORK_TICKETS_TO_LEAVE := 2
+const WORK_TICKET_BLOCKS := 5   # at the office a ticket is ~2.5 h of in-game time (Marty: the workday dragged)
+const WORK_TICKET_MAX := 3
+const PERF_DRIFT := 3
+const HOME_TICKET_MAX := 2      # the 3rd is "staying late": costs family time
 const RX_DURATION := 360 # focus lasts 6h, then the crash
 const TRAVEL := ["leave_for_work", "head_home", "pickup_girls"]
 const ANY := ["home_am", "work", "drive", "home_pm", "weekend"]
@@ -34,14 +39,14 @@ const ACTIONS := {
 	"feed_girls": {"name": "Make breakfast with the girls", "blocks": 1, "energy": -5, "fed": 35, "connected": 5, "once": true, "phases": ["home_am"]},
 	"cereal": {"name": "Cereal and screens", "blocks": 1, "energy": 0, "fed": 20, "connected": -5, "once": true, "phases": ["home_am"]},
 	"leave_for_work": {"name": "Drop girls at school, drive to work", "blocks": 2, "energy": -3, "phases": ["home_am"]},
-	"work_ticket": {"name": "Work a ticket (terminal)", "blocks": 2, "energy": -10, "stress": 5, "perf": 4, "phases": ["work", "home_pm", "weekend"]},
+	"work_ticket": {"name": "Work a ticket (terminal)", "blocks": 2, "energy": -12, "stress": 5, "perf": 3, "phases": ["work", "home_pm", "weekend"]},
 	"coffee_break": {"name": "Coffee break with the team", "blocks": 1, "energy": 8, "stress": -4, "phases": ["work"]},
 	"head_home": {"name": "Head home", "blocks": 1, "energy": 0, "phases": ["work"]},
 	"buy_beer": {"name": "Grab a six-pack ($12)", "blocks": 0, "energy": 0, "money": -12, "phases": ["drive"]},
 	"buy_pouches": {"name": "Grab a tin of nic pouches ($7)", "blocks": 0, "energy": 0, "money": -7, "phases": ["drive"]},
 	"buy_patch": {"name": "Nicotine patches instead ($15)", "blocks": 0, "energy": 0, "money": -15, "phases": ["drive"]},
 	"call_doctor": {"name": "Call Dr. Patel about the Rx", "blocks": 1, "energy": -2, "stress": -4, "once": true, "phases": ["work"]},
-	"pickup_girls": {"name": "Just drive on and pick up the girls", "blocks": 1, "energy": -3, "phases": ["drive"]},
+	"pickup_girls": {"name": "Back in the car (town map)", "blocks": 1, "energy": -3, "phases": ["drive"]},
 	"play_girls": {"name": "Play with Lily & June", "blocks": 1, "energy": -5, "stress": -5, "connected": 12, "phases": HOME},
 	"bedtime_story": {"name": "Bedtime story", "blocks": 1, "energy": -5, "connected": 20, "after": 1170, "before": 1260, "once": true, "phases": HOME},
 	"gaming": {"name": "Play video games", "blocks": 2, "energy": 5, "stress": -20, "phases": HOME},
@@ -68,7 +73,7 @@ const ACTIONS := {
 const CALENDAR := {
 	0: {"id": "", "text": "Monday. The fridge calendar says nothing. Suspicious."},
 	1: {"id": "picture", "text": "Picture day! (Hair: attempted)"},
-	2: {"id": "", "text": "Taco Wednesday (household law)"},
+	2: {"id": "", "text": "Taco Wednesday (household law). Jess has pickup today."},
 	3: {"id": "concert", "text": "Lily's concert, 5:30 PM (recorder solo)"},
 	4: {"id": "pizza", "text": "Office pizza Friday"},
 	5: {"id": "weekend", "text": "Saturday. No work. (Theoretically.)"},
@@ -231,7 +236,17 @@ func new_game(seed_value: int = 0) -> void:
 	week_stats = {"bedtimes": 0, "tickets": 0, "texts": 0, "gaming_blocks": 0, "drinks": 0, "pouches": 0, "rx_extra": 0}
 	_start_day()
 
+var _morning_snap := {}   # pre-morning state; saves always store this so loading replays the morning exactly once
+
+func _snapshot() -> Dictionary:
+	var d := {"version": 2}
+	for v in SAVE_VARS:
+		var x = get(v)
+		d[v] = x.duplicate(true) if (x is Dictionary or x is Array) else x
+	return d
+
 func _start_day() -> void:
+	_morning_snap = _snapshot()
 	minutes = DAY_START
 	pending_choice = ""
 	phase = "weekend" if day >= 5 else "home_am"
@@ -247,6 +262,8 @@ func _start_day() -> void:
 		stress = clampi(stress + 3, 0, 100)
 	rx_until = -1
 	rx_last_dose = -1
+	girls_picked = false
+	at_place = "home"
 	today = {"tickets": 0, "text_jess": 0, "bedtime_story": 0, "kid_actions": 0, "gaming": 0,
 		"drink": 0, "pouch": 0, "rx_dose": 0, "crashed": false, "log": [], "moments": []}
 	state_changed.emit()
@@ -290,10 +307,11 @@ func can_do(id: String) -> String:
 	var a: Dictionary = ACTIONS[id]
 	if not (phase in a["phases"]):
 		return "Not right now."
-	var cost_min: int = int(a["blocks"]) * BLOCK
+	var cost_min: int = action_blocks(id) * BLOCK
 	# Allow a partial last block (choices can leave the clock off the 30-min grid);
 	# the action just runs into 1 AM and the day ends.
-	if minutes + cost_min > DAY_END and (minutes + cost_min - DAY_END >= BLOCK or minutes >= DAY_END):
+	# Getting home is never blocked by the clock (persona bug: stranded at the desk at 1 AM).
+	if not (id in TRAVEL) and minutes + cost_min > DAY_END and (minutes + cost_min - DAY_END >= BLOCK or minutes >= DAY_END):
 		return "Not enough day left. It's %s." % clock_text()
 	if a.has("before") and minutes >= int(a["before"]):
 		return "Too late for that today."
@@ -307,10 +325,19 @@ func can_do(id: String) -> String:
 		return "Not on the calendar today."
 	if a.has("money") and money + int(a["money"]) < 0:
 		return "Card declined. The pump says nothing. The pump doesn't have to."
+	if id in ["buy_beer", "buy_pouches", "buy_patch"] and at_place not in ["gas", "pharmacy"]:
+		return "Not here. The Gas-N-Sip is on the map."
+	if id == "buy_patch" and at_place not in ["gas", "pharmacy"]:
+		return "Not here."
 	match id:
 		"head_home":
-			if minutes < OFF_WORK:
-				return "Gary is doing a lap. Your coat is very visible. Maybe after 4."
+			if not can_leave_work():
+				return "Gary is doing a lap. Your coat is very visible. Close %d more ticket%s (or wait till 1:30)." % [WORK_TICKETS_TO_LEAVE - int(today.get("tickets", 0)), "" if WORK_TICKETS_TO_LEAVE - int(today.get("tickets", 0)) == 1 else "s"]
+		"work_ticket":
+			if phase != "work" and int(today.get("home_tickets", 0)) >= HOME_TICKET_MAX:
+				return "LifeOS: The laptop lid is closed. It's family time. (Max %d tickets from home a day.)" % HOME_TICKET_MAX
+			if phase == "work" and int(today.get("tickets", 0)) >= WORK_TICKET_MAX:
+				return "Three tickets is a full day. The rest will be there tomorrow. Go home."
 		"drink":
 			if beers <= 0:
 				return "Fridge: oat milk, juice boxes, one lemon with a lot of potential."
@@ -332,6 +359,148 @@ func can_do(id: String) -> String:
 		return "You're too tired for that right now."
 	return ""
 
+## Walking away from a half-worked ticket still costs the time you spent poking at it.
+## (Persona bug: walk-away was free, so the clock could freeze at the desk / tickets could be rerolled.)
+func charge_walkaway(cmds: int) -> int:
+	if cmds < 3:
+		return 0
+	var blocks := 1 if cmds < 12 else 2
+	minutes = mini(minutes + blocks * BLOCK, DAY_END)
+	energy = clampi(energy - 2 * blocks, 0, 100)
+	girls_fed = clampi(girls_fed - blocks * (1 if phase in ["work", "drive"] else 2), 0, 100)
+	state_changed.emit()
+	return blocks * BLOCK
+
+# ------------------------------------------------------------ town map (Marty: Stardew-style travel)
+var girls_picked := false
+var at_place := "home"
+const PICKUP_OPEN := 870    # 2:30 PM after-care opens
+const PICKUP_CLOSE := 1110  # 6:30 PM after-care closes (miss it and Jess has to leave work)
+## id: [name, map x, map y (0..1), travel minutes, open, close, blurb]
+const PLACES := {
+	"home": ["Home", 0.125, 0.72, 15, 0, 1440, "Home. The porch tomato awaits."],
+	"school": ["School (Brookfield Elementary)", 0.344, 0.33, 15, PICKUP_OPEN, PICKUP_CLOSE, "After-care pickup."],
+	"gas": ["Gas-N-Sip", 0.578, 0.62, 10, 0, 1440, "Beer, pouches, patches, regret-free jerky."],
+	"park": ["Riverside Park", 0.353, 0.77, 20, 360, 1260, "Ducks. A pond. A bench with your name on it (it says 'Reserved')."],
+	"pharmacy": ["Pharmacy (Route 9)", 0.094, 0.33, 15, 540, 1140, "Refills and patches. The pharmacist knows your birthday."],
+	"dental": ["Dental (Brookfield Family Dental)", 0.844, 0.78, 20, 480, 1020, "Dr. Lin. A cleaning. A gentle lecture."],
+	"diner": ["Lou's Diner", 0.5, 0.39, 15, 420, 1260, "Pie. Coffee. Booths that have seen things."],
+	"office": ["Office (TriCounty)", 0.906, 0.39, 25, 420, 1080, "Work."],
+}
+
+func jess_has_girls() -> bool:
+	return day == 2   # Taco Wednesday: Jess's half day, she does pickup
+
+## Destinations shown on the map right now: [id, label, minutes, why_locked ("" = available)].
+func map_options() -> Array:
+	var out: Array = []
+	for id in PLACES:
+		var p: Array = PLACES[id]
+		var why := ""
+		var mins: int = p[3]
+		if phase == "home_am":
+			if id == "office":
+				mins = 120   # drop-off at school on the way
+				why = can_do("leave_for_work")
+			else:
+				why = "School morning. Office first (drop-off on the way)."
+		elif phase == "drive":
+			if id == at_place: why = "You're here."
+			elif id == "office": why = "Already badged out. Don't look back."
+			elif id == "home" and not girls_picked and not jess_has_girls():
+				why = "Pick up the girls first (after-care, %s–%s)." % [_fmt(PICKUP_OPEN), _fmt(PICKUP_CLOSE)]
+			elif id == "school" and (girls_picked or jess_has_girls()):
+				why = "Girls are in the car." if girls_picked else "Jess has pickup today."
+			elif id != "home" and (minutes < int(p[4]) or minutes + mins > int(p[5])):
+				why = "Open %s–%s." % [_fmt(int(p[4])), _fmt(int(p[5]))]
+			elif id in ["dental"] and today.get("dental", 0) > 0: why = "Teeth: done for today."
+			elif minutes + mins > DAY_END: why = "Too late."
+			if id == "school" and why == "" and minutes < PICKUP_OPEN: why = "After-care opens %s." % _fmt(PICKUP_OPEN)
+		else:
+			why = "Not right now."
+		out.append([id, p[0], mins, why])
+	return out
+
+## Travel to a map destination. Returns a result line ("" + reason if refused).
+func travel(dest: String) -> String:
+	var opt: Array = []
+	for o in map_options():
+		if o[0] == dest: opt = o
+	if opt.is_empty(): return "Nowhere by that name. (The map is small. Brookfield is small.)"
+	if opt[3] != "": return opt[3]
+	if dest == "office": return do_action("leave_for_work")
+	if dest == "home": return do_action("pickup_girls")
+	minutes = mini(minutes + int(opt[2]), DAY_END)
+	girls_fed = clampi(girls_fed - (1 if opt[2] >= 15 else 0), 0, 100)
+	at_place = dest
+	var line := ""
+	match dest:
+		"school":
+			girls_picked = true
+			girls_connected = clampi(girls_connected + 3, 0, 100)
+			line = "After-care pickup. June reports three 'incidents' and a new best friend. Lily has opinions about the radio."
+		"gas":
+			line = "Gas-N-Sip. The fluorescent lights hum a song about choices." + (" The girls want slushies." if girls_picked else "")
+		"park":
+			stress = clampi(stress - 8, 0, 100)
+			if girls_picked:
+				girls_connected = clampi(girls_connected + 8, 0, 100)
+				line = "Riverside Park. June names a duck 'Gary'. Lily pretends not to have fun, then has fun."
+			else:
+				line = "Riverside Park. You sit by the pond. A duck judges you, but gently."
+		"pharmacy":
+			if not today.get("pharmacy", false) and money >= 10:
+				today["pharmacy"] = true
+				money -= 10
+				rx_pills += 10
+				line = "Route 9 Pharmacy: refill picked up ($10). The pharmacist reminds you: 'as prescribed, hon.'"
+			else:
+				line = "Route 9 Pharmacy. You browse the seasonal aisle. It's already Christmas here."
+		"dental":
+			today["dental"] = 1
+			stress = clampi(stress - 4, 0, 100)
+			line = "Brookfield Family Dental: Dr. Lin squeezes you in. 'Your gums tell me things, Dan.' They're gentle about it."
+		"diner":
+			if money >= 18:
+				money -= 18
+				energy = clampi(energy + 6, 0, 100)
+				if girls_picked:
+					girls_fed = clampi(girls_fed + 30, 0, 100)
+					closeness = clampi(closeness + 2, 0, 100)
+					line = "Lou's Diner: pancakes for dinner. June orders 'the biggest one'. Everyone is fed ($18)."
+				else:
+					line = "Lou's Diner: pie and coffee at the counter ($18). Lou calls you 'chief'."
+			else:
+				line = "Lou's Diner: you check your wallet, then order water. Lou slides you a free roll. Lou is good people."
+	var warn := _check_pickup_window()
+	if warn != "": lifeos_message.emit(warn)
+	if not girls_picked and not jess_has_girls() and phase == "drive" and minutes >= PICKUP_CLOSE - 45 and not today.get("pickup_warned", false):
+		today["pickup_warned"] = true
+		lifeos_message.emit("LifeOS: After-care closes at %s. The girls are doing the 'last kids at pickup' face." % _fmt(PICKUP_CLOSE))
+	state_changed.emit()
+	if minutes >= DAY_END: end_day()
+	return line
+
+## Missed the pickup window: Jess leaves work to get them; the family meters take the hit.
+func _check_pickup_window() -> String:
+	if is_weekend() or girls_picked or jess_has_girls() or minutes <= PICKUP_CLOSE or phase not in ["work", "drive"]:
+		return ""
+	girls_picked = true
+	girls_connected = clampi(girls_connected - 15, 0, 100)
+	closeness = clampi(closeness - 8, 0, 100)
+	stress = clampi(stress + 8, 0, 100)
+	week_stats["missed_pickups"] = int(week_stats.get("missed_pickups", 0)) + 1
+	return "LifeOS: After-care called. Twice. Jess left work to get the girls. June waited by the window. Girls: -15, Jess: -8."
+
+## Time cost in blocks; office tickets are long, home ones (on-call laptop) are short.
+func action_blocks(id: String) -> int:
+	if id == "work_ticket" and phase == "work":
+		return WORK_TICKET_BLOCKS
+	return int(ACTIONS[id]["blocks"])
+
+func can_leave_work() -> bool:
+	return int(today.get("tickets", 0)) >= WORK_TICKETS_TO_LEAVE or minutes >= OFF_WORK
+
 ## Performs an action. Returns a result line for the UI.
 func do_action(id: String) -> String:
 	var why := can_do(id)
@@ -342,12 +511,15 @@ func do_action(id: String) -> String:
 		end_day()
 		return "Lights out."
 	var a: Dictionary = ACTIONS[id]
-	var blocks: int = int(a["blocks"])
+	var blocks: int = action_blocks(id)
 	var e: int = int(a["energy"])
 	var perf: int = int(a.get("perf", 0))
 	if id == "work_ticket" and rx_active():
 		e = -5          # focus: tickets feel easy...
 		perf += 3
+	if id == "work_ticket" and phase != "work":
+		perf = mini(perf, 1)   # on-call laptop at home: keeps the lights on, doesn't impress Gary
+		today["home_tickets"] = int(today.get("home_tickets", 0)) + 1
 	minutes = mini(minutes + blocks * BLOCK, DAY_END)
 	energy = clampi(energy + e, 0, 100)
 	stress = clampi(stress + int(a.get("stress", 0)), 0, 100)
@@ -370,7 +542,8 @@ func do_action(id: String) -> String:
 				"Drop-off: June gives you a rock 'for work'. It's on your desk now. You badge in at %s."][day % 5] % clock_text()
 		"head_home":
 			phase = "drive"
-			line = "The Gas-N-Sip on Route 9 glows in the dusk. The girls are waiting at after-care."
+			at_place = "road"
+			line = "You badge out. The town map unfolds in your head: school, Gas-N-Sip, home. The girls are waiting at after-care." if not jess_has_girls() else "You badge out. Jess has the girls today. The town is, briefly, yours."
 		"buy_beer":
 			beers += 6
 			line = "Six-pack in the passenger seat."
@@ -378,12 +551,21 @@ func do_action(id: String) -> String:
 			pouches += 15
 			line = "Tin of pouches. The cashier already knows your usual."
 		"pickup_girls":
+			if not girls_picked and not jess_has_girls() and minutes < PICKUP_OPEN:
+				minutes = PICKUP_OPEN   # the car line: everyone waits, nobody talks about it
+			girls_picked = true
+			at_place = "home"
 			phase = "home_pm"
 			line = "After-care pickup. Lily: \"Why does the car smell like the gas station?\"" if today.get("buy_beer", 0) + today.get("buy_pouches", 0) > 0 else "After-care pickup. June reports three 'incidents', and a new best friend."
 		"work_ticket":
 			today["tickets"] += 1
 			week_stats["tickets"] += 1
 			line = "Closed ticket: " + TICKETS[rng.randi() % TICKETS.size()]
+			if phase == "work" and today["tickets"] > WORK_TICKETS_TO_LEAVE:
+				# Staying late: the 3rd ticket costs family time.
+				closeness = clampi(closeness - 5, 0, 100)
+				girls_connected = clampi(girls_connected - 6, 0, 100)
+				lifeos = "LifeOS: Stayed late. June asked after-care if Daddy 'lives at work now'. Jess: -5, Girls: -6."
 			if phase == "work" and rng.randf() < 0.2 and not terminal_ticket:
 				pending_choice = "triage"
 			if rx_active():
@@ -559,6 +741,8 @@ func do_action(id: String) -> String:
 		lifeos = "LifeOS: Energy low. Maybe a snack or a short walk? (LifeOS is not a doctor. LifeOS is an app that worries.)"
 	today["log"].append(line)
 	action_performed.emit(id, line)
+	if lifeos == "":
+		lifeos = _check_pickup_window()
 	if lifeos != "":
 		lifeos_message.emit(lifeos)
 	elif rng.randf() < 0.3:
@@ -653,6 +837,10 @@ func end_day() -> Dictionary:
 	if week_over:
 		return {}
 	var slept_min: int = clampi(DAY_END + 330 - minutes, 0, 600)  # until 6:30 AM next day
+	# Job performance drifts down each workday: the inbox refills whether or not you're there.
+	# (Rebalance: perf was ~99 for nearly every playstyle.)
+	if day < 5:
+		performance = clampi(performance - PERF_DRIFT, 0, 100)
 	# Sleep quality: 7h ~ full, 5h ~ 60. Alcohol and late Rx doses make it shallower.
 	var quality := 1.0
 	var notes: Array[String] = []
@@ -799,7 +987,7 @@ const KIND_SKILL := {"port": "networking", "vlan": "networking", "dns": "dns", "
 	"lockout": "accounts", "cert": "certs", "printer": "printers"}
 const SKILL_LEVELS := [0, 40, 100, 180, 300]     # xp needed for Lv 1..5 (index = level-1)
 const PROFICIENT := 3                            # autopilot unlocks at this level
-const XP_FOR := {"great": 30, "good": 20, "slow": 12, "autopilot": 4, "incident": 45}
+const XP_FOR := {"typed": 6, "great": 30, "good": 20, "slow": 12, "autopilot": 4, "incident": 45}
 
 func skill_of(kind: String) -> String:
 	return KIND_SKILL.get(kind, "networking")
@@ -848,7 +1036,8 @@ const TICKET_GRADES := {
 	"slow": {"min": 30, "energy": -3, "perf": -1, "stress": 2, "tag": "Fixed, eventually. The scenic route. The user waited, kindly."},
 	"autopilot": {"min": 0, "energy": 0, "perf": -2, "stress": 3, "tag": "Autopilot: you ran the runbook without reading it. It worked. You learned nothing. Gary noticed nothing."},
 }
-func resolve_ticket(grade: String, title: String, reply: String, kind := "") -> String:
+const TYPED_BONUS_XP := 6   # keep in sync with XP_FOR["typed"]
+func resolve_ticket(grade: String, title: String, reply: String, kind := "", typed := false) -> String:
 	if can_do("work_ticket") != "":
 		return can_do("work_ticket")
 	var d0 := day
@@ -865,7 +1054,9 @@ func resolve_ticket(grade: String, title: String, reply: String, kind := "") -> 
 	week_stats["ticket_" + grade] = int(week_stats.get("ticket_" + grade, 0)) + 1
 	if kind != "":
 		add_xp(skill_of(kind), "autopilot" if grade == "autopilot" else grade)
-	var out := "Closed ticket: %s\n%s\n%s" % [title, g["tag"], reply]
+		if typed and grade != "autopilot":
+			add_xp(skill_of(kind), "typed")
+	var out := "Closed ticket: %s\n%s%s\n%s" % [title, g["tag"], ("  (+%d XP: typed it yourself)" % TYPED_BONUS_XP) if typed and kind != "" and grade != "autopilot" else "", reply]
 	today["log"][-1] = out
 	state_changed.emit()
 	if minutes >= DAY_END:
@@ -973,9 +1164,9 @@ const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girl
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = SAVE_PATH) -> bool:
-	var d := {"version": 2}
-	for v in SAVE_VARS:
-		d[v] = get(v)
+	# Saves are "morning of" saves: mid-day F6 stores this morning, not the afternoon's meters
+	# (which loading would otherwise replay a whole day on top of).
+	var d := _morning_snap if not _morning_snap.is_empty() else _snapshot()
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return false
