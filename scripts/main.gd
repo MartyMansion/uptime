@@ -362,6 +362,14 @@ func _update_fridge() -> void:
 				g.draw_rect(Rect2(p, Vector2(3, 4)), cols[i % cols.size()]))
 		loc.add_child(g)
 	g.queue_redraw()
+	var pl: Node2D = null
+	for c in loc.get_children():
+		if c is Sprite2D and str(c.name).begins_with("Plant") and c.position.x > 280:
+			pl = c
+	if pl:
+		var sc := 0.7 + 0.08 * mini(GameState.plant, 6)
+		pl.scale = Vector2(sc, sc)
+		pl.modulate = Color(1, 0.85, 0.85) if GameState.plant >= 6 else Color.WHITE
 
 # ------------------------------------------------------------------ loop
 func is_busy() -> bool:

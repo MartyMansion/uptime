@@ -61,7 +61,7 @@ func run() -> void:
 	if prefix != "":
 		main.skip_all_cutscenes()
 		await walk_dan_to("kitchen")
-		gs.lifeos_message.emit("LifeOS: Tip: Your daughters cannot be optimized. We tried. This is a long notification to check wrapping at odd window sizes.")
+		gs.lifeos_message.emit("LifeOS: Tip: Your daughters can't be optimized. Our engineers say this is a feature. This is a long notification to check wrapping at odd window sizes.")
 		await shot("02_house_morning")
 		print("AUDIT TOTAL: ", problems)
 		quit(0)

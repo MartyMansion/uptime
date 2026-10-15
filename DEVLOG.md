@@ -122,3 +122,8 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - After 2 days with no one-on-one time, that girl reaches out in her own way: Lily leaves a book open to the dragon part on your pillow, and June leaves a drawing of "you, her, and a big question mark" on your keyboard. Connected -4, never a guilt trip.
 - The day summary shows Kid moments with Lily ✓ / June ✓.
 - 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 17: the porch tomato + soak tests
+- **Porch tomato** (a new station by the front door, once a day, free): June waters it (and your shoes), names it "Server," reads it stories, and on day 6 it's red. She cuts it into 4 pieces "with great ceremony." The plant visibly grows and blushes. It counts as June one-on-one time.
+- **Soak:** 300 bot weeks (2,100 days, 53k actions, 4.8k UI audits): 0 problems. Endings: cozy 73, foggy 92, uptime 47, turning 42, crispy 25, real 21.
+- UI screenshot audit at 800x600, 1024x768, 1366x768, 1280x720 and 1920x1080: 0 problems.

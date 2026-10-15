@@ -60,6 +60,7 @@ const ACTIONS := {
 	"chores": {"name": "Chores together (with a playlist)", "blocks": 2, "energy": -8, "stress": -4, "connected": 4, "closeness": 6, "once": true, "phases": ["weekend"]},
 	"concert": {"name": "Lily's school concert", "blocks": 2, "energy": -3, "connected": 18, "closeness": 4, "after": 1050, "before": 1110, "once": true, "event": "concert", "phases": ["home_pm"]},
 	"side_hustle": {"name": "Side hustle: Marisol's bakery script", "blocks": 2, "energy": -8, "stress": 4, "after": 1200, "phases": HOME},
+	"water_plant": {"name": "Water the porch tomato (June helps)", "blocks": 0, "energy": -1, "stress": -2, "once": true, "phases": ["home_am", "home_pm", "weekend"]},
 	"sleep": {"name": "Go to sleep", "blocks": 0, "energy": 0, "phases": HOME},
 }
 
@@ -175,6 +176,7 @@ var hustle: int = 0                 # side hustle sessions (AI script for Mariso
 var achievements: Array[String] = []
 var girl_time := {"lily": 0, "june": 0}   # per-girl attention this week (hidden)
 var girl_quiet := {"lily": 0, "june": 0}  # consecutive days with no one-on-one
+var plant: int = 0                 # porch tomato growth (cozy loop)
 var honesty: int = 50              # hidden; moved by choices in cutscenes
 var fridge_drawings: int = 0       # cozy loop: grows with time spent with the girls
 var moments_seen := {}              # relationship moments already played
@@ -208,6 +210,7 @@ func new_game(seed_value: int = 0) -> void:
 	notices_seen = {}
 	fridge_drawings = 0
 	honesty = 50
+	plant = 0
 	girl_time = {"lily": 0, "june": 0}
 	girl_quiet = {"lily": 0, "june": 0}
 	hustle = 0
@@ -389,6 +392,20 @@ func do_action(id: String) -> String:
 					_moment("First $50 from Marisol's bakery.")
 				_:
 					line = "You tidy the bakery script. Marisol tells two other shop owners. Pre-revenue is now, technically, revenue."
+		"water_plant":
+			plant += 1
+			girl_time["june"] += 1
+			today["girl_june"] = true
+			line = ["June waters the tomato and also your shoes. The tomato appreciates it. The shoes do not.",
+				"The tomato has a leaf now. June has named it 'Server'. You are deeply moved.",
+				"Two leaves! June reads it a story. Lily says plants can't hear. June reads louder.",
+				"A flower! June calls Jess outside to see. Jess comes. That's the whole thing. It was nice.",
+				"A tiny green tomato. June wants to eat it now. You explain patience. She explains hunger."][mini(plant, 5) - 1]
+			if plant >= 6:
+				line = "The tomato is red. June picks it, cuts it into 4 pieces with great ceremony, and everyone eats one. Best tomato of your life."
+				if not notices_seen.has("tomato"):
+					notices_seen["tomato"] = true
+					_moment("June's tomato, split four ways.")
 		"buy_patch":
 			patch_days += 5
 			line = "Patches. The cashier raises an eyebrow, then gives you a tiny nod. Gas-N-Sip solidarity."
@@ -814,7 +831,7 @@ func apply_choice(eid: String) -> String:
 const SAVE_PATH := "user://uptime_save.json"
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
-	"fridge_drawings", "honesty", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
+	"fridge_drawings", "honesty", "plant", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = SAVE_PATH) -> bool:
