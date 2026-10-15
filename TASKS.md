@@ -90,3 +90,7 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [ ] nmap / reboot / telnet responses
 - [ ] Newbie SLA breach rate (30%) — consider gentler first-week SLAs
 - [ ] Separate user:// save per bot process so personas can run in parallel
+
+## Marty notes (2026-10-15)
+- Concern: black comedy + cutesy pixel sprites may not mix; some dialogue reads cringe. Needs a tone/dialogue rethink.
+- Exploring: possible move to 3D in Unreal Engine 5 with a deliberately crude, flat cutout look like the Canadians in South Park (simple shapes, flapping heads). Not decided — evaluate with a prototype before porting.
