@@ -61,3 +61,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - Non-flat props and interior walls now have solid footprints (lower ~55% of the sprite, so you still walk "behind" tall furniture in 3/4 view). Doors, rugs, toys and signs stay walkable. Movement slides along edges (tries x, then y), and Dan can always walk out if a cutscene placed him inside something.
 - `Location.reachable()` flood-fills the walkable space. A new test proves every station in all 4 locations is reachable from the entry.
 - 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 6: choices inside cutscenes + hidden Honesty
+- New cutscene step `["choice", [[label, effect], ...]]`. Press 1–3 to pick. Esc takes the first, kindest option.
+- **"Shoes, a Postmortem" (Monday):** run a root cause analysis, escalate to Mommy, or declare the shoes deprecated ($30, light-up).
+- **Jess real-talk:** the first evening after 8+ drinks in a week, Jess asks quietly. You can be honest (closeness +8, Honesty +15, counts as clean day one, gets a line in the review), deflect, or joke. No lectures; the cost of deflecting is a nod that's "somehow worse."
+- Hidden `honesty` value is saved. The bot picks choices at random; all 6 outcomes were hit across 100 weeks, 0 problems. Tests pass.

@@ -131,6 +131,7 @@ var rx_extra_total: int = 0
 var rx_until: int = -1        # minute the current dose wears off
 var rx_last_dose: int = -1
 var notices_seen := {}
+var honesty: int = 50              # hidden; moved by choices in cutscenes
 var fridge_drawings: int = 0       # cozy loop: grows with time spent with the girls
 var moments_seen := {}              # relationship moments already played
 var clean := {"drink": 0, "pouch": 0, "rx_extra": 0}   # consecutive clean days after using
@@ -162,6 +163,7 @@ func new_game(seed_value: int = 0) -> void:
 	rx_extra_total = 0
 	notices_seen = {}
 	fridge_drawings = 0
+	honesty = 50
 	moments_seen = {}
 	clean = {"drink": 0, "pouch": 0, "rx_extra": 0}
 	used_ever = {"drink": false, "pouch": false, "rx_extra": false}
@@ -563,6 +565,8 @@ func weekly_review() -> String:
 		s += "Oral Health ....... Worth a cleaning soon\n"
 	if week_stats["rx_extra"] > 0:
 		s += "Focus ............. Big highs, rough crashes. Maybe chat with your doctor\n"
+	if notices_seen.has("choice_talk_honest"):
+		s += "Honesty ........... You told Jess the truth. That's the hard part, apparently.\n"
 	s += "Fridge gallery .... %d drawing%s\n" % [fridge_drawings, "" if fridge_drawings == 1 else "s"]
 	if not week_moments.is_empty():
 		var best: Array[String] = []
@@ -584,11 +588,39 @@ func _fmt(m: int) -> String:
 		h12 = 12
 	return "%d:%02d %s" % [h12, m % 60, "AM" if h < 12 else "PM"]
 
+# ------------------------------------------------------------------ cutscene choices
+## effect id -> [deltas, result line]. Applied by Main when a choice is picked.
+const CHOICES := {
+	"shoes_rca": [{"connected": 5, "minutes": 10}, "Root cause: couch. Mitigation: shoe basket. June signs off on the postmortem."],
+	"shoes_mom": [{"closeness": 2}, "You escalate to Mommy. Jess resolves it in four seconds without looking up. Humbling. Romantic, a little."],
+	"shoes_new": [{"money": -30, "connected": 3}, "You declare the old shoes deprecated. New shoes have lights. June will never sleep again."],
+	"talk_honest": [{"closeness": 8, "honesty": 15, "stress": -6}, "\"Yeah. It's been more than I want it to be.\" Jess takes your hand. \"Okay. We'll figure it out. Together, like the IKEA bed.\""],
+	"talk_deflect": [{"closeness": -4, "honesty": -10}, "\"Just a long week.\" Jess nods. She doesn't push. That's somehow worse."],
+	"talk_joke": [{"closeness": -2, "honesty": -5}, "\"The recycling is just very enthusiastic.\" Jess smiles, but only with her mouth."],
+}
+func apply_choice(eid: String) -> String:
+	if not CHOICES.has(eid):
+		return ""
+	var c: Array = CHOICES[eid]
+	for k in c[0]:
+		match k:
+			"minutes": minutes = mini(minutes + int(c[0][k]), DAY_END)
+			"money": money = maxi(money + int(c[0][k]), 0)
+			"connected": girls_connected = clampi(girls_connected + int(c[0][k]), 0, 100)
+			"performance": performance = clampi(performance + int(c[0][k]), 0, 100)
+			_: set(k, clampi(int(get(k)) + int(c[0][k]), 0, 100))
+	notices_seen["choice_" + eid] = true
+	if eid == "talk_honest":
+		clean["drink"] = maxi(clean["drink"], 1)   # saying it out loud is day one
+	today["log"].append(c[1])
+	state_changed.emit()
+	return c[1]
+
 # ------------------------------------------------------------------ save/load
 const SAVE_PATH := "user://uptime_save.json"
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
-	"fridge_drawings", "moments_seen", "clean", "used_ever", "week_moments"]
+	"fridge_drawings", "honesty", "moments_seen", "clean", "used_ever", "week_moments"]
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = SAVE_PATH) -> bool:

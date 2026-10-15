@@ -27,6 +27,8 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 					["say", "lily", "Mommy says they're in \"the last place you'd look.\""],
 					["say", "dan", "That's every place, Lily. That's kind of how looking works."],
 					["say", "lily", "Mommy says you'd say that. She was right."],
+					["say", "", "INCIDENT: Shoes, a Postmortem. Severity: P1. Impact: one (1) child, barefoot."],
+					["choice", [["Run a root cause analysis (check under the couch)", "shoes_rca"], ["Escalate to Mommy", "shoes_mom"], ["Declare the shoes deprecated (buy new ones, $30)", "shoes_new"]]],
 					["say", "jess", "They're under the couch. My shift starts at 7, lunches are in the fridge. Love you. Have a good day."]]
 			else:
 				var mornings := [
@@ -101,7 +103,11 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			]
 			var s := [["loc", "house"], ["place", "dan", "living"], ["place", "lily", "girls"], ["place", "june", "girls_dan"],
 				["place", "jess", "door"], ["move", "jess", "living_j"], ["face", "dan", "right"], ["face", "jess", "left"], ["say", "jess", jess[d % jess.size()]]]
-			if gs.closeness < 35:
+			if gs.drinks_week >= 8 and not gs.notices_seen.has("real_talk"):
+				gs.notices_seen["real_talk"] = true
+				s += [["say", "jess", "Hey. Can I say a thing without it being a Whole Thing?"], ["say", "jess", "You've been having a few most nights. I'm not counting. I just... noticed I was counting."],
+					["choice", [["Be honest: \"Yeah. It's been more than I want.\"", "talk_honest"], ["\"It's just been a long week.\"", "talk_deflect"], ["Joke: \"The recycling is just very enthusiastic.\"", "talk_joke"]]]]
+			elif gs.closeness < 35:
 				s += [["say", "", "She sits at the far end of the couch, tired. She still smiles when you look over."]]
 			elif gs.today.get("text_jess", 0) > 0:
 				s += [["say", "jess", "Thanks for texting today. It really helped."]]

@@ -161,6 +161,16 @@ func _process(_d: float) -> bool:
 	check(gs.load_game("user://test_save.json") and gs.fridge_drawings == 7 and gs.day == 3 and gs.clean["pouch"] == 2, "load game restores the morning")
 	gs.delete_save("user://test_save.json")
 	check(not gs.load_game("user://nope.json"), "missing save fails cleanly")
+	# --- Choices in cutscenes
+	gs.new_game(21)
+	var wk: Array = Cutscenes.build("wake", gs, {})
+	check(wk.any(func(st): return st[0] == "choice"), "Monday wake has the Shoes postmortem choice")
+	gs.drinks_week = 9
+	var jh: Array = Cutscenes.build("jess_home", gs, {})
+	check(jh.any(func(st): return st[0] == "choice") and gs.notices_seen.has("real_talk"), "Jess real-talk choice after a heavy week")
+	var c0: int = gs.closeness
+	gs.apply_choice("talk_honest")
+	check(gs.closeness == c0 + 8 and gs.honesty == 65 and gs.weekly_review().contains("Honesty"), "honest answer: closeness + honesty, noted in review")
 	# --- Scenes, cutscenes, assets, UI
 	main.skip_all_cutscenes()
 	main.dismiss_summary() if main.summary_root.visible else null

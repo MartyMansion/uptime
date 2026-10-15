@@ -15,6 +15,7 @@ var cur := ""
 func _initialize() -> void:
 	main = load("res://scenes/main.tscn").instantiate()
 	main.autoload_save = false
+	main.random_choices = true
 	root.add_child(main)
 	_run.call_deferred()
 
@@ -81,10 +82,18 @@ func drain(step := false) -> void:
 		for st in main.cs_steps:
 			if st[0] == "say": note("%s: %s" % [st[1] if st[1] != "" else "(narration)", st[2]])
 			elif st[0] == "lifeos": note("LifeOS: " + str(st[1]))
+		if step and main.cs_waiting == "choice":
+			await audit("choice " + main.cs_id)
+			main.pick_choice(randi() % main.cs_choices.size())
+			continue
 		if step and main.dialog_panel.visible:
 			note("%s: %s" % [main.dialog_name.text, main.dialog_text.text])
 			await audit("dialogue " + main.cs_id)
 		main.skip_cutscene()
+		note(main.log_label.text)
+	for k in gs.notices_seen:
+		if str(k).begins_with("choice_") and not stats["cutscenes"].has(k):
+			stats["cutscenes"][k] = 1
 	if guard >= 60: bad("cutscene queue never drained")
 	if main.summary_root.visible:
 		note(main.summary_title.text + " :: " + main.summary_label.text)

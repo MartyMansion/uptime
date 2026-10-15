@@ -58,6 +58,9 @@ var pending_title := ""
 var summary_is_week := false
 var did_jess_home := false
 var autoload_save := true    # tests turn this off
+var cs_choices: Array = []          # [[label, effect], ...] while a choice is open
+var random_choices := false         # bot: pick choices at random when skipping
+var choice_rng := RandomNumberGenerator.new()
 
 func _on_day_started() -> void:
 	GameState.save_game()
@@ -395,6 +398,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var k: Key = (event as InputEventKey).keycode
 	var confirm := k == KEY_ENTER or k == KEY_SPACE or k == KEY_KP_ENTER
+	if cs_id != "" and cs_waiting == "choice":
+		if k >= KEY_1 and k < KEY_1 + cs_choices.size():
+			pick_choice(k - KEY_1)
+		return
 	if cs_id != "":
 		if k == KEY_ESCAPE:
 			skip_cutscene()
@@ -528,7 +535,7 @@ func _cs_tick(delta: float) -> void:
 	if cs_id == "":
 		return
 	match cs_waiting:
-		"say":
+		"say", "choice":
 			return
 		"move":
 			if cs_mover and is_instance_valid(cs_mover) and cs_mover._tween and cs_mover._tween.is_running():
@@ -567,6 +574,23 @@ func _run_step(st: Array, instant: bool) -> void:
 		"hide":
 			if loc.actors.has(st[1]):
 				loc.despawn(st[1])
+		"choice":
+			var opts: Array = st[1]
+			if instant:
+				var pick: int = choice_rng.randi() % opts.size() if random_choices else 0
+				_log(GameState.apply_choice(opts[pick][1]))
+			else:
+				cs_choices = opts
+				dialog_name.text = "Your call"
+				var t := ""
+				for i in opts.size():
+					t += "[%d] %s\n" % [i + 1, opts[i][0]]
+				dialog_text.text = t.strip_edges()
+				dialog_portrait.texture = load("res://assets/portraits/dan.png")
+				dialog_portrait.visible = true
+				dialog_panel.visible = true
+				lifeos_panel.visible = false
+				cs_waiting = "choice"
 		"say", "lifeos":
 			var who: String = "lifeos" if st[0] == "lifeos" else st[1]
 			var text: String = st[1] if st[0] == "lifeos" else st[2]
@@ -590,6 +614,14 @@ func _run_step(st: Array, instant: bool) -> void:
 				cs_wait_t = st[1]
 				cs_waiting = "wait"
 
+func pick_choice(i: int) -> void:
+	if cs_waiting != "choice" or i < 0 or i >= cs_choices.size():
+		return
+	_log(GameState.apply_choice(cs_choices[i][1]))
+	cs_choices = []
+	cs_waiting = ""
+	dialog_panel.visible = false
+
 func advance() -> void:
 	if cs_waiting == "say":
 		cs_waiting = ""
@@ -603,6 +635,8 @@ func skip_cutscene() -> void:
 		cs_mover.stop_walking()
 	while not cs_steps.is_empty():
 		_run_step(cs_steps.pop_front(), true)
+	if cs_waiting == "choice":   # Esc on an open choice: take the first (kindest) option
+		pick_choice(0)
 	cs_waiting = ""
 	dialog_panel.visible = false
 	_next_cutscene()
