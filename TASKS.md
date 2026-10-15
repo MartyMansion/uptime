@@ -79,3 +79,14 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [x] Multi-persona playtest (6 bots × 100 weeks) + MULTI_PLAYTEST_REPORT.md
 - [x] Marty: input refocus, Tab completion, live suggestions, shorter workday, town map
 - [ ] Design recs from MULTI_PLAYTEST_REPORT (not implemented yet; see the report)
+
+## Pass 2 (done 2026-10-14)
+- [x] Low-perf consequences (check-in, PIP, bonus, autopilot loss, endings)
+- [x] Girls Fed tuning + warnings
+- [x] Fill 1:30–2:30 gap (2:00 pickup, coffee stop)
+- [x] Real command recognition + Tab completion
+- [x] Tighter incident SLAs with fair feedback
+## Next
+- [ ] nmap / reboot / telnet responses
+- [ ] Newbie SLA breach rate (30%) — consider gentler first-week SLAs
+- [ ] Separate user:// save per bot process so personas can run in parallel

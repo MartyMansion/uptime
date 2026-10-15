@@ -82,8 +82,13 @@ var inc_breached := false
 var inc_after_hours := false
 var inc_cmds := 0
 var inc_hints := 0
-const INC_BUDGET := 90
-const INC_CMD_MIN := 3
+const INC_BUDGET := 90   # legacy default; real SLA is computed per incident (pass 2)
+const INC_SLACK := 14     # minutes of slack on top of the fastest path
+const INC_HINT_MIN := 6   # reading the runbook costs time during an incident
+var inc_budget := 90
+var inc_optimal := 0
+var inc_slack := INC_SLACK
+const INC_CMD_MIN := 4
 var summary_kind := ""     # "", "week", "postmortem"
 var term_rng := RandomNumberGenerator.new()
 var cs_choices: Array = []          # [[label, effect], ...] while a choice is open
@@ -216,7 +221,9 @@ func _build_ui() -> void:
 	var colors := {"Stress": Color(0.9, 0.4, 0.35), "Job Performance": Color(0.4, 0.6, 0.95), "Jess: Closeness": Color(0.4, 0.8, 0.8),
 		"Girls: Fed": Color(0.95, 0.65, 0.3), "Girls: Connected": Color(0.85, 0.5, 0.8)}
 	for key in colors:
-		sv.add_child(_label(key, 13))
+		var ml := _label(key, 13)
+		if key == "Girls: Fed": fed_label = ml
+		sv.add_child(ml)
 		var b := _bar(colors[key])
 		sv.add_child(b)
 		meters[key] = b
@@ -424,6 +431,15 @@ func autopilot_allowed() -> bool:
 func open_incident(id: String, after_hours := false) -> void:
 	inc_id = id; inc_idx = 0; inc_used = 0; inc_breached = false; inc_after_hours = after_hours; inc_cmds = 0; inc_hints = 0
 	term_rng.seed = GameState.rng.randi()
+	# SLA = fastest path + a little slack: a clean run makes it, wandering or leaning on hints doesn't.
+	inc_optimal = 0
+	var est := RandomNumberGenerator.new()
+	for si in TicketSim.INCIDENTS[id]["stages"].size():
+		est.seed = 1000 + si
+		inc_optimal += TicketSim.make_stage(est, id, si).optimal()
+	# Severity varies: some pages are a P1 with a tight SLA (slack 4–16 min).
+	inc_slack = 4 + 2 * (term_rng.randi() % 7)
+	inc_budget = inc_optimal * INC_CMD_MIN + inc_slack
 	term = TicketSim.make_stage(term_rng, id, 0)
 	term_done = false
 	term_panel.visible = true
@@ -466,10 +482,10 @@ func _term_refresh() -> void:
 	term_xp_label.text = "Dan's %s: Lv %d  %s" % [GameState.SKILL_NAMES[cat], GameState.skill_level(cat), ("%d/%d XP" % pr) if pr[1] > 0 else "MAX"]
 	term_xp_bar.max_value = maxi(1, pr[1]); term_xp_bar.value = pr[0] if pr[1] > 0 else 1
 	if inc_id != "":
-		flags += "   [INCIDENT: %d/%d min%s]" % [inc_used, INC_BUDGET, " — SLA BREACHED" if inc_breached else ""]
+		flags += "   [INCIDENT: %d/%d min%s]" % [inc_used, inc_budget, " — SLA BREACHED" if inc_breached else ""]
 	var unlocked := autopilot_allowed()
 	term_ap_btn.disabled = term_done or not unlocked
-	term_ap_btn.text = ("Autopilot (%s)" % ("decent results" if GameState.autopilot_grade(cat) == "good" else "worse results")) if unlocked else "Autopilot locked (needs Lv %d)" % GameState.PROFICIENT
+	term_ap_btn.text = ("Autopilot (%s)" % ("decent results" if GameState.autopilot_grade(cat) == "good" else "worse results")) if unlocked else ("Autopilot suspended (Gary's Plan)" if GameState.on_pip() else "Autopilot locked (needs Lv %d)" % GameState.PROFICIENT)
 	term_header.text = "TermOS · %s · %d command%s · hints %d/%s%s" % [term.title, term.commands, "" if term.commands == 1 else "s", term.hints_used, "∞" if focus else str(_max_hints()), flags]
 	var lines := term.log_lines.slice(maxi(0, term.log_lines.size() - 14))
 	term_out.text = "\n".join(lines)
@@ -514,8 +530,7 @@ func term_submit(cmd: String, clicked := false) -> void:
 	if inc_id != "":
 		inc_cmds += 1
 		inc_used += INC_CMD_MIN
-		if inc_used > INC_BUDGET and not inc_breached:
-			inc_breached = true
+		if _inc_check_breach():
 			term.log_lines.append("Gary: Hey. We're past the SLA. That's okay. Just... keep going. I'm telling the CEO you're 'in the zone'.")
 		if term.solved and inc_idx + 1 < TicketSim.INCIDENTS[inc_id]["stages"].size():
 			inc_hints += term.hints_used
@@ -563,6 +578,13 @@ func _term_focus() -> void:
 		term_input.grab_focus()
 		term_input.grab_focus.call_deferred()   # again after the suggestion buttons are rebuilt
 
+## Returns true the moment the SLA is first breached.
+func _inc_check_breach() -> bool:
+	if inc_id != "" and inc_used > inc_budget and not inc_breached:
+		inc_breached = true
+		return true
+	return false
+
 func term_hint() -> void:
 	if term == null or term_done:
 		return
@@ -572,13 +594,17 @@ func term_hint() -> void:
 	var h := term.hint()
 	if focus: term.hints_used -= 1   # Rx focus: hints are free
 	term.log_lines.append(h)
+	if inc_id != "":
+		inc_used += INC_HINT_MIN / (2 if focus else 1)
+		if _inc_check_breach():
+			term.log_lines.append("Gary: Hey. We're past the SLA. That's okay. Just... keep going. I'm telling the CEO you're 'in the zone'.")
 	_term_refresh()
 
 func _finish_incident(autopilot: bool) -> void:
 	var id := inc_id
 	inc_hints += term.hints_used if term else 0
-	var used := inc_used if not autopilot else 75
-	var pm: String = GameState.resolve_incident(id, maxi(used, 15), inc_breached, inc_after_hours, autopilot, inc_cmds, inc_hints)
+	var used := inc_used if not autopilot else inc_budget - 5
+	var pm: String = GameState.resolve_incident(id, maxi(used, 15), inc_breached, inc_after_hours, autopilot, inc_cmds, inc_hints, inc_budget, inc_optimal)
 	inc_id = ""
 	term_panel.visible = false
 	term = null
@@ -635,6 +661,7 @@ func term_close(resolve: bool) -> void:
 
 # ------------------------------------------------------------ town map
 var use_map := true
+var fed_label: Label
 var map_root: Control
 var map_header: Label
 var map_tex: TextureRect
@@ -654,8 +681,9 @@ func _build_map() -> void:
 	map_root.add_child(mc)
 	var vb := VBoxContainer.new()
 	mc.add_child(vb)
-	map_header = _label("", 18)
+	map_header = _label("", 16, true)
 	map_header.add_theme_color_override("font_color", Color(1, 0.85, 0.45))
+	map_header.custom_minimum_size = Vector2(0, 0)
 	vb.add_child(map_header)
 	var ar := AspectRatioContainer.new()
 	ar.ratio = 16.0 / 9.0
@@ -723,6 +751,11 @@ func _map_refresh() -> void:
 		if why == "" and first_ok == null: first_ok = b
 	var who := "with the girls" if GameState.girls_picked else ("Jess has the girls" if GameState.jess_has_girls() else "girls at after-care")
 	map_header.text = "Brookfield · %s · %s · Where to?" % [GameState.clock_text(), who if GameState.phase == "drive" else "school run"]
+	if GameState.phase == "drive" and not GameState.girls_picked and not GameState.jess_has_girls():
+		if GameState.minutes < GameState.PICKUP_OPEN:
+			map_header.text += "  (after-care opens in %d min: coffee, park, pharmacy or Lou's?)" % (GameState.PICKUP_OPEN - GameState.minutes)
+		else:
+			map_header.text += "  (after-care closes in %d min)" % maxi(0, GameState.PICKUP_CLOSE - GameState.minutes)
 	var locked: Array[String] = []
 	for o in opts:
 		if o[3] != "" and o[0] in map_order: locked.append("%s: %s" % [str(o[1]).split(" (")[0], o[3]])
@@ -1224,6 +1257,8 @@ func _refresh() -> void:
 	meters["Job Performance"].value = GameState.performance
 	meters["Jess: Closeness"].value = GameState.closeness
 	meters["Girls: Fed"].value = GameState.girls_fed
+	if fed_label: fed_label.text = "Girls: Fed — HUNGRY ⚠" if GameState.girls_fed < GameState.FED_WARN else "Girls: Fed"
+	if fed_label: fed_label.add_theme_color_override("font_color", Color(1, 0.45, 0.35) if GameState.girls_fed < GameState.FED_WARN else Color(0.92, 0.92, 0.92))
 	meters["Girls: Connected"].value = GameState.girls_connected
 	_refresh_prompt()
 

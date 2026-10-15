@@ -178,13 +178,98 @@ func run(cmd: String) -> String:
 	if cmd == "":
 		return ""
 	commands += 1
+	var typed := cmd
+	var pre := ""
+	# Real-world muscle memory (pass 2): sudo/dig/host/journalctl map onto TermOS verbs.
+	if cmd.begins_with("sudo "):
+		cmd = cmd.substr(5).strip_edges()
+		pre = "[sudo] password for dan: ******** (first try. A good sign.)\n"
 	var a := cmd.split(" ", false)
+	if a.is_empty():
+		log_lines.append("%s$ %s" % [cur_host, typed]); log_lines.append("usage: sudo <command>"); return "usage: sudo <command>"
 	var v: String = a[0].to_lower()
+	if v in ["dig", "host"] and a.size() > 1:
+		var n := a[-1]
+		if n.begins_with("+"): n = a[1]
+		cmd = "nslookup " + n
+	elif v == "journalctl":
+		cmd = "tail log"
+	if cmd != typed.trim_prefix("sudo ").strip_edges():
+		a = cmd.split(" ", false); v = a[0]
 	var arg: String = a[1] if a.size() > 1 else ""
-	var out := _exec(v, arg, a, cmd)
-	log_lines.append("%s$ %s" % [cur_host, cmd])
+	if v == "clear":
+		log_lines.clear()
+		return ""
+	var out: String = _real(v, a)
+	if out == "":
+		out = _exec(v, arg, a, cmd)
+	out = pre + out
+	log_lines.append("%s$ %s" % [cur_host, typed])
 	log_lines.append(out)
 	return out
+
+## Common real commands with plausible, ticket-aware output ("" = not one of these).
+func _real(v: String, a: Array) -> String:
+	var on_fix := cur_host == host
+	match v:
+		"uptime":
+			if on_fix and kind == "service": return " %s up 213 days,  load average: 0.02, 0.01, 0.00  (suspiciously calm: %s isn't running)" % ["14:02:11", svc]
+			if on_fix and kind == "disk": return " 14:02:11 up 88 days,  load average: 4.81, 4.66, 4.12  (iowait. the disk is gasping.)"
+			return " 14:02:11 up 213 days,  1 user,  load average: 0.42, 0.37, 0.31"
+		"top", "htop":
+			var rows := "  PID USER     %CPU %MEM COMMAND\n  412 root      0.3  1.2 sshd\n  733 root      0.1  0.4 cron"
+			if on_fix and kind == "service": rows += "\n  (no %s process. It's not slow, it's gone.)" % svc
+			elif on_fix and kind == "disk": rows += "\n  901 root     88.0  2.1 rsync  (stuck writing to a full disk)"
+			elif on_fix and kind == "printer": rows += "\n  622 lp       97.0  4.0 cups-driver  (panicking politely)"
+			else: rows += "\n  555 www-data  1.2  6.3 %s" % (svc if svc != "" else "nginx")
+			return rows + "\n(q to quit. You don't need to: it's a screenshot of top. Budget.)"
+		"curl":
+			var tgt := ""
+			for x in a.slice(1): if not str(x).begins_with("-"): tgt = str(x)
+			if tgt == "": return "curl: try 'curl -I https://tc-web01'"
+			var hn := tgt.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+			if kind == "dns" and hn.trim_suffix(".tricounty.local") == svc: return "curl: (6) Could not resolve host: %s  (DNS. It's always DNS.)" % hn
+			if kind == "cert" and hn == host: return "curl: (60) SSL certificate problem: certificate has expired"
+			if kind == "port" and hn == host: return "curl: (7) Failed to connect to %s port %d: Connection refused" % [hn, port]
+			if kind == "service" and hn == host: return "curl: (52) Empty reply from server  (%s is down)" % svc
+			if HOSTS.has(hn) or hn.ends_with(".tricounty.local"): return "HTTP/1.1 200 OK\nServer: nginx\nX-Powered-By: hope"
+			return "curl: (6) Could not resolve host: %s" % hn
+		"cat":
+			if a.size() < 2: return "cat: reads files. Try: cat /etc/hosts, cat /var/log/syslog"
+			var f := str(a[1])
+			if f == "/etc/hosts":
+				var t := "127.0.0.1 localhost"
+				for h in HOSTS: t += "\n%s %s" % [HOSTS[h]["ip"], h]
+				return t
+			if f.begins_with("/var/log"): return _exec("tail", "log", ["tail", "log"], "tail log")
+			if f == "/etc/motd": return "Welcome to TriCounty. Please don't reboot anything on Fridays."
+			return "cat: %s: No such file or directory" % f
+		"ls":
+			var files := {"tc-web01": "/etc/nginx  /var/www  /var/log/nginx", "tc-files01": "/srv/share  /var/log/samba  backup.tar.gz.part",
+				"tc-dc01": "/etc/bind  /var/log/auth.log  zones.bak", "tc-print01": "/etc/cups  /var/spool/cups (very full)",
+				"tc-app01": "/opt/payrolld  /var/log/payrolld  README-DO-NOT-DELETE", "tc-sw01": "running-config  startup-config"}
+			return files.get(cur_host, "Desktop  Downloads  tickets.txt  june_drawing_server_hero.png")
+		"history":
+			var hist: Array[String] = []
+			var i := 1
+			for l in log_lines:
+				if "$ " in l and not l.begins_with("HINT"):
+					hist.append("%4d  %s" % [i, l.split("$ ", true, 1)[1]]); i += 1
+			return "\n".join(hist.slice(maxi(0, hist.size() - 8))) if not hist.is_empty() else "(empty. A fresh start.)"
+		"man":
+			if a.size() < 2: return "What manual page do you want? (Try: man nslookup)"
+			var w: Dictionary = {"ping": "send ICMP echo", "ssh": "log in to a remote host", "nslookup": "query DNS", "dig": "query DNS (fancier)",
+				"firewall": "list/allow ports", "systemctl": "status|restart services", "df": "disk free", "du": "disk usage", "logrotate": "rotate logs",
+				"certcheck": "check cert expiry", "certbot": "renew certs", "lpstat": "print queue", "cancel": "cancel print jobs",
+				"show": "switch port info", "set": "set switch port VLAN", "aduser": "look up an account", "unlock": "unlock an account", "curl": "talk HTTP"}
+			return "%s(1) — %s. Section 'BUGS': yes." % [a[1], w.get(str(a[1]), "no manual entry. Ask Raj.")]
+		"free":
+			return "        total   used   free\nMem:     16G    %s    %s" % (["15.8G", "0.2G"] if on_fix and kind == "service" else ["6.1G", "9.9G"])
+		"ps":
+			return _real("top", a).split("\n(q")[0]
+		"who":
+			return "dan      pts/0   (you)\nphil     pts/1   (idle 3 weeks — the 'temp change' guy)"
+	return ""
 
 func _on(h: String) -> bool:
 	return cur_host == h
@@ -398,7 +483,7 @@ static func make_stage(r: RandomNumberGenerator, inc_id: String, idx: int) -> Ti
 	return t
 
 # ------------------------------------------------------------ Tab completion
-const VERBS := ["aduser", "cancel", "certbot", "certcheck", "df", "dns", "du", "exit", "firewall", "help", "hostname", "ip", "ipconfig",
+const VERBS := ["cat", "clear", "curl", "dig", "free", "history", "host", "htop", "journalctl", "ls", "man", "ps", "sudo", "top", "uptime", "who", "aduser", "cancel", "certbot", "certcheck", "df", "dns", "du", "exit", "firewall", "help", "hostname", "ip", "ipconfig",
 	"logrotate", "lpstat", "netstat", "nslookup", "openssl", "ping", "set", "show", "ss", "ssh", "systemctl", "tail", "traceroute", "unlock", "whoami"]
 const SUBS := {"firewall": ["list", "allow"], "systemctl": ["status", "restart"], "show": ["port"], "set": ["port"], "ss": ["-tlnp"],
 	"df": ["-h"], "du": ["-sh"], "tail": ["log"], "certbot": ["renew"], "lpstat": ["-o"], "cancel": ["-a"], "ip": ["a"]}
@@ -415,7 +500,15 @@ func complete_candidates(line: String) -> Array[String]:
 	else:
 		var v: String = words[0]
 		if words.size() == 2 and SUBS.has(v): pool += SUBS[v]
-		if v in ["ping", "ssh", "traceroute", "nslookup", "certcheck", "openssl"]: pool += HOSTS.keys()
+		if v == "sudo":
+			return complete_candidates(" ".join(words.slice(1)))
+		if v in ["ping", "ssh", "traceroute", "nslookup", "certcheck", "openssl", "dig", "host"]: pool += HOSTS.keys()
+		if v in ["dig", "host", "nslookup"] and svc != "": pool.append(svc)
+		if v == "curl":
+			for h in HOSTS: pool.append("https://" + h)
+		if v == "cat": pool += ["/etc/hosts", "/var/log/syslog", "/etc/motd"]
+		if v == "man": pool += VERBS
+		if v == "journalctl": pool += ["-xe", "-u"]
 		if v in ["aduser", "unlock"]: pool += USERS
 		if v == "systemctl" and words.size() == 3: pool += SERVICES
 		if v == "firewall" and words.size() == 3 and port > 0: pool.append(str(port))

@@ -60,6 +60,8 @@ d.rectangle([(176, 104), (196, 106)], fill=(220, 120, 40))
 building(30, 60, 20, 14, (240, 244, 250), (60, 140, 120))      # pharmacy
 building(270, 140, 22, 14, (232, 236, 244), (90, 150, 200))    # dental
 building(160, 70, 22, 14, (244, 214, 200), (170, 60, 90))      # diner
+building(255, 40, 18, 12, (236, 220, 196), (120, 80, 50))     # coffee (Bean There)
+d.rectangle([(250, 46), (260, 47)], fill=(120, 80, 50))
 # park: flowers
 for _ in range(40):
     x, y = random.randint(84, 140), random.randint(118, 160)

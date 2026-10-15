@@ -67,3 +67,10 @@ The calendar (top of the sidebar) has picture day, taco Wednesday, Lily's Thursd
 - Each place shows its travel time. Places are locked by time or phase, and the lock reason is listed.
 - Home stays locked until the girls are picked up, except on Wednesday, when Jess has pickup.
 - Missing the after-care window means Jess leaves work to get them: Girls -15, Jess -8, stress +8.
+
+### Pass 2 mechanics
+- **Performance:** below 40 Gary checks in; below 25 you're on a PIP (autopilot suspended, burnout risk); at 75 or above you get a $60 Friday bonus.
+- **Girls Fed:** a snack at school pickup (+15); Jess cooks if they're still hungry at 7:30 PM. Watch for the red HUNGRY warning.
+- **Afternoon:** pickup opens at 2:00 PM; grab a coffee on the town map in between.
+- **Terminal:** common real commands (dig, journalctl, uptime, sudo, top, ip a, curl, cat, ls, history, clear, man) work, with Tab completion.
+- **Incidents** have a visible SLA. Hints cost time, and breaches hurt performance and block the Uptime ending.

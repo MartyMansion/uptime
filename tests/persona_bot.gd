@@ -42,6 +42,11 @@ func _run() -> void:
 		for c in gs.skills: if gs.skill_level(c) >= 5: maxed += 1
 		inc("skills_maxed_total", maxed)
 		inc("perf_ge_90", 1 if gs.performance >= 90 else 0)
+		inc("pip_weeks", 1 if int(gs.week_stats.get("pip", 0)) > 0 else 0)
+		inc("gary_checkins", 1 if gs.notices_seen.has("gary_checkin") else 0)
+		inc("bonus_weeks", 1 if int(gs.week_stats.get("bonus", 0)) > 0 else 0)
+		inc("jess_dinners", int(gs.week_stats.get("jess_dinners", 0)))
+		inc("sla_breaches", int(gs.week_stats.get("sla_breaches", 0)))
 	if persona == "speedrunner": root.size = Vector2i(1280, 720)
 	var f := FileAccess.open(outdir + "/persona_%s.txt" % persona, FileAccess.WRITE)
 	f.store_line("PERSONA %s RUNS %d DAYS %d ACTIONS %d AUDITS %d PROBLEMS %d" % [persona, stats["runs"], stats["days"], stats["actions"], stats["audits"], problems.size()])
@@ -98,8 +103,8 @@ func _choice(opts: Array) -> int:
 
 func map_pref(strat: String, rng: RandomNumberGenerator) -> Array:
 	match persona:
-		"sysadmin": return ["school", "home"]
-		"cozy": return ["school", "park", "diner", "home"]
+		"sysadmin": return ["coffee", "school", "home"]
+		"cozy": return ["coffee", "school", "park", "diner", "home"]
 		"struggling": return ["gas", "pharmacy", "school", "home"] if rng.randf() < 0.7 else ["diner", "gas", "park", "school", "home"]
 		"newbie":
 			var a: Array = gs.PLACES.keys(); a.shuffle(); return a

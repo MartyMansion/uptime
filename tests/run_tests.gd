@@ -253,6 +253,90 @@ func _process(_d: float) -> bool:
 	check(o2["home"][3] == "" and o2["school"][3] != "", "Wednesday: Jess has pickup, home open")
 	check(gs.travel("dental") != "" and gs.travel("dental") == "You're here.", "dentist visit, can't stack it")
 	main.use_map = false
+	# --- Pass 2: performance consequences
+	gs.new_game(201)
+	var p2_pm_msgs: Array = []
+	gs.lifeos_message.connect(func(x): p2_pm_msgs.append(str(x)))
+	gs.performance = 35; gs.end_day()
+	check(gs.notices_seen.has("gary_checkin") and p2_pm_msgs.any(func(x): return "check-in" in x), "perf < 40: Gary check-in")
+	gs.performance = 20; gs.end_day()
+	check(gs.on_pip() and not gs.autopilot_unlocked("dns") or gs.skill_level("dns") < 3, "perf < 25: PIP")
+	gs.skills["dns"] = 300
+	check(gs.on_pip() and not gs.autopilot_unlocked("dns"), "PIP suspends autopilot even at max skill")
+	gs.performance = 90; gs.end_day()
+	check(not gs.on_pip() and gs.autopilot_unlocked("dns"), "back over 40: Plan closed, autopilot restored")
+	gs.new_game(202); gs.day = 4; gs.performance = 100
+	var p2_m0: int = gs.money
+	gs.end_day()
+	check(gs.money == p2_m0 + gs.BONUS_AMT, "Friday spot bonus at high performance")
+	gs.new_game(203); gs.day = 4; gs.performance = 30
+	p2_m0 = gs.money
+	gs.end_day()
+	check(gs.money == p2_m0 and int(gs.week_stats["bonus"]) == 0, "no bonus at low performance")
+	# endings: crispy reachable, uptime rare but possible
+	gs.new_game(204); gs.week_stats["pip"] = 1; gs.stress = 45
+	check(gs.ending_id() == "crispy", "on the Plan + stressed = Crispy")
+	gs.new_game(205); gs.performance = 20; gs.stress = 40
+	check(gs.ending_id() == "crispy", "low perf + stress = Crispy")
+	gs.new_game(206); gs.performance = 90; gs.closeness = 20; gs.stress = 30
+	check(gs.ending_id() == "uptime", "Uptime: perf 85+, clean SLAs, family neglected")
+	gs.week_stats["sla_breaches"] = 1
+	check(gs.ending_id() != "uptime", "an SLA breach rules out Five Nines")
+	# --- Pass 2: girls fed
+	gs.new_game(207)
+	check(gs.girls_fed >= 50, "girls start the week fed")
+	gs.do_action("leave_for_work"); gs.today["tickets"] = 2; gs.do_action("head_home")
+	gs.minutes = gs.PICKUP_OPEN
+	var p2_f0: int = gs.girls_fed
+	gs.travel("school")
+	check(gs.girls_fed >= p2_f0 + gs.SNACK_FED - 1, "after-care snack feeds the girls")
+	gs.travel("home")
+	gs.girls_fed = 10; gs.minutes = 1180
+	gs.do_action("play_girls")
+	check(gs.girls_fed >= 30 and gs.today.get("jess_dinner", false), "nobody cooked by 7:30: Jess makes grilled cheese")
+	# --- Pass 2: dead hour
+	gs.new_game(208); gs.do_action("leave_for_work"); gs.today["tickets"] = 2
+	gs.minutes = 810; gs.do_action("head_home")
+	var p2_o3 := {}
+	for o in gs.map_options(): p2_o3[o[0]] = o
+	check(p2_o3["coffee"][3] == "" and p2_o3["park"][3] == "" and gs.PICKUP_OPEN <= 840, "1:30 PM: coffee/park open, pickup at 2:00")
+	var p2_e3: int = gs.energy
+	gs.travel("coffee")
+	check(gs.energy > p2_e3 and gs.at_place == "coffee", "coffee stop: +energy")
+	# --- Pass 2: real commands
+	var p2_rr2 := RandomNumberGenerator.new(); p2_rr2.seed = 9
+	var p2_dt := TicketSim.new(p2_rr2, "dns")
+	p2_dt.run("dig " + p2_dt.svc)
+	check(p2_dt._done.has("nslookup " + p2_dt.svc) or p2_dt.log_lines[-1].contains("NXDOMAIN") or p2_dt.log_lines[-1].contains("find"), "dig works like nslookup")
+	for p2_cmd_r in ["uptime", "top", "htop", "ip a", "curl -I https://tc-web01", "cat /etc/hosts", "ls", "history", "man ssh", "journalctl -xe", "sudo whoami", "free -h", "ps aux", "who"]:
+		var p2_outr: String = p2_dt.run(p2_cmd_r)
+		check(p2_outr != "" and not p2_outr.contains("command not found"), "real command works: " + p2_cmd_r)
+	p2_dt.run("clear")
+	check(p2_dt.log_lines.is_empty(), "clear clears the screen")
+	check(p2_dt.complete("upt")[0] == "uptime " and p2_dt.complete("sudo syst")[0] == "sudo systemctl " and p2_dt.complete("dig tc-d")[0] == "dig tc-dc01 ", "Tab completes real commands, sudo + dig args")
+	var p2_ct := TicketSim.new(p2_rr2, "cert")
+	check(p2_ct.run("curl -I https://" + p2_ct.host).contains("expired"), "curl sees the expired cert")
+	# --- Pass 2: incidents have tight, fair SLAs
+	main.use_map = false
+	gs.new_game(209); gs.do_action("leave_for_work")
+	main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""; main.summary_kind = ""
+	main.open_incident("site_outage")
+	check(main.inc_budget < 90 and main.inc_budget == main.inc_optimal * main.INC_CMD_MIN + main.inc_slack and main.inc_slack >= 4 and main.inc_slack <= 16, "SLA = fastest path + slack (%d min)" % main.inc_budget)
+	var p2_gd := 0
+	while main.term_open() and not main.term_done and p2_gd < 30:
+		p2_gd += 1; main.term_submit(main.term.next_step(), true)
+	check(main.term_done and not main.inc_breached, "a clean run makes the SLA")
+	main.term_close(true); main.dismiss_summary()
+	main.open_incident("site_outage")
+	for i in 6: main.term_submit("whoami", true)
+	main.term_hint(); main.term_hint()
+	p2_gd = 0
+	while main.term_open() and not main.term_done and p2_gd < 30:
+		p2_gd += 1; main.term_submit(main.term.next_step(), true)
+	check(main.inc_breached, "wandering + hints breaches the SLA")
+	main.term_close(true)
+	check(main.summary_label.text.contains("breached by") and main.summary_label.text.contains("fastest path"), "postmortem explains what cost time: " + main.summary_label.text.left(300))
+	main.dismiss_summary()
 	# --- Endings
 	gs.new_game(41)
 	gs.closeness = 80; gs.girls_connected = 80; gs.stress = 20

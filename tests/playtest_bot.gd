@@ -365,4 +365,5 @@ func play_week(strat: String, seed_v: int) -> void:
 	stats["missed_pickups"] = int(stats.get("missed_pickups", 0)) + int(gs.week_stats.get("missed_pickups", 0))
 	var en: String = gs.ending_id()
 	stats["endings_by"][en] = int(stats["endings_by"].get(en, 0)) + 1
+	stats["endings_by"][strat + ":" + en] = int(stats["endings_by"].get(strat + ":" + en, 0)) + 1
 	main.summary_root.visible = false

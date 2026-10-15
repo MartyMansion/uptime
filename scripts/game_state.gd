@@ -205,7 +205,7 @@ func new_game(seed_value: int = 0) -> void:
 	stress = 20
 	performance = 50
 	closeness = 50
-	girls_fed = 30
+	girls_fed = 55
 	girls_connected = 50
 	money = 200
 	beers = 0
@@ -374,7 +374,7 @@ func charge_walkaway(cmds: int) -> int:
 # ------------------------------------------------------------ town map (Marty: Stardew-style travel)
 var girls_picked := false
 var at_place := "home"
-const PICKUP_OPEN := 870    # 2:30 PM after-care opens
+const PICKUP_OPEN := 840    # 2:00 PM after-care opens (pass 2: was 2:30; closes the dead hour)
 const PICKUP_CLOSE := 1110  # 6:30 PM after-care closes (miss it and Jess has to leave work)
 ## id: [name, map x, map y (0..1), travel minutes, open, close, blurb]
 const PLACES := {
@@ -385,6 +385,7 @@ const PLACES := {
 	"pharmacy": ["Pharmacy (Route 9)", 0.094, 0.33, 15, 540, 1140, "Refills and patches. The pharmacist knows your birthday."],
 	"dental": ["Dental (Brookfield Family Dental)", 0.844, 0.78, 20, 480, 1020, "Dr. Lin. A cleaning. A gentle lecture."],
 	"diner": ["Lou's Diner", 0.5, 0.39, 15, 420, 1260, "Pie. Coffee. Booths that have seen things."],
+	"coffee": ["Coffee (Bean There)", 0.797, 0.222, 10, 360, 1140, "Drip coffee, a scone, ten quiet minutes. +energy, -stress ($4)."],
 	"office": ["Office (TriCounty)", 0.906, 0.39, 25, 420, 1080, "Work."],
 }
 
@@ -436,6 +437,7 @@ func travel(dest: String) -> String:
 	var line := ""
 	match dest:
 		"school":
+			girls_fed = clampi(girls_fed + SNACK_FED, 0, 100)   # after-care snack
 			girls_picked = true
 			girls_connected = clampi(girls_connected + 3, 0, 100)
 			line = "After-care pickup. June reports three 'incidents' and a new best friend. Lily has opinions about the radio."
@@ -456,6 +458,14 @@ func travel(dest: String) -> String:
 				line = "Route 9 Pharmacy: refill picked up ($10). The pharmacist reminds you: 'as prescribed, hon.'"
 			else:
 				line = "Route 9 Pharmacy. You browse the seasonal aisle. It's already Christmas here."
+		"coffee":
+			if money >= 4:
+				money -= 4
+				energy = clampi(energy + 8, 0, 100)
+				stress = clampi(stress - 4, 0, 100)
+				line = "Bean There Coffee: drip, a scone, and ten minutes where nobody needs anything. Barista: 'Rough one?' You: 'Ticket-shaped.' ($4)"
+			else:
+				line = "Bean There Coffee: free water and a sympathetic nod."
 		"dental":
 			today["dental"] = 1
 			stress = clampi(stress - 4, 0, 100)
@@ -480,6 +490,48 @@ func travel(dest: String) -> String:
 	state_changed.emit()
 	if minutes >= DAY_END: end_day()
 	return line
+
+const FED_WARN := 35
+const SNACK_FED := 15
+## Nobody fed the girls by 7:30 PM: Jess makes grilled cheese. Fed recovers, Jess notices.
+func _jess_dinner_fallback() -> String:
+	if phase in ["home_pm", "weekend"] and minutes >= 1170 and girls_fed < 30 and not today.get("jess_dinner", false):
+		today["jess_dinner"] = true
+		girls_fed = clampi(girls_fed + 25, 0, 100)
+		closeness = clampi(closeness - 3, 0, 100)
+		week_stats["jess_dinners"] = int(week_stats.get("jess_dinners", 0)) + 1
+		return "LifeOS: Jess made grilled cheese while you were… elsewhere. Girls: Fed +25. Jess: -3 (she noticed; she's not mad, she's tired)."
+	return ""
+
+# ------------------------------------------------------------ performance has teeth (pass 2)
+const PERF_CHECKIN := 40
+const PERF_PIP := 25
+const BONUS_PERF := 75
+const BONUS_AMT := 60
+func on_pip() -> bool:
+	return int(week_stats.get("pip", 0)) == 1
+
+## Called at the end of each workday (after the overnight perf changes).
+func _performance_consequences() -> void:
+	if performance < PERF_CHECKIN and not notices_seen.has("gary_checkin"):
+		notices_seen["gary_checkin"] = true
+		stress = clampi(stress + 6, 0, 100)
+		lifeos_message.emit("Gary (Teams): \"Got 10 min tomorrow? Just a check-in. Bring nothing. Not even a laptop.\" LifeOS: Job Performance is under %d. Two clean tickets a day keeps Gary's calendar empty." % PERF_CHECKIN)
+	if performance < PERF_PIP and not on_pip():
+		week_stats["pip"] = 1
+		stress = clampi(stress + 10, 0, 100)
+		lifeos_message.emit("Gary, gently: \"HR says I have to call this a Performance Improvement Plan. I'm calling it a 'Plan'. Autopilot's suspended until you're back over %d. We'll get there.\" Stress +10." % PERF_CHECKIN)
+	elif on_pip() and performance >= PERF_CHECKIN:
+		week_stats["pip"] = 2
+		lifeos_message.emit("Gary: \"Plan's closed. You're good. I printed it out so I could shred it in front of you.\" Autopilot restored.")
+	if day == 4:
+		if performance >= BONUS_PERF:
+			money += BONUS_AMT
+			week_stats["bonus"] = BONUS_AMT
+			lifeos_message.emit("Payroll: Spot bonus +$%d. Gary's note says 'for keeping the lights on.' He drew a lightbulb. It's not good. It's sweet." % BONUS_AMT)
+		else:
+			week_stats["bonus"] = 0
+			lifeos_message.emit("Payroll: No spot bonus this week (needs Job Performance %d+). Gary: \"Next week. I believe in you. I believe in most people.\"" % BONUS_PERF)
 
 ## Missed the pickup window: Jess leaves work to get them; the family meters take the hit.
 func _check_pickup_window() -> String:
@@ -553,6 +605,8 @@ func do_action(id: String) -> String:
 		"pickup_girls":
 			if not girls_picked and not jess_has_girls() and minutes < PICKUP_OPEN:
 				minutes = PICKUP_OPEN   # the car line: everyone waits, nobody talks about it
+			if not girls_picked:
+				girls_fed = clampi(girls_fed + SNACK_FED, 0, 100)   # after-care snack
 			girls_picked = true
 			at_place = "home"
 			phase = "home_pm"
@@ -733,9 +787,11 @@ func do_action(id: String) -> String:
 	if pending_choice == "" and phase == "home_pm" and day < 5 and minutes >= 1140 and minutes <= 1320 and incidents_week < 2 and not today.get("paged", false) and rng.randf() < 0.07:
 		today["paged"] = true
 		pending_choice = "incident_page"
-	if lifeos == "" and girls_fed < 25 and not today.get("fed_warned", false) and phase in ["home_pm", "weekend", "drive"]:
+	if lifeos == "" and girls_fed < FED_WARN and not today.get("fed_warned", false) and phase in ["home_am", "home_pm", "weekend", "drive"]:
 		today["fed_warned"] = true
-		lifeos = "LifeOS: Girls: Fed is low. June is eating dry cereal straight from the box and calling it 'dinner crunch'. (Family dinner: Kitchen, after 5 PM)"
+		lifeos = "LifeOS: ⚠ Girls: Fed %d%% — they're hungry. June is eating dry cereal from the box and calling it 'dinner crunch'. Fix: Family dinner (kitchen, after 5 PM), Lou's Diner on the map, or breakfast (cereal/pancakes) in the morning." % girls_fed
+	var jd := _jess_dinner_fallback()
+	if jd != "": lifeos_message.emit(jd)
 	_check_relationships()
 	if lifeos == "" and id == "work_ticket" and is_on_fumes() and not rx_plan and rx_last_dose >= 0 and not rx_active() and rx_pills > 0:
 		lifeos = "LifeOS: Energy low. Maybe a snack or a short walk? (LifeOS is not a doctor. LifeOS is an app that worries.)"
@@ -878,9 +934,10 @@ func end_day() -> Dictionary:
 	_check_achievements()
 	if day < 5:
 		performance = clampi(performance - (20 if today["tickets"] == 0 else 15), 0, 100)  # the queue refills overnight
+		_performance_consequences()
 	if phase == "work" or phase == "drive":
 		girls_connected = clampi(girls_connected - 15, 0, 100)  # never made it home
-	girls_fed = clampi(girls_fed - 15, 0, 100)
+	girls_fed = clampi(girls_fed - 10, 0, 100)   # overnight (was -15; pass 2)
 	stress = clampi(stress + (5 if slept_min * quality < 360 else -10), 0, 100)
 	energy = clampi(energy + restore, 0, 100)
 	var q := "" if notes.is_empty() else " (" + "; ".join(notes) + ")"
@@ -911,6 +968,9 @@ func weekly_review() -> String:
 		+ "Bedtimes attended . %d/7\n" % week_stats["bedtimes"] \
 		+ "Marriage .......... %s\n" % marriage \
 		+ "Career ............ %s (%d tickets)\n" % [career, week_stats["tickets"]] \
+		+ ("Gary's 'Plan' ...... %s\n" % ("Open. Autopilot suspended." if on_pip() else "Closed. Shredded with ceremony.") if int(week_stats.get("pip", 0)) > 0 else "") \
+		+ ("Spot bonus ........ %s\n" % ("+$%d" % int(week_stats["bonus"]) if int(week_stats["bonus"]) > 0 else "None this week") if week_stats.has("bonus") else "") \
+		+ ("Incidents ......... %d (SLA breaches: %d)\n" % [int(week_stats.get("incidents", 0)), int(week_stats.get("sla_breaches", 0))] if int(week_stats.get("incidents", 0)) > 0 else "") \
 		+ "Side Hustle ....... Pre-revenue, post-sleep. Dreams are allowed.\n" \
 		+ "Self-Care ......... %s\n" % ("Running low. Be gentle with yourself." if stress > 50 else "Detected! LifeOS is so proud.")
 	# Subtle lines: only appear if relevant, never as a score.
@@ -947,15 +1007,18 @@ func weekly_review() -> String:
 ## Week-end tone: which week did Dan actually have? (Picks the strongest signal.)
 func ending_id() -> String:
 	var subs: int = week_stats["drinks"] + week_stats["pouches"] / 3 + week_stats["rx_extra"] * 2
-	if notices_seen.has("choice_talk_honest") or (subs > 0 and subs < 15 and (clean["drink"] >= 2 or clean["pouch"] >= 2 or clean["rx_extra"] >= 2)):
+	if notices_seen.has("choice_talk_honest"):
 		return "turning"
 	if subs >= 15:
 		return "foggy"
-	if stress >= 75:
+	# Burnout outranks a small clean streak (pass 2: Crispy was unreachable).
+	if stress >= 70 or (on_pip() and stress >= 40) or (performance < PERF_PIP and stress >= 35):
 		return "crispy"
+	if subs > 0 and (clean["drink"] >= 2 or clean["pouch"] >= 2 or clean["rx_extra"] >= 2):
+		return "turning"
 	if closeness >= 70 and girls_connected >= 70 and stress <= 50:
 		return "cozy"
-	if performance >= 80 and (closeness < 40 or girls_connected < 40):
+	if performance >= 85 and not on_pip() and int(week_stats.get("sla_breaches", 0)) == 0 and (closeness < 40 or girls_connected < 40):
 		return "uptime"
 	return "real"
 
@@ -968,7 +1031,7 @@ func ending_text() -> String:
 		"uptime":
 			return "ENDING — Five Nines: The servers had a perfect week. Lily drew the servers. They were the only thing in the picture. Gary sent a thumbs-up emoji. Next week can be different."
 		"crispy":
-			return "ENDING — Crispy: LifeOS rates your burnout 'golden brown.' Jess hands you the TV remote and the good blanket and says 'nope' to everything else. Rest is next week's ticket #1."
+			return ("(You're on Gary's 'Plan'. He brought donuts to the meeting. That made it worse.) " if on_pip() else "") + "ENDING — Crispy: LifeOS rates your burnout 'golden brown.' Jess hands you the TV remote and the good blanket and says 'nope' to everything else. Rest is next week's ticket #1."
 		"foggy":
 			return "ENDING — Foggy: The week happened mostly around you. Nobody's angry. They just miss you, a little, at the table. The Gas-N-Sip sign is on, as always. So is the porch light."
 	return "ENDING — A Real Week: Not a perfect week. A real one. Uptime 99.2%, SLA 100%, pancakes 100%."
@@ -1007,7 +1070,7 @@ func skill_progress(cat: String) -> Array:
 	return [xp - SKILL_LEVELS[lv - 1], SKILL_LEVELS[lv] - SKILL_LEVELS[lv - 1]]
 
 func autopilot_unlocked(cat: String) -> bool:
-	return skill_level(cat) >= PROFICIENT
+	return skill_level(cat) >= PROFICIENT and not on_pip()
 
 ## Hints per ticket: 2 + level/2 (1 when running on fumes).
 func max_hints(cat: String) -> int:
@@ -1068,14 +1131,15 @@ var pending_incident := ""          # set by the after-hours page choice; Main o
 var incidents_week := 0
 
 ## Applies a finished incident. Returns the postmortem text.
-func resolve_incident(inc_id: String, used_min: int, breached: bool, after_hours: bool, autopilot := false, commands := 0, hints := 0) -> String:
+func resolve_incident(inc_id: String, used_min: int, breached: bool, after_hours: bool, autopilot := false, commands := 0, hints := 0, budget := 90, optimal := 0) -> String:
 	var inc: Dictionary = TicketSim.INCIDENTS[inc_id]
 	incidents_week += 1
 	week_stats["incidents"] = int(week_stats.get("incidents", 0)) + 1
 	var blocks := maxi(1, int(ceil(used_min / float(BLOCK))))
 	minutes = mini(minutes + blocks * BLOCK, DAY_END)
 	energy = clampi(energy - 6 * blocks, 0, 100)
-	var perf := 3 if autopilot else (4 if breached else 10)
+	var perf := 3 if autopilot else (-3 if breached else 8)
+	if breached: week_stats["sla_breaches"] = int(week_stats.get("sla_breaches", 0)) + 1
 	performance = clampi(performance + perf, 0, 100)
 	stress = clampi(stress + (14 if breached else 6), 0, 100)
 	if after_hours:
@@ -1087,13 +1151,13 @@ func resolve_incident(inc_id: String, used_min: int, breached: bool, after_hours
 	week_stats["tickets"] += 1
 	var lines: Array[String] = [
 		"POSTMORTEM — %s" % inc["name"],
-		"Time to resolve: %d min (SLA: 90)%s" % [used_min, "  ⚠ SLA breached" if breached else "  ✔ within SLA"],
+		"Time to resolve: %d min (SLA: %d)%s" % [used_min, budget, "  ⚠ SLA breached by %d min" % (used_min - budget) if breached else "  ✔ within SLA"],
 		"Stages: %s" % " → ".join(inc["stages"].map(func(k): return SKILL_NAMES[skill_of(k)])),
 		"Commands: %d   Hints: %d%s" % [commands, hints, "   (autopilot)" if autopilot else ""],
 		"Blameless root cause: %s" % {"site_outage": "a 'temporary' firewall rule and a tired service.", "ransomware": "a convincing fake invoice. Karen has been hugged and enrolled in training.",
 			"backup_restore": "the backup disk filled up in March. Nobody was watching the watcher.", "db_corruption": "the DB crashed mid-write on a full disk.",
 			"ups_failure": "a UPS battery older than June.", "cert_outage": "auto-renew was set to 'later'. Later came."}[inc_id],
-		"Action items: add a monitor, add a calendar reminder, add a nap.",
+		("What cost time (fair feedback): fastest path was %d commands; you ran %d (+%d extra × 4 min) and read %d hint%s (6 min each). Next time: follow the runbook order, and check before you change." % [optimal, commands, maxi(0, commands - optimal), hints, "" if hints == 1 else "s"]) if breached and optimal > 0 else "Action items: add a monitor, add a calendar reminder, add a nap.",
 		"Impact on home: %s" % ("you missed part of the evening. Jess saved you a plate and a look. The girls drew you a 'server hero' picture anyway." if after_hours else "none. You made it home on time-ish."),
 		"Gary: %s" % ("\"Thank you. Truly. Go home.\"" if not breached else "\"We got there. That's what counts. Let's write the postmortem and never speak of it.\""),
 	]

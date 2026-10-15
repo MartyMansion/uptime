@@ -218,3 +218,15 @@ func map_shots() -> void:
 	await shot("M3_town_map_with_girls")
 	main.close_map()
 	main.use_map = false
+	# pass 2: real commands + incident SLA feedback
+	main.summary_root.visible = false
+	gs.today["tickets"] = 0
+	gs.phase = "work"; gs.minutes = 600; gs.energy = 80
+	main.open_terminal("cert")
+	main.term_submit("uptime", false)
+	main.term_submit("curl -I https://" + main.term.host, false)
+	main.term_submit("dig tc-web01", false)
+	main.term_input.text = "sudo cert"; main.term_tab()
+	await shot("P1_real_commands")
+	main.term_input.text = ""
+	main.term_close(false)

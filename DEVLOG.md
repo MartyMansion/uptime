@@ -145,3 +145,11 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
   - A shorter workday: ~2.5 h tickets, leave after 2, a 3rd means staying late.
   - Performance rebalance: -3 drift per workday, home tickets capped.
   - Town map: Stardew-style travel with time locks, pickup window consequences, and park/pharmacy/dental/diner.
+
+## 2026-10-14 — Pass 2 (playtest report follow-ups)
+- Performance consequences: Gary check-in (<40), PIP (<25, autopilot suspended), Friday bonus ($60 at ≥75). Endings reordered so crispy is reachable (PIP/low perf + stress); uptime requires perf ≥85, no PIP and 0 SLA breaches.
+- Girls Fed: start 55, overnight -10, school snack +15, Jess dinner fallback at 7:30 PM, red HUNGRY warning.
+- Pickup opens at 2:00 PM; new coffee stop on the town map.
+- Real commands with ticket-aware output and Tab completion (dig/host, journalctl, uptime, sudo, top/htop, ip a, curl, cat, ls, history, clear, man/help, free, ps, who).
+- Incident SLA = optimal×4 + 4–16 min of random slack; hints cost time; the postmortem shows the overrun and what cost time.
+- All personas re-run for 100 weeks; results are in MULTI_PLAYTEST_REPORT.md "Pass 2 results".
