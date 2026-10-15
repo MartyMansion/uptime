@@ -120,7 +120,7 @@ func check_state() -> void:
 	if gs.money < 0: bad("money negative %d" % gs.money)
 	if gs.beers < 0 or gs.pouches < 0 or gs.rx_pills < 0: bad("negative inventory")
 	if gs.minutes > gs.DAY_END: bad("clock past 1 AM: %d" % gs.minutes)
-	if not gs.week_over and main.cs_id == "" and not main.summary_root.visible and main.loc_name != main.PHASE_LOC[gs.phase]:
+	if not gs.week_over and main.cs_id == "" and not main.summary_root.visible and main.loc_name != main.phase_loc():
 		bad("location %s doesn't match phase %s" % [main.loc_name, gs.phase])
 
 ## Strategy: choose the next action from what's allowed right now.

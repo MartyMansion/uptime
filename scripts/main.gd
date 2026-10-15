@@ -11,8 +11,9 @@ const LOCATIONS := {
 	"office": "res://scenes/locations/office.tscn",
 	"gas_station": "res://scenes/locations/gas_station.tscn",
 	"school": "res://scenes/locations/school.tscn",
+	"road": "res://scenes/locations/road.tscn",
 }
-const PHASE_LOC := {"home_am": "house", "work": "office", "drive": "gas_station", "home_pm": "house", "weekend": "house"}
+const PHASE_LOC := {"home_am": "house", "work": "office", "drive": "road", "home_pm": "house", "weekend": "house"}
 const GLOBAL_KEYS := ["text_jess", "pouch", "rx_dose", "breathe"]
 const SPEAKERS := {"dan": "Dan", "jess": "Jess", "lily": "Lily", "june": "June", "gary": "Gary", "lifeos": "LifeOS"}
 const FONT := 15
@@ -901,7 +902,7 @@ func _build_paper() -> void:
 
 ## Which paper set to show: the plan's location, or a town destination while driving.
 func _paper_place() -> String:
-	if loc_name == "gas_station" and GameState.phase == "drive" and GameState.at_place in ["park", "pharmacy", "dental", "diner", "coffee"]:
+	if loc_name == "road" and GameState.phase == "drive" and GameState.at_place in ["park", "pharmacy", "dental", "diner", "coffee"]:
 		return GameState.at_place
 	return ""
 
@@ -999,9 +1000,16 @@ func load_location(n: String) -> void:
 	if hud_phase:
 		_refresh()
 
+## Logic location for the current phase. After work Dan is on the road; the Gas-N-Sip only
+## when he picked it on the map (Marty: no forced stop).
+func phase_loc() -> String:
+	if GameState.phase == "drive" and GameState.at_place == "gas":
+		return "gas_station"
+	return PHASE_LOC[GameState.phase]
+
 ## Puts the world in the right place for the current phase, with default NPCs.
 func sync_location() -> void:
-	var want: String = PHASE_LOC[GameState.phase]
+	var want: String = phase_loc()
 	load_location(want)
 	var npcs := {}
 	match GameState.phase:
@@ -1443,7 +1451,7 @@ func _refresh_prompt() -> void:
 func _refresh() -> void:
 	hud_day.text = "%s  (Day %d/7)" % [GameState.day_name(), GameState.day + 1]
 	hud_clock.text = GameState.clock_text()
-	hud_phase.text = GameState.phase_name() if loc == null or loc_name == PHASE_LOC[GameState.phase] else loc.title
+	hud_phase.text = GameState.phase_name() if loc == null or loc_name == phase_loc() else loc.title
 	var flags: Array[String] = []
 	if GameState.is_on_fumes(): flags.append("RUNNING ON FUMES")
 	if GameState.rx_active(): flags.append("focused")

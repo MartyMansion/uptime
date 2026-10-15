@@ -80,10 +80,10 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 				"Sleep is a subscription you can cancel! Link in bio. (A caller says 'please don't.' Good caller.)",
 				"Grindset tip: your kids will understand when you're a unicorn. (Dan switches to the oldies station. The oldies station understands.)",
 			]
-			return [["loc", "gas_station"], ["place", "dan", "car"], ["face", "dan", "up"],
+			return [["loc", "road"], ["place", "dan", "car"], ["face", "dan", "up"],
 				["say", "4 AM Club (radio)", radio[d % radio.size()]],
 				["choice", [["Leave the 4 AM Club on (for science)", "radio_4am"], ["Oldies station", "radio_oldies"], ["Radio off. Just the road.", "radio_quiet"]]],
-				["say", "", "The Gas-N-Sip sign hums. After-care closes at 6. The girls will be watching the door for you."]]
+				["say", "", "Main Street. The town map unfolds in your head. After-care closes at 6:30; the girls will be watching the door for you."]]
 		"pickup":
 			var s := [["loc", "school"], ["place", "dan", "car_r"], ["place", "lily", "school_door"], ["place", "june", "school_door"],
 				["move", "june", "curb_r"], ["move", "lily", "curb_l"]]

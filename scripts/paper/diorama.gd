@@ -22,6 +22,7 @@ const SET_LIGHT := {   # set -> [ambient, sun colour, card tint]
 	"house": [Color(0.78, 0.68, 0.6), Color(1, 0.85, 0.66), Color(1.0, 0.95, 0.86)],
 	"office": [Color(0.7, 0.74, 0.78), Color(0.92, 0.96, 1.0), Color(0.95, 0.97, 1.0)],
 	"gas_station": [Color(0.78, 0.72, 0.66), Color(1, 0.9, 0.72), Color(1.0, 0.96, 0.88)],
+	"road": [Color(0.8, 0.8, 0.78), Color(1, 0.95, 0.82), Color(1.0, 0.98, 0.92)],
 	"school": [Color(0.8, 0.8, 0.78), Color(1, 0.95, 0.82), Color(1.0, 0.98, 0.92)],
 }
 const PLACE_SETS := ["park", "pharmacy", "dental", "diner", "coffee", "school", "home", "gas"]
@@ -186,10 +187,11 @@ func build(loc: Location, loc_name: String, place_id := "") -> void:
 			"office": _dress_office()
 			"gas_station": _dress_gas()
 			"school": _dress_school()
+			"road": _dress_road()
 	env.ambient_light_color = lt[0]
 	sun.light_color = lt[1]
 	stage_tint = lt[2]
-	_enclose(loc_name == "school" or place_id == "park")
+	_enclose(loc_name in ["school", "road"] or place_id == "park")
 	for n in cards:
 		cards[n].visible = false
 	_snap_camera()
@@ -502,6 +504,11 @@ func _dress_school() -> void:
 		[40, 216, Vector3(0.6, 0.4, 0.05), Color(1, 0.85, 0.2), "SLOW: KIDS"],
 		[270, 222, Vector3(0.5, 0.4, 0.3), Color(0.9, 0.3, 0.45), "LOST & FOUND"],
 	])
+
+func _dress_road() -> void:
+	_backdrop(Color(0.7, 0.84, 0.95))
+	wall_sign(160, 2.4, 2.6, 0.5, Color(0.25, 0.5, 0.3), "MAIN ST · BROOKFIELD", Color(1, 1, 1), 40)
+	_foreground([[60, 216, Vector3(0.12, 1.0, 0.12), Color(0.5, 0.5, 0.5)], [260, 220, Vector3(0.7, 0.4, 0.3), Color(0.9, 0.85, 0.3), "SCHOOL ZONE"]])
 
 ## Painted cardboard sky with cut-out hills and clouds (outdoor sets).
 func _backdrop(sky: Color) -> void:

@@ -562,7 +562,7 @@ func _process(_d: float) -> bool:
 	gs.minutes = gs.OFF_WORK
 	main.perform("head_home")
 	main.skip_all_cutscenes()
-	check(main.loc_name == "gas_station", "drive home stop is the Gas-N-Sip scene")
+	check(main.loc_name == "road" and gs.at_place != "gas", "after work Dan is on the road, not forced to the Gas-N-Sip")
 	main.perform("pickup_girls")
 	check(main.cs_id == "pickup", "pickup cutscene at school")
 	main.skip_all_cutscenes()
@@ -592,6 +592,7 @@ func _process(_d: float) -> bool:
 		printerr("  ", x)
 	check(probs.is_empty(), "UI audit: no overlapping/out-of-bounds labels")
 	paper_tests(gs, main)
+	no_forced_gas_tests(gs, main)
 	print("TESTS DONE: %d failure(s)" % failures)
 	quit(1 if failures > 0 else 0)
 	return true
@@ -600,7 +601,7 @@ func _process(_d: float) -> bool:
 func paper_tests(gs: Node, main: Node) -> void:
 	var d: Diorama = main.diorama
 	check(d != null and main.paper and not main.world.visible, "paper diorama is the presentation; 2D plan hidden")
-	for ln in ["house", "office", "gas_station", "school"]:
+	for ln in ["house", "office", "gas_station", "school", "road"]:
 		main.load_location(ln)
 		check(d.set_name == ln and d.set_root.get_child_count() > 20, "paper set built for %s (%d pieces)" % [ln, d.set_root.get_child_count()])
 		var ok := true
@@ -621,7 +622,7 @@ func paper_tests(gs: Node, main: Node) -> void:
 	gs.phase = "drive"
 	for pl in ["park", "pharmacy", "dental", "diner", "coffee"]:
 		gs.at_place = pl
-		main.load_location("gas_station"); main._paper_sync()
+		main.load_location("road"); main._paper_sync()
 		check(d.place == pl and d.set_root.get_child_count() > 15, "town destination %s has its own paper set" % pl)
 		for i in 60: d.tick(1.0 / 30.0, main.loc, "", "", 0.0, "")
 		check(d.edge_leaks(1.63) == 0, "%s: no set edges visible" % pl)
@@ -699,3 +700,37 @@ func paper_tests(gs: Node, main: Node) -> void:
 	main.load_location("house")
 	var probs: Array[String] = main.audit_ui()
 	check(probs.is_empty(), "UI audit clean after paper tests %s" % [probs])
+
+## Marty: leaving work never auto-routes to the Gas-N-Sip; it's an optional map pin, every weekday.
+func no_forced_gas_tests(gs: Node, main: Node) -> void:
+	var keep: bool = main.use_map
+	main.use_map = true
+	for d in 5:
+		gs.new_game(500 + d)
+		gs.day = d
+		main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""
+		main.close_map()
+		gs.do_action("leave_for_work"); main.skip_all_cutscenes()
+		gs.minutes = gs.OFF_WORK
+		main.perform("head_home")
+		check(main.cs_id == "drive_stop", "day %d: the radio cutscene plays on leaving work" % (d + 1))
+		var gas_seen := false
+		var guard := 0
+		while main.cs_id != "" and guard < 50:
+			guard += 1
+			for st in main.cs_steps:
+				if st[0] == "loc" and st[1] == "gas_station": gas_seen = true
+			main.skip_cutscene()
+		main.auto_map()
+		var opts := {}
+		for o in gs.map_options(): opts[o[0]] = o[3]
+		check(not gas_seen and gs.at_place != "gas" and main.loc_name == "road", "day %d: no forced Gas-N-Sip stop (at %s, loc %s)" % [d + 1, gs.at_place, main.loc_name])
+		check(main.map_open() and opts.get("gas", "x") == "" and (opts.get("school", "x") == "" or gs.minutes < gs.PICKUP_OPEN or gs.jess_has_girls()), "day %d: map open; Gas-N-Sip and school are choices" % (d + 1))
+		main.map_pick("coffee" if opts.get("coffee", "x") == "" else "park")
+		check(gs.at_place != "gas" and main.loc_name == "road", "day %d: going elsewhere never touches the Gas-N-Sip" % (d + 1))
+		main.close_map()
+		gs.minutes = maxi(gs.minutes, gs.PICKUP_OPEN)
+		main.map_pick("gas")
+		check(gs.at_place == "gas" and main.loc_name == "gas_station", "day %d: the Gas-N-Sip only when picked" % (d + 1))
+	main.close_map()
+	main.use_map = keep
