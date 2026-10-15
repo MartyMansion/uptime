@@ -11,7 +11,7 @@ class_name Cutscenes
 ##  ["wait", seconds]
 ## Lines adapted from the design doc (§4.12, §5.4).
 
-const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more"]
+const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more", "triage", "page"]
 
 static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 	var d: int = gs.day
@@ -157,6 +157,13 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			var topics := ["What was the best part of everyone's day?", "June wants to know if robots have birthdays.", "Lily asks why grown-ups are always tired."]
 			return [["say", "jess", topics[d % topics.size()]],
 				["choice", [["Phone down. Listen to the girls.", "dinner_listen"], ["Ask Jess about her day first.", "dinner_jess"], ["Explain DNS. They asked. (They didn't.)", "dinner_work"]]]]
+		"triage":
+			return [["lifeos", "New ticket: 'everything is broken.' Everything is never broken. Something is broken."],
+				["choice", [["Fix it properly (root cause)", "triage_fix"], ["Escalate to Gary", "triage_escalate"], ["\"Have you tried turning it off and on again?\"", "triage_reboot"]]]]
+		"page":
+			return [["say", "", "Halfway through the dragon voice, your phone buzzes. PAGER: [P1] Payroll server down. It's Wednesday. Of course it's Wednesday."],
+				["say", "lily", "...Is the dragon going to work?"],
+				["choice", [["Finish the story first. Six minutes. The server can wait.", "page_story"], ["Take the page. Jess takes the dragon.", "page_take"]]]]
 		"one_more":
 			return [["lifeos", "It's late. Your squad is queuing again. LifeOS has no opinion. (LifeOS has an opinion.)"],
 				["choice", [["Log off. Go to bed like an adult.", "match_bed"], ["One more match.", "match_more"]]]]

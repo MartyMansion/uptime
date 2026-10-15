@@ -220,6 +220,7 @@ func new_game(seed_value: int = 0) -> void:
 
 func _start_day() -> void:
 	minutes = DAY_START
+	pending_choice = ""
 	phase = "weekend" if day >= 5 else "home_am"
 	if day > 0 and day < 5:
 		stress = clampi(stress + 10, 0, 100)   # the inbox refilled overnight
@@ -321,6 +322,7 @@ func do_action(id: String) -> String:
 	var why := can_do(id)
 	if why != "":
 		return why
+	pending_choice = ""
 	if id == "sleep":
 		end_day()
 		return "Lights out."
@@ -366,6 +368,8 @@ func do_action(id: String) -> String:
 			today["tickets"] += 1
 			week_stats["tickets"] += 1
 			line = "Closed ticket: " + TICKETS[rng.randi() % TICKETS.size()]
+			if phase == "work" and rng.randf() < 0.2:
+				pending_choice = "triage"
 			if rx_active():
 				line += "\n(Everything is very clear. Almost too clear.)"
 		"side_hustle":
@@ -441,6 +445,9 @@ func do_action(id: String) -> String:
 				line += "\nYou: (a thoughtful reply)"
 		"bedtime_story":
 			week_stats["bedtimes"] += 1
+			if day == 2 and not notices_seen.has("bad_page"):
+				notices_seen["bad_page"] = true
+				pending_choice = "page"
 			line = "June negotiated two more books. Worth it."
 			if today["drink"] >= 3:
 				line += "\nLily: \"You did the dragon voice twice.\""
@@ -751,6 +758,11 @@ const CHOICES := {
 	"dinner_work": [{"closeness": -2, "performance": 2}, "You explain DNS to the table. June falls asleep in her taco. It was a good explanation, though."],
 	"match_more": [{"stress": -4, "energy": -6, "minutes": 30}, "One more match. You lose. One more. You win. It's 30 minutes later and you are, somehow, at peace."],
 	"match_bed": [{"energy": 3}, "You log off mid-lobby. Your teammates will survive. Probably. You go to bed like an adult."],
+	"triage_fix": [{"performance": 3, "minutes": 10, "energy": -2}, "You fix it properly, root cause and all. Future you sends present you a thank-you note."],
+	"triage_escalate": [{"stress": -3, "performance": -1}, "Escalated to Gary. Gary escalates it to 'the vendor'. The vendor is a man named Phil. Phil is on vacation."],
+	"triage_reboot": [{"performance": 1}, "\"Have you tried turning it off and on again?\" They had not. It works. The oldest magic."],
+	"page_story": [{"connected": 8, "performance": -4, "stress": 3}, "You finish the story first. The dragon wins. The server waits 6 minutes. Nobody remembers the outage. Lily will remember the dragon."],
+	"page_take": [{"performance": 5, "connected": -3}, "You take the page. Lily says \"It's okay, Daddy.\" She means it. That's the hard part. Jess finishes the dragon voice. It's a different dragon."],
 	"talk_honest": [{"closeness": 8, "honesty": 15, "stress": -6}, "\"Yeah. It's been more than I want it to be.\" Jess takes your hand. \"Okay. We'll figure it out. Together, like the IKEA bed.\""],
 	"talk_deflect": [{"closeness": -4, "honesty": -10}, "\"Just a long week.\" Jess nods. She doesn't push. That's somehow worse."],
 	"talk_joke": [{"closeness": -2, "honesty": -5}, "\"The recycling is just very enthusiastic.\" Jess smiles, but only with her mouth."],

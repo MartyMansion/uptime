@@ -654,7 +654,7 @@ func skip_cutscene() -> void:
 ## Test helper: skip every queued cutscene.
 func skip_all_cutscenes() -> void:
 	var guard := 0
-	while cs_id != "" and guard < 50:
+	while cs_id != "" and guard < 1000:
 		skip_cutscene()
 		guard += 1
 

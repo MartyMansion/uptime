@@ -105,3 +105,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **Balance:** Jess's Closeness hit 100 too cheaply through three free texts a day. Repeat texts now count for less (+6, +3, 0), and closeness drifts -3 every night. Box breathing is -4 stress, twice a day.
 - End-of-week averages: cozy 97 Jess / 100 girls / 62 Performance, balanced 91/77/100, workaholic 0/0/100 with stress 90, heavy use 0/0 with 24 beers. Endings: cozy 23, foggy 31, uptime/crispy/real/turning all present.
 - 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 14: work gets a loop, the page arrives at the worst time
+- **Ticket triage** (20% of office tickets): fix it properly (+perf, +10 min), escalate to Gary ("The vendor is a man named Phil. Phil is on vacation."), or "Have you tried turning it off and on again?" ("The oldest magic.").
+- **The bad-moment page:** Wednesday's bedtime story is interrupted by a P1 payroll page. Finish the story first (connected +8, perf -4: "Lily will remember the dragon"), or take the page and let Jess do a different dragon. No wrong answer, just a cost either way.
+- **Fixes the bot and tests found:** a stale pending choice could leak into the next action (now cleared on every action and every morning), and `skip_all_cutscenes` had a guard of 50 that a long test run exceeded (now 1000).
+- 100 weeks, 0 problems. Tests pass.
