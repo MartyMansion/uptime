@@ -79,6 +79,23 @@ const TICKETS := [
 	"\"The server room is making a noise. A different noise.\" (A tired fan. Fixed. The servers hum happily.)",
 	"\"Reply-all thread re: WHO TOOK MY YOGURT (47 replies)\" (The yogurt was found. Everyone is relieved.)",
 	"\"Our chatbot told a customer we offer free kittens. Do we?\" (We do not. You fixed it. A little sad, honestly.)",
+	"\"My second monitor is upside down. I didn't do anything.\" (A toddler visited. You flip it. Crisis averted.)",
+	"\"Is the cloud down?\" (The cloud is fine. Her Wi-Fi was off. You both agree to never speak of it.)",
+	"\"Mouse not working\" (Battery. It's always the battery. Sometimes it's DNS. This time it's the battery.)",
+	"\"Can you recover a file I deleted in 2019?\" (You can. You become briefly, quietly legendary.)",
+	"\"Teams says I'm 'Away'. I am right here. Please tell Teams.\" (You tell Teams. Teams does not listen. Nobody can reach Teams.)",
+	"\"The fax machine is sending faxes to itself.\" (It's lonely. You unplug it gently, like a vet.)",
+	"\"Password expired. New one can't match the last 12. I'm out of pets.\" (You suggest a passphrase. She names it after her mortgage.)",
+	"\"Printer says PC LOAD LETTER\" (Paper. It wanted paper. It always just wanted paper.)",
+	"\"Laptop is very hot and making a sound like a tiny jet\" (Two hundred Chrome tabs. You close them with respect.)",
+	"\"Accidentally replied-all to the whole company with 'love you too'\" (You can't unsend it. You can offer emotional support.)",
+	"\"Calendar invite for a meeting about reducing meetings\" (Not a ticket. You accept anyway. Solidarity.)",
+	"\"Our smart fridge is asking for a firmware update and also for help\" (Updated. Fridge seems happier.)",
+	"\"The CEO's nephew 'fixed' the network\" (He bought a router at a gas station. You fix the fix. Everyone lives.)",
+	"\"Webcam shows me as a potato\" (A filter. He kind of liked it. You leave him the option.)",
+	"\"Server rack beeping in Morse code\" (It's a failing disk, not a hostage. You swap it. RAID holds. Exhale.)",
+	"\"Keyboard typing the wrong letters\" (Language switched to Dvorak. Nobody knows how. Nobody ever will.)",
+	"\"Can AI do my timesheet?\" (No. But you made her a template and she cried a little. Good tears.)",
 ]
 const JESS_TEXTS := [
 	"Jess: On hold with insurance for 52 min. The hold music has a bridge now. I'm emotionally invested.",
@@ -86,6 +103,10 @@ const JESS_TEXTS := [
 	"Jess: Hospital gave us pizza instead of a raise again. Saved you a slice of late-stage capitalism. ❤",
 	"Jess: Lily asked if your job is real. I said 'legally, yes.' She said you seem 'very important to printers.'",
 	"Jess: Friendly reminder the shared calendar exists 💛 June has picture day Thursday.",
+	"Jess: June just asked if you're 'the computer guy' at home too. I said 'only when it's broken.' So, always.",
+	"Jess: a patient's kid drew me a horse. It looks like a sofa. I love it. Bringing it home for the fridge.",
+	"Jess: day is long. you're my favorite person. that's it, that's the text.",
+	"Jess: the dishwasher made The Noise again. I have chosen not to hear it. Please also not hear it.",
 ]
 const LIFEOS_TIPS := [
 	"LifeOS: Tip: Sleep restores Energy. Premium Sleep™ is $4.99/mo. Regular sleep is still free. For now.",
@@ -93,6 +114,19 @@ const LIFEOS_TIPS := [
 	"LifeOS: Tip: It's always DNS. Except when it's the cable. Check the cable.",
 	"LifeOS: Tip: A 'quick call' has never once been quick. LifeOS has the data. LifeOS is sorry.",
 	"LifeOS: Feeling overwhelmed by notifications? Here is a notification about that.",
+	"LifeOS: Reminder: your Screen Time was 9h. 7h of that was work. LifeOS is choosing not to judge. LifeOS is an app with feelings now.",
+	"LifeOS: Your step count today: 4,112. Of those, 3,900 were to the printer.",
+	"LifeOS: Hydration check! Coffee counts as water, legally, in no jurisdictions.",
+	"LifeOS: You've been 'just a sec' for 22 minutes. The girls have noticed. LifeOS has noticed. The cat has noticed.",
+	"LifeOS: Inbox Zero achieved! Just kidding. LifeOS would never do that to you.",
+	"LifeOS: Weather today: 61°F and partly 'you should go outside'.",
+	"LifeOS: Fun fact: Nobody on their deathbed wished they'd closed more tickets. Except Gary, maybe. Gary's fine though.",
+	"LifeOS: Your calendar has a meeting called 'Sync re: Sync'. LifeOS cannot help you. LifeOS is so sorry.",
+	"LifeOS: Tip: The 4 AM Club recommends cold plunges. LifeOS recommends warm blankets. LifeOS is winning.",
+	"LifeOS: 3 new notifications about notifications. Tap to unsubscribe from unsubscribing.",
+	"LifeOS: Lily searched 'how old do you have to be to fix computers'. LifeOS thought you should know.",
+	"LifeOS: Your burnout score is 'crispy'. Suggested action: a walk. Not a sponsored walk. Just a walk.",
+	"LifeOS: Achievement unlocked: Remembered to Eat Lunch. (Pending. Achievement locked.)",
 ]
 # Jess noticing drinking, keyed by cumulative drinks this week. Quiet, not a fight.
 const JESS_NOTICES := {
@@ -351,7 +385,12 @@ func do_action(id: String) -> String:
 			_moment("Lily's recorder solo. You were there.")
 		"text_jess":
 			week_stats["texts"] += 1
-			line = JESS_TEXTS[rng.randi() % JESS_TEXTS.size()] + "\nYou: (a thoughtful reply)"
+			line = JESS_TEXTS[rng.randi() % JESS_TEXTS.size()]
+			if is_on_fumes():
+				closeness = clampi(closeness - 4, 0, 100)   # only +2 net: running on fumes makes for short texts
+				line += "\nYou: k 👍  (You meant so much more. Your thumbs did not have it in them.)"
+			else:
+				line += "\nYou: (a thoughtful reply)"
 		"bedtime_story":
 			week_stats["bedtimes"] += 1
 			line = "June negotiated two more books. Worth it."
