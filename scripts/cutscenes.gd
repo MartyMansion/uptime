@@ -146,7 +146,13 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 					["say", "june", "He's not stealing. He's sharing with himself."],
 					["choice", [["Laugh. Butter is a lost cause anyway", "chaos_laugh"], ["Calmly relocate the cat. Butter: retired", "chaos_calm"], ["Make the girls narrate it like a nature show", "chaos_art"]]]],
 			]
-			return [["loc", "house"], ["place", "dan", "living"], ["place", "june", "living_j"], ["place", "lily", "girls"]] + evs[ev]
+			var steps: Array = evs[ev].duplicate(true)
+			if gs.stress >= 75 or gs.is_on_fumes():
+				# Stress effect: the warmest option is out of reach today. Not cruel, just tired.
+				var ch: Array = steps[-1][1]
+				ch[0] = ["(You can't find the laugh right now. You'll get it back.) Handle it calmly", "chaos_calm"]
+				steps.insert(steps.size() - 1, ["say", "", "Your patience is at 4%. Charging cable not found."])
+			return [["loc", "house"], ["place", "dan", "living"], ["place", "june", "living_j"], ["place", "lily", "girls"]] + steps
 		"dinner":
 			var topics := ["What was the best part of everyone's day?", "June wants to know if robots have birthdays.", "Lily asks why grown-ups are always tired."]
 			return [["say", "jess", topics[d % topics.size()]],

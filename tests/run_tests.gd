@@ -146,7 +146,7 @@ func _process(_d: float) -> bool:
 	gs.do_action("feed_girls"); gs.do_action("leave_for_work")
 	var st0: int = gs.stress
 	gs.do_action("breathe")
-	check(gs.stress == maxi(st0 - 5, 0) and gs.minutes == 480, "breathe: free stress relief, competes with a pouch")
+	check(gs.stress == maxi(st0 - 4, 0) and gs.minutes == 480, "breathe: free stress relief, competes with a pouch")
 	gs.day = 3
 	check(gs.can_do("concert") != "", "concert only in the evening on Thursday")
 	gs.day = 0
@@ -179,6 +179,10 @@ func _process(_d: float) -> bool:
 	check(gs.ending_id() == "foggy", "heavy week -> Foggy ending")
 	gs.notices_seen["choice_talk_honest"] = true
 	check(gs.ending_id() == "turning", "honesty -> Turning Point ending")
+	gs.stress = 80
+	var cz: Array = Cutscenes.build("chaos", gs, {"n": 0})
+	check(str(cz[-1][1][0][1]) == "chaos_calm", "high stress: the laugh option is out of reach in chaos events")
+	gs.stress = 20
 	# --- Side hustle + achievements
 	gs.new_game(51)
 	gs.phase = "home_pm"; gs.minutes = 1200

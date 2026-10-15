@@ -48,14 +48,14 @@ const ACTIONS := {
 	"drink": {"name": "Have a beer", "blocks": 0, "energy": -2, "stress": -10, "phases": HOME},
 	"pouch": {"name": "Nic pouch", "blocks": 0, "energy": 0, "stress": -6, "phases": ANY},
 	"rx_dose": {"name": "Take Rx (prescribed: 1/day)", "blocks": 0, "energy": 15, "phases": ["home_am", "work", "home_pm", "weekend"]},
-	"text_jess": {"name": "Text Jess (thoughtful)", "blocks": 0, "energy": -2, "closeness": 6, "max_per_day": 3, "phases": ANY},
+	"text_jess": {"name": "Text Jess (thoughtful)", "blocks": 0, "energy": -2, "closeness": 6, "max_per_day": 3, "diminish": 3, "phases": ANY},
 	# Cozy evening/weekend verbs (playtester pass 2)
 	"family_dinner": {"name": "Family dinner (everyone at the table)", "blocks": 1, "energy": -4, "stress": -4, "fed": 30, "connected": 6, "closeness": 4, "after": 1020, "before": 1230, "once": true, "phases": HOME},
 	"homework": {"name": "Homework & drawing at the table", "blocks": 1, "energy": -4, "connected": 8, "before": 1200, "once": true, "phases": HOME},
 	"walk_park": {"name": "Walk to the park with the girls", "blocks": 2, "energy": -2, "stress": -14, "connected": 10, "after": 960, "before": 1170, "once": true, "phases": HOME},
 	"walk_block": {"name": "Walk around the block (alone)", "blocks": 1, "energy": 4, "stress": -12, "phases": HOME},
 	"tea_jess": {"name": "Tea on the couch with Jess", "blocks": 1, "energy": 3, "stress": -10, "closeness": 8, "after": 1080, "once": true, "phases": HOME},
-	"breathe": {"name": "Deep breath (box breathing)", "blocks": 0, "energy": 0, "stress": -5, "max_per_day": 3, "phases": ANY},
+	"breathe": {"name": "Deep breath (box breathing)", "blocks": 0, "energy": 0, "stress": -4, "max_per_day": 2, "phases": ANY},
 	"pancakes": {"name": "Saturday-style pancakes", "blocks": 2, "energy": -4, "stress": -6, "fed": 40, "connected": 10, "before": 720, "once": true, "phases": ["weekend"]},
 	"chores": {"name": "Chores together (with a playlist)", "blocks": 2, "energy": -8, "stress": -4, "connected": 4, "closeness": 6, "once": true, "phases": ["weekend"]},
 	"concert": {"name": "Lily's school concert", "blocks": 2, "energy": -3, "connected": 18, "closeness": 4, "after": 1050, "before": 1110, "once": true, "event": "concert", "phases": ["home_pm"]},
@@ -431,6 +431,8 @@ func do_action(id: String) -> String:
 			_moment("Lily's recorder solo. You were there.")
 		"text_jess":
 			week_stats["texts"] += 1
+			if int(today["text_jess"]) > 1:   # the 3rd "thinking of you" means less than the 1st
+				closeness = clampi(closeness - int(a["diminish"]) * (int(today["text_jess"]) - 1), 0, 100)
 			line = JESS_TEXTS[rng.randi() % JESS_TEXTS.size()]
 			if is_on_fumes():
 				closeness = clampi(closeness - 4, 0, 100)   # only +2 net: running on fumes makes for short texts
@@ -623,6 +625,7 @@ func end_day() -> Dictionary:
 		"kid_actions": today["kid_actions"],
 		"energy_before": energy,
 	}
+	closeness = clampi(closeness - 3, 0, 100)   # life drifts a little every day
 	if today["text_jess"] == 0:
 		closeness = clampi(closeness - 8, 0, 100)
 	if today["bedtime_story"] == 0:

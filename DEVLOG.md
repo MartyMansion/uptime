@@ -99,3 +99,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **5 achievements** (Dragon Voice (Certified), Curator, Pre-Revenue No More, Tea Time, Quiet Win). LifeOS gives you "a little badge. It's just an emoji. 🏅" They're listed in the review and saved.
 - **Bot save/load soak:** every 5th run saves on Thursday morning, scrambles the state, reloads and checks it matches. 20/20 round trips were exact.
 - 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 13: stress effects + balance
+- **Stress has a visible cost now.** At 75+ stress or on fumes, the "laugh it off" option in chaos events is replaced: "(You can't find the laugh right now. You'll get it back.)" plus "Your patience is at 4%. Charging cable not found."
+- **Balance:** Jess's Closeness hit 100 too cheaply through three free texts a day. Repeat texts now count for less (+6, +3, 0), and closeness drifts -3 every night. Box breathing is -4 stress, twice a day.
+- End-of-week averages: cozy 97 Jess / 100 girls / 62 Performance, balanced 91/77/100, workaholic 0/0/100 with stress 90, heavy use 0/0 with 24 beers. Endings: cozy 23, foggy 31, uptime/crispy/real/turning all present.
+- 100 weeks, 0 problems. Tests pass.
