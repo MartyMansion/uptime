@@ -153,3 +153,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - Real commands with ticket-aware output and Tab completion (dig/host, journalctl, uptime, sudo, top/htop, ip a, curl, cat, ls, history, clear, man/help, free, ps, who).
 - Incident SLA = optimal×4 + 4–16 min of random slack; hints cost time; the postmortem shows the overrun and what cost time.
 - All personas re-run for 100 weeks; results are in MULTI_PLAYTEST_REPORT.md "Pass 2 results".
+
+## 2026-10-15 — Paper port (style C)
+- The presentation layer is replaced by paper dioramas, with cut-out cards, the follow camera, paper UI and a papercraft town board. Logic is unchanged; the pixel build is tagged `v0-pixel`.
+- Incident SLAs scale with skill and include curveballs. Hints and typos are cheap for a new Dan.
+- 7 personas (including the new `paperfan`) × 100 weeks, plus the legacy bot: 0 problems. Hand-solved incident breaches are 20% overall. Report: `uptime-build/PAPER_PORT_REPORT.md`.
+- Fixed: narration lines never typed out, the banner covered signs, the camera could see past the stage, cards overlapped, parallel bot saves collided.
