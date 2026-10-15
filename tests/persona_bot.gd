@@ -1,9 +1,10 @@
 extends "res://tests/playtest_bot.gd"
 ## Persona playtesters: distinct decision policies (incl. imperfect play).
 ##   godot --headless --path . -s res://tests/persona_bot.gd -- <persona> [runs] [outdir]
-## Personas: sysadmin, cozy, speedrunner, newbie, struggling, completionist
+## Personas: sysadmin, cozy, speedrunner, newbie, struggling, completionist, paperfan
+## Every persona also checks the paper presentation (cards, camera, prompts, banner) at each audit.
 
-const PERSONAS := ["sysadmin", "cozy", "speedrunner", "newbie", "struggling", "completionist"]
+const PERSONAS := ["sysadmin", "cozy", "speedrunner", "newbie", "struggling", "completionist", "paperfan"]
 const REAL_CMDS := ["uptime", "journalctl -xe", "dig tc-web01", "top", "ip a", "ping -c 3 tc-web01", "sudo systemctl restart nginx",
 	"curl -I https://tc-web01", "ls", "cat /var/log/syslog", "history", "man ssh", "systemctl status", "free -h", "who", "ps aux", "nmap tc-web01", "host tc-web01", "telnet tc-web01 443", "reboot"]
 const NEWBIE_CMDS := ["fix it", "restart", "help me", "turn it off and on again", "why", "hello?", "ok", "printer", "internet", "cd ..", "please work", "?"]
@@ -125,6 +126,8 @@ func map_pref(strat: String, rng: RandomNumberGenerator) -> Array:
 	return super(strat, rng)
 
 func drain(step := false) -> void:
+	if persona == "paperfan" and main.cs_id != "" and randf() < 0.35:
+		await watch_cutscene()
 	if want_audit != "":
 		var w := want_audit
 		want_audit = ""
@@ -169,12 +172,16 @@ func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String
 				var r := super("stardew", allowed, rng)
 				if r != "": inc("act_" + r); return r
 			return best
+		"paperfan":
+			# here for the craft: goes where the sets and cutscenes are, walks around a lot
+			if main.loc and rng.randf() < 0.25: stroll(rng)
+			return super("stardew", allowed, rng)
 		"newbie":
 			return super("balanced", allowed, rng) if rng.randf() < 0.7 else allowed[rng.randi() % allowed.size()]
 		"speedrunner":
 			_chaos(rng)
 			# spam actions incl. disallowed ones (must be rejected cleanly)
-			if rng.randf() < 0.3:
+			if rng.randf() < 0.3 and not main.is_busy():
 				var ids: Array = gs.ACTIONS.keys()
 				var bad_id: String = ids[rng.randi() % ids.size()]
 				var before := [gs.minutes, gs.energy, gs.money]
@@ -283,6 +290,16 @@ func play_terminal(strat: String, rng: RandomNumberGenerator) -> void:
 					var sug: Array[String] = main.term.suggestions(false)
 					main.term_submit(sug[rng.randi() % sug.size()].trim_suffix(" …"), false)
 				await _solve(false, 40)
+		"paperfan":
+			# not a sysadmin: reads one hint, then types what the live suggestions say
+			if main.autopilot_allowed() and rng.randf() < 0.4:
+				main.term_autopilot(); stats["t_autopilot"] = int(stats.get("t_autopilot", 0)) + 1
+			else:
+				if rng.randf() < 0.5: main.term_hint()
+				if main.term and rng.randf() < 0.3:
+					var sug: Array[String] = main.term.suggestions(false)
+					main.term_submit(sug[rng.randi() % sug.size()].trim_suffix(" …"), false)
+				await _solve(rng.randf() < 0.5, 40)
 		"completionist":
 			if main.autopilot_allowed() and rng.randf() < 0.1:
 				main.term_autopilot(); stats["t_autopilot"] = int(stats.get("t_autopilot", 0)) + 1
@@ -311,7 +328,7 @@ func _solve(clicked: bool, guard_max: int) -> void:
 		main.term_close(false); return
 	if main.term_open() and main.term != null:
 		var is_inc: bool = main.inc_id != ""
-		if is_inc: stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0)
+		if is_inc: stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0); inc("inc_by_hand")
 		else: stats["grade_" + main.term.grade()] = int(stats.get("grade_" + main.term.grade(), 0)) + 1
 		if randf() < 0.1: await audit("terminal solved")
 		main.term_close(true)
@@ -340,10 +357,111 @@ func _newbie(rng: RandomNumberGenerator) -> void:
 	if main.term_open() and main.term != null and main.term_done:
 		var is_inc: bool = main.inc_id != ""
 		if not is_inc: stats["grade_" + main.term.grade()] = int(stats.get("grade_" + main.term.grade(), 0)) + 1
-		else: stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0)
+		else: stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0); inc("inc_by_hand")
 		inc("newbie_solved")
 		main.term_close(true)
 	elif main.term_open():
 		inc("newbie_gave_up")
 		stats["t_walk"] = int(stats.get("t_walk", 0)) + 1
 		main.term_close(false)
+
+# ------------------------------------------------------------ paper presentation checks (all personas)
+func audit(where: String) -> void:
+	await super(where)
+	paper_check(where)
+
+func paper_check(where: String) -> void:
+	var d: Diorama = main.diorama
+	if d == null: bad("no paper diorama"); return
+	inc("paper_checks")
+	if main.loc == null: return
+	if d.set_name != main.loc_name: bad("paper set %s doesn't match location %s (%s)" % [d.set_name, main.loc_name, where])
+	var vis: Array[String] = []
+	for n in main.loc.actors:
+		var a: Actor = main.loc.actors[n]
+		if is_instance_valid(a) and a.visible and (d.place == "" or n == "dan"): vis.append(n)
+	for n in vis:
+		if not d.cards.has(n) or not d.cards[n].visible: bad("%s has no visible paper card (%s)" % [n, where]); continue
+		var c: PaperCard = d.cards[n]
+		if absf(c.position.x) > d.XW - 0.2: bad("%s card outside the set walls x=%.2f (%s)" % [n, c.position.x, where])
+	# lanes: after spacing, no two cards on one depth lane overlap much
+	d._space(vis, main.loc, 0.0)
+	for i in vis.size():
+		for j in range(i + 1, vis.size()):
+			var pa: Vector3 = d.to3(main.loc.actors[vis[i]].position) + Vector3(float(d._vis_off.get(vis[i], 0.0)), 0, 0)
+			var pb: Vector3 = d.to3(main.loc.actors[vis[j]].position) + Vector3(float(d._vis_off.get(vis[j], 0.0)), 0, 0)
+			if absf(pa.z - pb.z) <= 1.0 and absf(pa.x - pb.x) < (d.card(vis[i]).size.x + d.card(vis[j]).size.x) * 0.3:
+				bad("cards %s/%s overlap on one lane (%s)" % [vis[i], vis[j], where])
+	var leaks := d.edge_leaks(1.63)
+	if leaks > 0: bad("camera sees past the set (%d corners) in %s (%s)" % [leaks, d.set_name + d.place, where])
+	if main.dialog_panel.visible and main.cs_waiting == "say" and main.talk_who in PaperCard.HEIGHTS and not main.loc.actors.has(main.talk_who):
+		inc("offscreen_speaker")   # voice-over lines (phone, page): fine, but counted
+
+## Paper fan: walks around the set (exercises flips, walk cycle, camera follow).
+func stroll(rng: RandomNumberGenerator) -> void:
+	if main.is_busy() or main.loc == null: return
+	var d: Diorama = main.diorama
+	var f0: int = d.cards["dan"].flips if d.cards.has("dan") else 0
+	for k in 3:
+		var tgt: Vector2 = main.loc.bounds.position + Vector2(rng.randf() * main.loc.bounds.size.x, rng.randf() * main.loc.bounds.size.y)
+		main.dan.walk_to(tgt)
+		for i in 40:
+			if main.dan._tween and main.dan._tween.is_valid(): main.dan._tween.custom_step(1.0 / 30.0)
+			main._process(1.0 / 30.0)
+			var c: PaperCard = d.cards.get("dan")
+			if c and c.flipping():
+				inc("flip_frames")
+				if c.layers[1].position.z == c.layers[3].position.z: bad("flip shows no card thickness")
+			if d.edge_leaks(1.63) > 0: inc("stroll_leak_frames")
+			inc("stroll_frames")
+	main.dan.stop_walking()
+	if d.cards.has("dan"): inc("stroll_flips", d.cards["dan"].flips - f0)
+
+## Paper fan: watches a cutscene in "real time" (30 fps) and judges timing, flaps and framing.
+func watch_cutscene() -> void:
+	inc("watched_cutscenes")
+	var d: Diorama = main.diorama
+	var frames := 0
+	while main.cs_id != "" and frames < 4000:
+		frames += 1
+		if main.cs_waiting == "choice":
+			main.pick_choice(_choice(main.cs_choices) if main.cs_choices.size() > 0 else 0); continue
+		if main.cs_waiting == "move" and main.cs_mover and is_instance_valid(main.cs_mover) and main.cs_mover._tween and main.cs_mover._tween.is_valid():
+			main.cs_mover._tween.custom_step(1.0 / 30.0)
+		main._process(1.0 / 30.0)
+		if main.cs_waiting == "say":
+			if main.typing():
+				inc("type_frames")
+				if main.talk_flap > 0.0: inc("flap_frames")
+			else:
+				if main.talk_flap > 0.0: bad("mouth flapping after the line finished")
+				inc("lines_watched")
+				var t: String = main.dialog_text.text
+				inc("chars_watched", t.length())
+				if t.length() > 150: inc("long_lines")
+				if t.ends_with("?") or t.ends_with("!") or t.ends_with("."): inc("lines_with_button")
+				var sp: String = main.talk_who
+				if sp in PaperCard.HEIGHTS and main.loc.actors.has(sp) and d.cards.has(sp):
+					var cam: Camera3D = d.cam
+					if not cam.is_position_in_frustum(d.cards[sp].position + Vector3(0, 0.8, 0)): inc("speaker_offframe")
+					else: inc("speaker_inframe")
+				for l in d.signs:
+					if not is_instance_valid(l) or l.name.begins_with("Foreground") or l.global_position.y < 0.3: continue
+					if cam_in_banner(l.global_position): inc("sign_under_banner"); break
+				main.advance()
+		if d.edge_leaks(1.63) > 0: inc("cutscene_leak_frames")
+		inc("cutscene_frames")
+	if main.cs_id != "": main.skip_all_cutscenes()
+
+## True if a world point projects into the dialogue banner rect (bottom of the game area).
+func cam_in_banner(p: Vector3) -> bool:
+	var cam: Camera3D = main.diorama.cam
+	if not cam.is_position_in_frustum(p): return false
+	var vp := cam.get_viewport()
+	var sz: Vector2 = vp.get_visible_rect().size
+	if sz.x < 10: return false
+	var sp := cam.unproject_position(p)
+	var r: Rect2 = main.dialog_panel.get_global_rect()
+	var wr: Rect2 = main.world_slot.get_global_rect()
+	var gp := wr.position + sp * (wr.size / sz)
+	return r.has_point(gp)

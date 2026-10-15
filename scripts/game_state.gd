@@ -1157,7 +1157,7 @@ func resolve_incident(inc_id: String, used_min: int, breached: bool, after_hours
 		"Blameless root cause: %s" % {"site_outage": "a 'temporary' firewall rule and a tired service.", "ransomware": "a convincing fake invoice. Karen has been hugged and enrolled in training.",
 			"backup_restore": "the backup disk filled up in March. Nobody was watching the watcher.", "db_corruption": "the DB crashed mid-write on a full disk.",
 			"ups_failure": "a UPS battery older than June.", "cert_outage": "auto-renew was set to 'later'. Later came."}[inc_id],
-		("What cost time (fair feedback): fastest path was %d commands; you ran %d (+%d extra × 4 min) and read %d hint%s (6 min each). Next time: follow the runbook order, and check before you change." % [optimal, commands, maxi(0, commands - optimal), hints, "" if hints == 1 else "s"]) if breached and optimal > 0 else "Action items: add a monitor, add a calendar reminder, add a nap.",
+		("What cost time (fair feedback): fastest path was %d commands; you ran %d (+%d extra; real steps cost 4 min, typos 1) and read %d hint%s (cheap at low skill, 6 min for an expert). Next time: follow the runbook order, and check before you change." % [optimal, commands, maxi(0, commands - optimal), hints, "" if hints == 1 else "s"]) if breached and optimal > 0 else "Action items: add a monitor, add a calendar reminder, add a nap.",
 		"Impact on home: %s" % ("you missed part of the evening. Jess saved you a plate and a look. The girls drew you a 'server hero' picture anyway." if after_hours else "none. You made it home on time-ish."),
 		"Gary: %s" % ("\"Thank you. Truly. Go home.\"" if not breached else "\"We got there. That's what counts. Let's write the postmortem and never speak of it.\""),
 	]
@@ -1222,12 +1222,15 @@ func apply_choice(eid: String) -> String:
 
 # ------------------------------------------------------------------ save/load
 const SAVE_PATH := "user://uptime_save.json"
+## Bots running in parallel set UPTIME_SAVE_TAG so each process has its own save slot.
+var save_path: String = SAVE_PATH if OS.get_environment("UPTIME_SAVE_TAG") == "" else "user://uptime_save_%s.json" % OS.get_environment("UPTIME_SAVE_TAG")
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
 	"fridge_drawings", "honesty", "skills", "incidents_week", "plant", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
 
 ## Saves at the start of a day (the game autosaves every morning).
-func save_game(path: String = SAVE_PATH) -> bool:
+func save_game(path: String = "") -> bool:
+	if path == "": path = save_path
 	# Saves are "morning of" saves: mid-day F6 stores this morning, not the afternoon's meters
 	# (which loading would otherwise replay a whole day on top of).
 	var d := _morning_snap if not _morning_snap.is_empty() else _snapshot()
@@ -1237,11 +1240,13 @@ func save_game(path: String = SAVE_PATH) -> bool:
 	f.store_string(JSON.stringify(d))
 	return true
 
-func has_save(path: String = SAVE_PATH) -> bool:
+func has_save(path: String = "") -> bool:
+	if path == "": path = save_path
 	return FileAccess.file_exists(path)
 
 ## Loads a morning save. Returns false if missing/corrupt (game state untouched).
-func load_game(path: String = SAVE_PATH) -> bool:
+func load_game(path: String = "") -> bool:
+	if path == "": path = save_path
 	if not FileAccess.file_exists(path):
 		return false
 	var d = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -1267,6 +1272,7 @@ func load_game(path: String = SAVE_PATH) -> bool:
 	_start_day()
 	return true
 
-func delete_save(path: String = SAVE_PATH) -> void:
+func delete_save(path: String = "") -> void:
+	if path == "": path = save_path
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

@@ -32,7 +32,8 @@ func until_say(max_frames := 600) -> void:
 	await frames(3)
 
 func shot(n: String) -> void:
-	await frames(3)
+	if main.paper: main.dialog_text.visible_characters = -1   # show the whole line (typewriter)
+	await frames(12)
 	var p: Array[String] = main.audit_ui()
 	for x in p:
 		printerr("UI AUDIT [%s]: %s" % [n, x])

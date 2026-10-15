@@ -14,6 +14,7 @@ var actors := {}                          # name -> Actor
 var highlight := ""
 var solids: Array[Rect2] = []             # furniture/walls Dan can't walk through (feet)
 var _hl: Node2D
+var layout: Array = []                   # ["tile", name, rect, z] / ["prop", name, pos, size, flat]: read by the paper diorama
 
 func _ready() -> void:
 	y_sort_enabled = true
@@ -39,6 +40,7 @@ func _draw_highlight() -> void:
 	_hl.draw_rect(r.grow(1), Color(1, 0.95, 0.4, 0.9), false, 1.0)
 
 func tile(tex: String, r: Rect2, z := -10) -> Sprite2D:
+	layout.append(["tile", tex, r, z])
 	var s := Sprite2D.new()
 	s.texture = load("res://assets/tiles/%s.png" % tex)
 	s.centered = false
@@ -59,6 +61,7 @@ func prop(n: String, pos: Vector2, flat := false) -> Sprite2D:
 	s.texture = load("res://assets/props/%s.png" % n)
 	s.centered = false
 	var h := s.texture.get_height()
+	layout.append(["prop", n, pos, Vector2(s.texture.get_width(), h), flat])
 	s.offset = Vector2(0, -h)
 	s.position = pos + Vector2(0, h)
 	if flat:

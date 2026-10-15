@@ -2,6 +2,7 @@ extends Node2D
 ## Game shell: loads a Location for the current phase, runs Dan, the HUD,
 ## LifeOS popups, scripted cutscenes, and the day/week summaries.
 ## All UI lives in containers under a 1280x720 base (stretch: canvas_items/keep).
+## Presentation: the 2D Location is logic only (hidden); a paper Diorama (3D, SubViewport) mirrors it.
 
 const SPEED := 70.0                     # world px / sec
 const WORLD_SIZE := Vector2(320, 200)
@@ -17,6 +18,17 @@ const SPEAKERS := {"dan": "Dan", "jess": "Jess", "lily": "Lily", "june": "June",
 const FONT := 15
 
 var world: Node2D
+var paper := true                # paper-diorama presentation (the 2D plan stays as the logic layer)
+var diorama: Diorama
+var paper_view: SubViewportContainer
+var _paper_key := ""
+var talk_who := ""               # who is speaking (mouth flaps follow the typewriter)
+var talk_flap := 0.0
+var _type_t := 0.0
+const TYPE_CPS := 48.0
+const INK := Color(0.13, 0.1, 0.1)
+const PAPER := Color(0.99, 0.96, 0.87)
+const KRAFT := Color(0.8, 0.64, 0.44)
 var loc: Location
 var loc_name := ""
 var dan: Actor
@@ -89,6 +101,26 @@ var inc_budget := 90
 var inc_optimal := 0
 var inc_slack := INC_SLACK
 const INC_CMD_MIN := 4
+const SLACK_BY_LEVEL := [[12, 28], [12, 28], [12, 28], [10, 24], [8, 20], [6, 16]]   # index = avg skill level
+const CURVEBALL_P := 0.2
+const CURVEBALLS := [["Gary walks over to ask for an ETA. Then asks again.", 5], ["The vendor puts you on hold. The hold music is a ukulele.", 8],
+	["Karen forwards the suspicious email to 'all staff' to ask if it's suspicious.", 4], ["Your laptop picks now to install updates.", 6], ["The CEO joins the bridge call to 'listen in'.", 5]]
+var inc_curve := 0
+
+## Average skill level across an incident's stages (rounded).
+func incident_level(id: String) -> int:
+	var lv := 0.0
+	var st: Array = TicketSim.INCIDENTS[id]["stages"]
+	for k in st: lv += GameState.skill_level(GameState.skill_of(k))
+	return clampi(roundi(lv / maxf(1.0, st.size())), 1, 5)
+
+## Reading the runbook is cheap for a new Dan (he's expected to), pricier for an expert.
+static func hint_cost(level: int) -> int:
+	return 2 if level <= 2 else (4 if level == 3 else INC_HINT_MIN)
+
+static func incident_slack(level: int, rng: RandomNumberGenerator) -> int:
+	var r: Array = SLACK_BY_LEVEL[clampi(level, 1, 5)]
+	return rng.randi_range(r[0], r[1])
 var summary_kind := ""     # "", "week", "postmortem"
 var term_rng := RandomNumberGenerator.new()
 var cs_choices: Array = []          # [[label, effect], ...] while a choice is open
@@ -105,6 +137,8 @@ func _ready() -> void:
 	world.name = "World"
 	add_child(world)
 	_build_ui()
+	if paper:
+		_build_paper()
 	GameState.state_changed.connect(_refresh)
 	GameState.lifeos_message.connect(show_lifeos)
 	GameState.day_ended.connect(_on_day_ended)
@@ -121,26 +155,49 @@ func _ready() -> void:
 	_layout_world.call_deferred()
 
 # ------------------------------------------------------------------ UI build
+func _paper_box(bg: Color, border := INK, bw := 3, shadow := true) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(bw)
+	sb.set_corner_radius_all(2)
+	sb.set_content_margin_all(10)
+	if shadow:
+		sb.shadow_color = Color(0.1, 0.06, 0.04, 0.35)
+		sb.shadow_size = 2
+		sb.shadow_offset = Vector2(4, 5)
+	return sb
+
+## Paper & cardboard UI: cream paper panels, ink outlines, kraft buttons, dark ink text.
 func _theme() -> Theme:
 	var t := Theme.new()
 	t.default_font_size = FONT
-	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.1, 0.1, 0.14, 0.94)
-	panel.border_color = Color(0.35, 0.38, 0.5)
-	panel.set_border_width_all(2)
-	panel.set_corner_radius_all(4)
-	panel.set_content_margin_all(10)
-	t.set_stylebox("panel", "PanelContainer", panel)
+	t.set_stylebox("panel", "PanelContainer", _paper_box(PAPER))
 	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(0.2, 0.2, 0.26)
-	bg.set_corner_radius_all(3)
+	bg.bg_color = Color(0.86, 0.8, 0.68)
+	bg.border_color = INK
+	bg.set_border_width_all(2)
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = Color(0.4, 0.75, 0.5)
-	fill.set_corner_radius_all(3)
 	t.set_stylebox("background", "ProgressBar", bg)
 	t.set_stylebox("fill", "ProgressBar", fill)
 	t.set_font_size("font_size", "ProgressBar", 12)
-	t.set_color("font_color", "Label", Color(0.93, 0.93, 0.96))
+	t.set_color("font_color", "ProgressBar", INK)
+	t.set_color("font_color", "Label", INK)
+	var bn := _paper_box(Color(0.95, 0.88, 0.7), INK, 2, false); bn.set_content_margin_all(5)
+	var bh := _paper_box(Color(1, 0.8, 0.45), INK, 2, false); bh.set_content_margin_all(5)
+	var bd := _paper_box(Color(0.78, 0.74, 0.68), Color(0.45, 0.4, 0.36), 2, false); bd.set_content_margin_all(5)
+	t.set_stylebox("normal", "Button", bn)
+	t.set_stylebox("hover", "Button", bh)
+	t.set_stylebox("pressed", "Button", bh)
+	t.set_stylebox("focus", "Button", _paper_box(Color(0, 0, 0, 0), Color(0.85, 0.3, 0.2), 3, false))
+	t.set_stylebox("disabled", "Button", bd)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		t.set_color(k, "Button", INK)
+	t.set_color("font_disabled_color", "Button", Color(0.38, 0.34, 0.32))
+	var le := _paper_box(Color(0.05, 0.07, 0.05), Color(0.3, 0.7, 0.4), 2, false); le.set_content_margin_all(4)
+	t.set_stylebox("normal", "LineEdit", le)
+	t.set_stylebox("focus", "LineEdit", _paper_box(Color(0, 0, 0, 0), Color(0.5, 1, 0.6), 2, false))
 	return t
 
 func _label(text := "", size := FONT, wrap := false) -> Label:
@@ -179,6 +236,7 @@ func _build_ui() -> void:
 	# top bar
 	var top := PanelContainer.new()
 	top.custom_minimum_size = Vector2(0, 48)
+	top.add_theme_stylebox_override("panel", _paper_box(KRAFT, INK, 3, false))
 	root.add_child(top)
 	var th := HBoxContainer.new()
 	th.add_theme_constant_override("separation", 18)
@@ -239,6 +297,7 @@ func _build_ui() -> void:
 	# bottom prompt
 	var bottom := PanelContainer.new()
 	bottom.custom_minimum_size = Vector2(0, 72)
+	bottom.add_theme_stylebox_override("panel", _paper_box(KRAFT, INK, 3, false))
 	root.add_child(bottom)
 	prompt = _label("", FONT, true)
 	prompt.max_lines_visible = 3
@@ -263,7 +322,7 @@ func _build_ui() -> void:
 	lh.add_theme_constant_override("separation", 10)
 	lifeos_panel.add_child(lh)
 	var lp := TextureRect.new()
-	lp.texture = load("res://assets/portraits/lifeos.png")
+	lp.texture = load("res://assets/paper/lifeos.png") if paper else load("res://assets/portraits/lifeos.png")
 	lp.custom_minimum_size = Vector2(48, 48)
 	lp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	lp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -280,8 +339,8 @@ func _build_ui() -> void:
 	dialog_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	dialog_panel.offset_left = 16
 	dialog_panel.offset_right = -16
-	dialog_panel.offset_bottom = -12
-	dialog_panel.offset_top = -150
+	dialog_panel.offset_bottom = -10
+	dialog_panel.offset_top = -138
 	var dh := HBoxContainer.new()
 	dh.add_theme_constant_override("separation", 14)
 	dialog_panel.add_child(dh)
@@ -295,7 +354,7 @@ func _build_ui() -> void:
 	dv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	dh.add_child(dv)
 	dialog_name = _label("", 18)
-	dialog_name.add_theme_color_override("font_color", Color(1, 0.85, 0.45))
+	dialog_name.add_theme_color_override("font_color", Color(0.75, 0.2, 0.15))
 	dv.add_child(dialog_name)
 	dialog_text = _label("", 17, true)
 	dialog_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -328,7 +387,7 @@ func _build_ui() -> void:
 	svb.add_theme_constant_override("separation", 12)
 	sp.add_child(svb)
 	summary_title = _label("", 22)
-	summary_title.add_theme_color_override("font_color", Color(1, 0.85, 0.45))
+	summary_title.add_theme_color_override("font_color", Color(0.75, 0.2, 0.15))
 	svb.add_child(summary_title)
 	summary_label = _label("", 16, true)
 	summary_label.custom_minimum_size = Vector2(0, 0)
@@ -347,8 +406,11 @@ func _build_terminal() -> void:
 	term_panel.name = "Terminal"
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.02, 0.04, 0.03, 0.97)
-	sb.border_color = Color(0.25, 0.8, 0.4)
-	sb.set_border_width_all(2)
+	sb.border_color = KRAFT          # cardboard monitor bezel around the CRT
+	sb.set_border_width_all(10)
+	sb.shadow_color = Color(0.1, 0.06, 0.04, 0.4)
+	sb.shadow_size = 3
+	sb.shadow_offset = Vector2(5, 6)
 	sb.set_corner_radius_all(4)
 	sb.set_content_margin_all(12)
 	term_panel.add_theme_stylebox_override("panel", sb)
@@ -408,6 +470,7 @@ func _build_terminal() -> void:
 	term_ap_btn = ap
 	var wa := Button.new(); wa.text = "Walk away (Esc)"; wa.pressed.connect(term_close.bind(false)); br.add_child(wa)
 	term_status = _label("", 13, true)
+	term_status.add_theme_color_override("font_color", TERM_GREEN)
 	term_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	term_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	br.add_child(term_status)
@@ -437,9 +500,12 @@ func open_incident(id: String, after_hours := false) -> void:
 	for si in TicketSim.INCIDENTS[id]["stages"].size():
 		est.seed = 1000 + si
 		inc_optimal += TicketSim.make_stage(est, id, si).optimal()
-	# Severity varies: some pages are a P1 with a tight SLA (slack 4–16 min).
-	inc_slack = 4 + 2 * (term_rng.randi() % 7)
+	# Pass 3: the SLA scales with Dan's skill in the incident's areas. Early on the business
+	# expects less (generous slack); an expert gets the tight P1 SLA. Curveballs (Gary, vendors,
+	# Karen) can still eat minutes, so even experts sometimes breach.
+	inc_slack = incident_slack(incident_level(id), term_rng)
 	inc_budget = inc_optimal * INC_CMD_MIN + inc_slack
+	inc_curve = 0
 	term = TicketSim.make_stage(term_rng, id, 0)
 	term_done = false
 	term_panel.visible = true
@@ -529,7 +595,12 @@ func term_submit(cmd: String, clicked := false) -> void:
 	_tab_last = ""
 	if inc_id != "":
 		inc_cmds += 1
-		inc_used += INC_CMD_MIN
+		# a typo / unknown command costs a minute, not a full step (newbies flail; that's allowed)
+		inc_used += 1 if "command not found" in str(term.log_lines[-1] if not term.log_lines.is_empty() else "") else INC_CMD_MIN
+		if term_rng.randf() < CURVEBALL_P:
+			var cb: Array = CURVEBALLS[term_rng.randi() % CURVEBALLS.size()]
+			inc_used += cb[1]; inc_curve += cb[1]
+			term.log_lines.append("⏱ Curveball: %s (+%d min)" % [cb[0], cb[1]])
 		if _inc_check_breach():
 			term.log_lines.append("Gary: Hey. We're past the SLA. That's okay. Just... keep going. I'm telling the CEO you're 'in the zone'.")
 		if term.solved and inc_idx + 1 < TicketSim.INCIDENTS[inc_id]["stages"].size():
@@ -595,7 +666,7 @@ func term_hint() -> void:
 	if focus: term.hints_used -= 1   # Rx focus: hints are free
 	term.log_lines.append(h)
 	if inc_id != "":
-		inc_used += INC_HINT_MIN / (2 if focus else 1)
+		inc_used += hint_cost(incident_level(inc_id)) / (2 if focus else 1)
 		if _inc_check_breach():
 			term.log_lines.append("Gary: Hey. We're past the SLA. That's okay. Just... keep going. I'm telling the CEO you're 'in the zone'.")
 	_term_refresh()
@@ -605,6 +676,8 @@ func _finish_incident(autopilot: bool) -> void:
 	inc_hints += term.hints_used if term else 0
 	var used := inc_used if not autopilot else inc_budget - 5
 	var pm: String = GameState.resolve_incident(id, maxi(used, 15), inc_breached, inc_after_hours, autopilot, inc_cmds, inc_hints, inc_budget, inc_optimal)
+	if inc_curve > 0 and not autopilot:
+		pm += "\nCurveballs: %d min went to interruptions you couldn't control (SLA for your level: %d min)." % [inc_curve, inc_budget]
 	inc_id = ""
 	term_panel.visible = false
 	term = null
@@ -672,7 +745,7 @@ var map_order: Array = []
 func _build_map() -> void:
 	map_root = ColorRect.new()
 	map_root.name = "TownMap"
-	(map_root as ColorRect).color = Color(0.05, 0.07, 0.05, 0.9)
+	(map_root as ColorRect).color = Color(0.32, 0.24, 0.17, 0.82) if paper else Color(0.05, 0.07, 0.05, 0.9)
 	world_slot.add_child(map_root)
 	map_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var mc := MarginContainer.new()
@@ -681,16 +754,18 @@ func _build_map() -> void:
 	map_root.add_child(mc)
 	var vb := VBoxContainer.new()
 	mc.add_child(vb)
+	var mhp := PanelContainer.new()
+	vb.add_child(mhp)
 	map_header = _label("", 16, true)
-	map_header.add_theme_color_override("font_color", Color(1, 0.85, 0.45))
+	map_header.add_theme_color_override("font_color", INK)
 	map_header.custom_minimum_size = Vector2(0, 0)
-	vb.add_child(map_header)
+	mhp.add_child(map_header)
 	var ar := AspectRatioContainer.new()
 	ar.ratio = 16.0 / 9.0
 	ar.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vb.add_child(ar)
 	map_tex = TextureRect.new()
-	map_tex.texture = load("res://assets/map/town_map.png")
+	map_tex.texture = load("res://assets/paper/town_board.png") if paper else load("res://assets/map/town_map.png")
 	map_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	map_tex.stretch_mode = TextureRect.STRETCH_SCALE
 	map_tex.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -709,7 +784,9 @@ func _build_map() -> void:
 		map_tex.add_child(b)
 		map_btns[id] = b
 	map_hint = _label("Click a place, or press its number. Arrows + Enter work too. M opens the map from the car.", 13, true)
-	vb.add_child(map_hint)
+	var mhp2 := PanelContainer.new()
+	vb.add_child(mhp2)
+	mhp2.add_child(map_hint)
 	map_root.visible = false
 
 func map_open() -> bool:
@@ -803,6 +880,109 @@ func _layout_world() -> void:
 	world.scale = Vector2(sc, sc)
 	world.position = r.position + (r.size - WORLD_SIZE * sc) / 2.0
 
+# ------------------------------------------------------------------ paper diorama
+func _build_paper() -> void:
+	paper_view = SubViewportContainer.new()
+	paper_view.name = "PaperView"
+	paper_view.stretch = true
+	paper_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	world_slot.add_child(paper_view)
+	world_slot.move_child(paper_view, 0)
+	paper_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var vp := SubViewport.new()
+	vp.own_world_3d = true
+	vp.msaa_3d = Viewport.MSAA_4X
+	vp.handle_input_locally = false
+	paper_view.add_child(vp)
+	diorama = Diorama.new()
+	diorama.main = self
+	vp.add_child(diorama)
+	world.visible = false
+
+## Which paper set to show: the plan's location, or a town destination while driving.
+func _paper_place() -> String:
+	if loc_name == "gas_station" and GameState.phase == "drive" and GameState.at_place in ["park", "pharmacy", "dental", "diner", "coffee"]:
+		return GameState.at_place
+	return ""
+
+func _paper_sync() -> void:
+	if diorama == null or loc == null:
+		return
+	var key := loc_name + "/" + _paper_place() + "/" + str(loc.get_instance_id())
+	if key != _paper_key:
+		_paper_key = key
+		diorama.build(loc, loc_name, _paper_place())
+		diorama.refresh_cozy(GameState.fridge_drawings, GameState.plant)
+
+## Short proximity prompt for the paper tag over a station.
+func _tag_text() -> String:
+	if near_station == "" or loc == null or not loc.stations.has(near_station):
+		return ""
+	var n := _current_actions().size()
+	return "%s  [1%s]" % [loc.stations[near_station]["label"], "-%d" % n if n > 1 else ""] if n > 0 else ""
+
+## Typewriter + mouth flaps: the speaker's head flips open on vowels as the letters appear,
+## and pauses on punctuation (comic timing: the beat before the punchline).
+func _type_tick(delta: float) -> void:
+	talk_flap = 0.0
+	if not dialog_panel.visible or cs_waiting != "say":
+		return
+	var total := dialog_text.get_total_character_count()
+	if dialog_text.visible_characters < 0 or dialog_text.visible_characters >= total:
+		dialog_text.visible_characters = -1
+		return
+	_type_t += delta * TYPE_CPS
+	while _type_t >= 1.0 and dialog_text.visible_characters < total:
+		_type_t -= 1.0
+		dialog_text.visible_characters += 1
+		var ch := dialog_text.text.substr(dialog_text.visible_characters - 1, 1)
+		if ch in [".", "!", "?", "…"]: _type_t -= 9.0     # ~0.2 s beat
+		elif ch in [",", ";", ":", "—"]: _type_t -= 4.0
+	var i := maxi(0, dialog_text.visible_characters - 1)
+	var c := dialog_text.text.substr(i, 1).to_lower()
+	if talk_who == "": return       # narration: letters type out, nobody's mouth moves
+	if c in ["a", "e", "i", "o", "u", "y"]: talk_flap = 0.28
+	elif c.is_valid_identifier() or c.is_valid_int(): talk_flap = 0.1
+
+## Dialogue banner goes bottom (default) or top, whichever covers fewer wall signs / the speaker.
+var banner_top := false
+func _place_banner() -> void:
+	if not paper or diorama == null or world_slot == null:
+		return
+	var vp_size: Vector2 = diorama.cam.get_viewport().get_visible_rect().size
+	var ws := world_slot.size
+	var bot_n := 0
+	var top_n := 0
+	if vp_size.x > 10:
+		var h := 138.0 * vp_size.y / maxf(1.0, ws.y)
+		for p in diorama.banner_keepouts(talk_who):
+			if p.y > vp_size.y - h: bot_n += 1
+			if p.y < h: top_n += 1
+	var want_top := top_n < bot_n
+	banner_top = want_top
+	if banner_top:
+		dialog_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		dialog_panel.offset_left = 16; dialog_panel.offset_right = -16
+		dialog_panel.offset_top = 10; dialog_panel.offset_bottom = 138
+	else:
+		dialog_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		dialog_panel.offset_left = 16; dialog_panel.offset_right = -16
+		dialog_panel.offset_top = -138; dialog_panel.offset_bottom = -10
+
+func typing() -> bool:
+	return dialog_panel.visible and cs_waiting == "say" and dialog_text.visible_characters >= 0 and dialog_text.visible_characters < dialog_text.get_total_character_count()
+
+func _portrait(who: String) -> Texture2D:
+	if paper and diorama and who in PaperCard.HEIGHTS:
+		var at := AtlasTexture.new()
+		at.atlas = diorama.card(who).texture()
+		at.region = Rect2(36, 0, 184, 172)
+		return at
+	if paper and who != "":
+		return load("res://assets/paper/lifeos.png")
+	var p := "res://assets/portraits/%s.png" % who
+	return load(p) if ResourceLoader.exists(p) else (load("res://assets/portraits/lifeos.png") if who != "" else null)
+
 # ------------------------------------------------------------------ locations
 func load_location(n: String) -> void:
 	if loc_name == n and loc != null:
@@ -815,6 +995,7 @@ func load_location(n: String) -> void:
 	loc_name = n
 	dan = loc.spawn("dan", loc.spot("entry"))
 	near_station = ""
+	_paper_sync()
 	if hud_phase:
 		_refresh()
 
@@ -838,6 +1019,7 @@ func sync_location() -> void:
 		else:
 			loc.despawn(n)
 	dan.visible = true
+	_paper_sync()
 	_update_fridge()
 	_refresh_prompt()
 
@@ -845,6 +1027,8 @@ func sync_location() -> void:
 func _update_fridge() -> void:
 	if loc_name != "house":
 		return
+	if diorama:
+		diorama.refresh_cozy(GameState.fridge_drawings, GameState.plant)
 	var g: Node2D = loc.get_node_or_null("FridgeGallery")
 	if g == null:
 		g = Node2D.new()
@@ -877,6 +1061,11 @@ func _process(delta: float) -> void:
 			lifeos_panel.visible = false
 	_cs_tick(delta)
 	auto_map()
+	if diorama and loc:
+		_type_tick(delta)
+		_paper_sync()
+		diorama.set_time(GameState.minutes)
+		diorama.tick(delta, loc, near_station if not is_busy() else "", talk_who, talk_flap, _tag_text())
 	if is_busy() or loc == null:
 		return
 	var dir := Vector2.ZERO
@@ -930,7 +1119,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if k == KEY_ESCAPE:
 			skip_cutscene()
 		elif confirm:
-			advance()
+			if typing(): dialog_text.visible_characters = -1   # first press: finish the line
+			else: advance()
 		return
 	if summary_root.visible:
 		if confirm:
@@ -1065,6 +1255,7 @@ func queue_cutscene(id: String, ctx: Dictionary = {}) -> void:
 func _next_cutscene() -> void:
 	if cs_queue.is_empty():
 		cs_id = ""
+		talk_who = ""
 		dialog_panel.visible = false
 		if pending_summary != "":
 			show_summary()
@@ -1147,7 +1338,8 @@ func _run_step(st: Array, instant: bool) -> void:
 				for i in opts.size():
 					t += "[%d] %s\n" % [i + 1, opts[i][0]]
 				dialog_text.text = t.strip_edges()
-				dialog_portrait.texture = load("res://assets/portraits/dan.png")
+				dialog_portrait.texture = _portrait("dan")
+				talk_who = ""
 				dialog_portrait.visible = true
 				dialog_panel.visible = true
 				lifeos_panel.visible = false
@@ -1158,8 +1350,11 @@ func _run_step(st: Array, instant: bool) -> void:
 			var text: String = st[1] if st[0] == "lifeos" else st[2]
 			dialog_name.text = SPEAKERS.get(who, who)
 			dialog_text.text = text
-			var p := "res://assets/portraits/%s.png" % who
-			dialog_portrait.texture = load(p) if ResourceLoader.exists(p) else (load("res://assets/portraits/lifeos.png") if who != "" else null)
+			dialog_portrait.texture = _portrait(who)
+			talk_who = who
+			_type_t = 0.0
+			_place_banner()
+			dialog_text.visible_characters = 0 if (paper and not instant) else -1
 			dialog_portrait.visible = who != ""
 			dialog_panel.visible = true
 			dialog_hint.text = "Enter: next    Esc: skip"
@@ -1196,6 +1391,8 @@ func advance() -> void:
 	if cs_waiting == "say":
 		cs_waiting = ""
 		dialog_panel.visible = false
+		dialog_text.visible_characters = -1
+		talk_who = ""
 
 ## Esc: finish the current cutscene instantly (positions/state still applied).
 func skip_cutscene() -> void:
@@ -1258,7 +1455,7 @@ func _refresh() -> void:
 	meters["Jess: Closeness"].value = GameState.closeness
 	meters["Girls: Fed"].value = GameState.girls_fed
 	if fed_label: fed_label.text = "Girls: Fed — HUNGRY ⚠" if GameState.girls_fed < GameState.FED_WARN else "Girls: Fed"
-	if fed_label: fed_label.add_theme_color_override("font_color", Color(1, 0.45, 0.35) if GameState.girls_fed < GameState.FED_WARN else Color(0.92, 0.92, 0.92))
+	if fed_label: fed_label.add_theme_color_override("font_color", Color(0.8, 0.12, 0.08) if GameState.girls_fed < GameState.FED_WARN else INK)
 	meters["Girls: Connected"].value = GameState.girls_connected
 	_refresh_prompt()
 
