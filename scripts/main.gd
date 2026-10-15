@@ -481,9 +481,9 @@ func _on_action(id: String, _res: String) -> void:
 func _on_day_ended(s: Dictionary) -> void:
 	queue_cutscene("day_end", s)
 	pending_title = "END OF %s" % str(s["day"]).to_upper()
-	pending_summary = "Moment of the day: %s\n\nBedtime: %s\n%s\nTickets closed: %d\nThoughtful texts to Jess: %d\nBedtime story: %s\nKid moments: %d\nFridge drawings: %d\nEnergy: %d -> %d" % [
+	pending_summary = "Moment of the day: %s\n\nBedtime: %s\n%s\nTickets closed: %d\nThoughtful texts to Jess: %d\nBedtime story: %s\nKid moments: %d (Lily %s, June %s)\nFridge drawings: %d\nEnergy: %d -> %d" % [
 		s.get("moment", ""), s["bed_time"], s["sleep_text"], s["tickets"], s["texts"],
-		"Attended" if s["bedtime"] else "Missed (Mommy did the voices; the girls said goodnight to you)", s["kid_actions"], s.get("drawings", 0), s["energy_before"], s["energy_after"]]
+		"Attended" if s["bedtime"] else "Missed (Mommy did the voices; the girls said goodnight to you)", s["kid_actions"], "✓" if s.get("lily", false) else "-", "✓" if s.get("june", false) else "-", s.get("drawings", 0), s["energy_before"], s["energy_after"]]
 	summary_is_week = false
 
 func _on_week_ended(review: String) -> void:

@@ -173,6 +173,8 @@ var rx_plan := false               # talked to the doctor: gentler crash
 var pending_choice := ""          # Main turns this into a choice cutscene after the action
 var hustle: int = 0                 # side hustle sessions (AI script for Marisol's bakery)
 var achievements: Array[String] = []
+var girl_time := {"lily": 0, "june": 0}   # per-girl attention this week (hidden)
+var girl_quiet := {"lily": 0, "june": 0}  # consecutive days with no one-on-one
 var honesty: int = 50              # hidden; moved by choices in cutscenes
 var fridge_drawings: int = 0       # cozy loop: grows with time spent with the girls
 var moments_seen := {}              # relationship moments already played
@@ -206,6 +208,8 @@ func new_game(seed_value: int = 0) -> void:
 	notices_seen = {}
 	fridge_drawings = 0
 	honesty = 50
+	girl_time = {"lily": 0, "june": 0}
+	girl_quiet = {"lily": 0, "june": 0}
 	hustle = 0
 	achievements = []
 	patch_days = 0
@@ -502,6 +506,13 @@ func do_action(id: String) -> String:
 			rx_last_dose = minutes
 			rx_until = minutes + RX_DURATION
 			today["crashed"] = false
+	# Per-girl attention: Lily (9) likes reading/homework/concerts, June (6) likes play/park/chaos.
+	var who := {"homework": ["lily"], "concert": ["lily"], "play_girls": ["june"], "walk_park": ["june", "lily"],
+		"bedtime_story": ["lily", "june"], "pancakes": ["june", "lily"], "feed_girls": ["june", "lily"]}
+	if who.has(id):
+		for g in who[id]:
+			girl_time[g] += 1
+			today["girl_" + g] = true
 	if id in ["feed_girls", "play_girls", "bedtime_story", "cereal"]:
 		today["kid_actions"] += 1
 	_check_crash()
@@ -640,6 +651,12 @@ func end_day() -> Dictionary:
 	if today["bedtime_story"] == 0:
 		girls_connected = clampi(girls_connected - 10, 0, 100)
 	_update_clean_streaks()
+	for g in girl_quiet:
+		girl_quiet[g] = 0 if today.get("girl_" + g, false) else girl_quiet[g] + 1
+		if girl_quiet[g] == 2:
+			girls_connected = clampi(girls_connected - 4, 0, 100)
+			lifeos_message.emit({"lily": "LifeOS: Lily left a book on your pillow, open to the part where the dragon shows up. Subtle as a P1.",
+				"june": "LifeOS: June left a drawing on your keyboard: you, her, and a big question mark. She's six. She's not subtle."}[g])
 	_check_achievements()
 	if day < 5:
 		performance = clampi(performance - (20 if today["tickets"] == 0 else 15), 0, 100)  # the queue refills overnight
@@ -655,6 +672,8 @@ func end_day() -> Dictionary:
 	summary["moment"] = ms[rng.randi() % ms.size()] if not ms.is_empty() else ("You made it. That counts." if today["kid_actions"] > 0 else "A blur. Tomorrow, maybe the park.")
 	week_moments.append(summary["moment"])
 	summary["drawings"] = fridge_drawings
+	summary["lily"] = today.get("girl_lily", false)
+	summary["june"] = today.get("girl_june", false)
 	day_ended.emit(summary)
 	day += 1
 	if day >= 7:
@@ -795,7 +814,7 @@ func apply_choice(eid: String) -> String:
 const SAVE_PATH := "user://uptime_save.json"
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
-	"fridge_drawings", "honesty", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
+	"fridge_drawings", "honesty", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = SAVE_PATH) -> bool:

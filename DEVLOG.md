@@ -116,3 +116,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **Phone overlay:** T now opens Jess's thread with three reply styles: something thoughtful (the full text action), "k 👍" ("A perfectly functional marriage protocol. Low bandwidth.") or draft three paragraphs, delete them and send a heart ("She got all three paragraphs anyway.").
 - **Bot-found softlock:** choices that add 10 minutes (triage "fix properly", the shoes root cause analysis) could leave the clock at 12:40 AM at the office, where no 30-minute action fits before 1 AM. A partial last block is now allowed and the action runs into 1 AM. Regression test added.
 - 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 16: Lily and June are two kids, not one meter
+- Hidden per-girl attention. Lily (9) gets it from homework, concerts and books; June (6) from play, the park and pancakes. Bedtime, breakfast and the park count for both.
+- After 2 days with no one-on-one time, that girl reaches out in her own way: Lily leaves a book open to the dragon part on your pillow, and June leaves a drawing of "you, her, and a big question mark" on your keyboard. Connected -4, never a guilt trip.
+- The day summary shows Kid moments with Lily ✓ / June ✓.
+- 100 weeks, 0 problems. Tests pass.

@@ -189,6 +189,11 @@ func _process(_d: float) -> bool:
 	gs.new_game(61); gs.do_action("leave_for_work"); gs.minutes = 1480
 	check(gs.can_do("head_home") == "" , "off-grid clock at 12:40 AM still has a way forward (no softlock)")
 	gs.new_game(62)
+	gs.new_game(71)
+	var gm: Array = []
+	gs.lifeos_message.connect(func(x): gm.append(x))
+	gs.end_day(); gs.end_day()
+	check(gs.girl_quiet["june"] == 2 and gm.any(func(x): return "question mark" in str(x)), "per-girl: June notices after 2 days with no one-on-one")
 	# --- Side hustle + achievements
 	gs.new_game(51)
 	gs.phase = "home_pm"; gs.minutes = 1200
