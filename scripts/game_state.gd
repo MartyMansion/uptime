@@ -59,6 +59,7 @@ const ACTIONS := {
 	"pancakes": {"name": "Saturday-style pancakes", "blocks": 2, "energy": -4, "stress": -6, "fed": 40, "connected": 10, "before": 720, "once": true, "phases": ["weekend"]},
 	"chores": {"name": "Chores together (with a playlist)", "blocks": 2, "energy": -8, "stress": -4, "connected": 4, "closeness": 6, "once": true, "phases": ["weekend"]},
 	"concert": {"name": "Lily's school concert", "blocks": 2, "energy": -3, "connected": 18, "closeness": 4, "after": 1050, "before": 1110, "once": true, "event": "concert", "phases": ["home_pm"]},
+	"side_hustle": {"name": "Side hustle: Marisol's bakery script", "blocks": 2, "energy": -8, "stress": 4, "after": 1200, "phases": HOME},
 	"sleep": {"name": "Go to sleep", "blocks": 0, "energy": 0, "phases": HOME},
 }
 
@@ -170,6 +171,8 @@ var notices_seen := {}
 var patch_days: int = 0            # patches blunt pouch cravings
 var rx_plan := false               # talked to the doctor: gentler crash
 var pending_choice := ""          # Main turns this into a choice cutscene after the action
+var hustle: int = 0                 # side hustle sessions (AI script for Marisol's bakery)
+var achievements: Array[String] = []
 var honesty: int = 50              # hidden; moved by choices in cutscenes
 var fridge_drawings: int = 0       # cozy loop: grows with time spent with the girls
 var moments_seen := {}              # relationship moments already played
@@ -203,6 +206,8 @@ func new_game(seed_value: int = 0) -> void:
 	notices_seen = {}
 	fridge_drawings = 0
 	honesty = 50
+	hustle = 0
+	achievements = []
 	patch_days = 0
 	rx_plan = false
 	moments_seen = {}
@@ -363,6 +368,17 @@ func do_action(id: String) -> String:
 			line = "Closed ticket: " + TICKETS[rng.randi() % TICKETS.size()]
 			if rx_active():
 				line += "\n(Everything is very clear. Almost too clear.)"
+		"side_hustle":
+			hustle += 1
+			match hustle:
+				1: line = "You start a little script that turns Marisol's bakery orders into a schedule. It works on the first try. Suspicious."
+				2: line = "The script now texts Marisol when the croissants are low. She sends you a voice memo that's just happy yelling."
+				3:
+					money += 50
+					line = "Marisol pays you $50 and a box of day-olds. First side-hustle money. LifeOS updates your title to 'Founder'. Jess updates it back to 'Dan'."
+					_moment("First $50 from Marisol's bakery.")
+				_:
+					line = "You tidy the bakery script. Marisol tells two other shop owners. Pre-revenue is now, technically, revenue."
 		"buy_patch":
 			patch_days += 5
 			line = "Patches. The cashier raises an eyebrow, then gives you a tiny nod. Gas-N-Sip solidarity."
@@ -401,6 +417,7 @@ func do_action(id: String) -> String:
 				"Walk. Cold air. Your brain defrags a little.",
 				"Around the block. A dog you don't know is very happy to see you. Mutual."][rng.randi() % 3]
 		"tea_jess":
+			week_stats["tea"] = int(week_stats.get("tea", 0)) + 1
 			line = "Tea on the couch. Jess puts her feet on you like you're furniture. Highest honor in the house."
 			_moment("Tea with Jess, feet on your lap.")
 		"pancakes":
@@ -517,6 +534,26 @@ func _check_relationships() -> void:
 			_moment(str(m[2]).split(": ", true, 1)[1] if ": " in str(m[2]) else str(m[2]))
 			moment.emit(k)   # Main plays the heart-event cutscene
 
+const ACHIEVEMENTS := {
+	"dragon": ["Dragon Voice (Certified)", "3 bedtime stories in a week"],
+	"gallery": ["Curator", "10 drawings on the fridge"],
+	"founder": ["Pre-Revenue No More", "Got paid by Marisol"],
+	"tea": ["Tea Time", "Tea with Jess on 3 days"],
+	"clean": ["Quiet Win", "A 4-day clean streak"],
+}
+func _check_achievements() -> void:
+	var got := {
+		"dragon": week_stats["bedtimes"] >= 3,
+		"gallery": fridge_drawings >= 10,
+		"founder": hustle >= 3,
+		"tea": int(week_stats.get("tea", 0)) >= 3,
+		"clean": clean.values().any(func(v): return v >= 4),
+	}
+	for k in got:
+		if got[k] and not (k in achievements):
+			achievements.append(k)
+			lifeos_message.emit("LifeOS: Achievement unlocked: %s (%s). LifeOS made you a little badge. It's just an emoji. 🏅" % ACHIEVEMENTS[k])
+
 ## Clean-day streaks: quitting is rewarded through people, not badges.
 const CLEAN_LINES := {
 	"drink": {2: ["Jess: you're funny when you're tired and sober. like weird-funny. I like it.", "closeness", 6],
@@ -591,6 +628,7 @@ func end_day() -> Dictionary:
 	if today["bedtime_story"] == 0:
 		girls_connected = clampi(girls_connected - 10, 0, 100)
 	_update_clean_streaks()
+	_check_achievements()
 	if day < 5:
 		performance = clampi(performance - (20 if today["tickets"] == 0 else 15), 0, 100)  # the queue refills overnight
 	if phase == "work" or phase == "drive":
@@ -635,6 +673,12 @@ func weekly_review() -> String:
 		s += "Oral Health ....... Worth a cleaning soon\n"
 	if week_stats["rx_extra"] > 0:
 		s += "Focus ............. Big highs, rough crashes. Maybe chat with your doctor\n"
+	if hustle > 0:
+		s = s.replace("Side Hustle ....... Pre-revenue, post-sleep. Dreams are allowed.\n", "Side Hustle ....... %s\n" % ("$%d from Marisol's bakery. Founder (per LifeOS). Dan (per Jess)." % (50 if hustle >= 3 else 0) if hustle >= 3 else "%d late nights on the bakery script. Almost there." % hustle))
+	if not achievements.is_empty():
+		var names: Array[String] = []
+		for a in achievements: names.append(ACHIEVEMENTS[a][0])
+		s += "Achievements ...... " + ", ".join(names) + "\n"
 	if notices_seen.has("choice_talk_honest"):
 		s += "Honesty ........... You told Jess the truth. That's the hard part, apparently.\n"
 	s += "Fridge gallery .... %d drawing%s\n" % [fridge_drawings, "" if fridge_drawings == 1 else "s"]
@@ -730,7 +774,7 @@ func apply_choice(eid: String) -> String:
 const SAVE_PATH := "user://uptime_save.json"
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
-	"fridge_drawings", "honesty", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
+	"fridge_drawings", "honesty", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = SAVE_PATH) -> bool:

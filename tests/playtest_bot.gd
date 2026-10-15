@@ -47,6 +47,7 @@ func _run() -> void:
 	f.store_line("RUNS %d DAYS %d ACTIONS %d AUDITS %d PROBLEMS %d" % [stats["runs"], stats["days"], stats["actions"], stats["audits"], problems.size()])
 	f.store_line("CUTSCENES " + JSON.stringify(stats["cutscenes"]))
 	f.store_line("ACTIONS " + JSON.stringify(stats["actions_used"]))
+	f.store_line("SAVELOAD round trips %d" % int(stats.get("saveloads", 0)))
 	f.store_line("ENDINGS " + JSON.stringify(stats["endings_by"]))
 	f.store_line("BALANCE (avg end of week)  strat | stress perf jess girls | drawings bedtimes | drinks pouches rx_extra | money")
 	for k in bal:
@@ -189,6 +190,16 @@ func play_week(strat: String, seed_v: int) -> void:
 			last_day = gs.day
 			day_actions = 0
 			stats["days"] += 1
+			if gs.day == 3 and seed_v % 5 == 0:
+				# save/load round trip mid-week must restore the exact morning
+				var snap := [gs.day, gs.energy, gs.closeness, gs.fridge_drawings, gs.money, gs.drinks_week]
+				if not gs.save_game("user://bot_save.json"): bad("save failed")
+				gs.energy = 3; gs.closeness = 1; gs.fridge_drawings = 99
+				if not gs.load_game("user://bot_save.json"): bad("load failed")
+				var snap2 := [gs.day, gs.energy, gs.closeness, gs.fridge_drawings, gs.money, gs.drinks_week]
+				if snap != snap2: bad("save/load mismatch %s vs %s" % [snap, snap2])
+				stats["saveloads"] = int(stats.get("saveloads", 0)) + 1
+				await drain()
 		day_actions += 1
 		if day_actions > 120:
 			bad("stuck: %s day %d phase %s at %s" % [strat, gs.day, gs.phase, gs.clock_text()])

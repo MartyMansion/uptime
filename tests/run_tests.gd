@@ -179,6 +179,18 @@ func _process(_d: float) -> bool:
 	check(gs.ending_id() == "foggy", "heavy week -> Foggy ending")
 	gs.notices_seen["choice_talk_honest"] = true
 	check(gs.ending_id() == "turning", "honesty -> Turning Point ending")
+	# --- Side hustle + achievements
+	gs.new_game(51)
+	gs.phase = "home_pm"; gs.minutes = 1200
+	var m0: int = gs.money
+	for i in 3:
+		gs.today["side_hustle"] = 0
+		gs.minutes = 1200
+		gs.do_action("side_hustle")
+	check(gs.hustle == 3 and gs.money == m0 + 50, "side hustle pays $50 on the 3rd session")
+	gs.fridge_drawings = 10
+	gs._check_achievements()
+	check("gallery" in gs.achievements and "founder" in gs.achievements and gs.weekly_review().contains("Achievements"), "achievements unlock and show in the review")
 	# --- Recovery tools
 	gs.new_game(31)
 	gs.do_action("feed_girls"); gs.do_action("leave_for_work")

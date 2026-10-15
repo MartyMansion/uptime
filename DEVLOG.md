@@ -93,3 +93,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **Dinner conversations** after Family dinner, with three rotating topics: listen to the girls, ask Jess first, or explain DNS ("June falls asleep in her taco").
 - **"One more match?"** after gaming past 10 PM: log off like an adult, or one more (30 min, peace).
 - The bot now hits all 18 choice outcomes. 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 12: side hustle, achievements, save/load soak
+- **AI side hustle, tier 1:** "Side hustle: Marisol's bakery script" at the PC after 8 PM (60 min, -8 energy, +4 stress). On the 3rd session you get $50 and a box of day-olds, LifeOS calls you "Founder," and Jess changes it back to "Dan." The review's Side Hustle line tracks it.
+- **5 achievements** (Dragon Voice (Certified), Curator, Pre-Revenue No More, Tea Time, Quiet Win). LifeOS gives you "a little badge. It's just an emoji. 🏅" They're listed in the review and saved.
+- **Bot save/load soak:** every 5th run saves on Thursday morning, scrambles the state, reloads and checks it matches. 20/20 round trips were exact.
+- 100 weeks, 0 problems. Tests pass.
