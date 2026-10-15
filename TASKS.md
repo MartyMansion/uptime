@@ -25,13 +25,13 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [x] Cutscenes with portraits + movement: wake-up, drop-off, arrive at work/Gary, drive-home stop, pickup, Jess home, bedtime, day-end, weekly review
 
 ## M1 — Grey-box day (design doc Phase 1)
-- [ ] Phone overlay with 3 real text threads + reply choices (thoughtful / "k 👍" / draft-and-delete)
+- [x] Phone overlay with 3 real text threads + reply choices (thoughtful / "k 👍" / draft-and-delete)
 - [ ] Ticket Triage minigame (drag tickets to Fix / Escalate / Schedule / Off-and-on)
-- [ ] Per-girl needs (Fed / Rested / Connected for Lily and June)
-- [ ] Stress effects; Running on Fumes greys out kind options
-- [ ] Collision with furniture; door transitions between rooms
-- [ ] Choices inside cutscenes (e.g. "Shoes, a Postmortem" P1 incident choice)
-- [ ] Car/commute scene with the 4 AM Club podcast as an interactive radio
+- [x] Per-girl needs (Fed / Rested / Connected for Lily and June)
+- [x] Stress effects; Running on Fumes greys out kind options
+- [x] Collision with furniture; door transitions between rooms
+- [x] Choices inside cutscenes (e.g. "Shoes, a Postmortem" P1 incident choice)
+- [x] Car/commute scene with the 4 AM Club podcast as an interactive radio
 - [ ] Substance thread: longer arcs over weeks (cancer-risk scare at the dentist, honest Rx talk with doctor, Jess real-talk scene tied to Honesty)
 - [ ] Substance choices feed Honesty/Integrity meters and ending tone
 - [ ] Content check: sensitivity read on substance writing (stay non-preachy, never mock)
@@ -41,8 +41,8 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [ ] Outage Response minigame + one on-call page at a bad moment
 - [ ] AI side hustle Tier 1 (first script, first $50 for Marisol's bakery)
 - [ ] ~25 ticket jokes, ~30 LifeOS notifications, 5 achievements
-- [ ] Chaos events (June + Blu-ray crayon), "one more match" prompt
-- [ ] Save/load
+- [x] Chaos events (June + Blu-ray crayon), "one more match" prompt
+- [x] Save/load
 - [ ] Commissioned/final art pass replacing generated placeholders (see ASSETS.md); comedy pass; 5–10 outside playtesters
 
 ## M3+ — Chapter 1 demo, Chapters 2–4, beta, launch (see doc §6.2)
@@ -51,16 +51,22 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 - [x] Automated playtest harness (tests/playtest_bot.gd), 100 weeks clean
 - [x] Fix work/drive softlocks; breakfast once per morning; coffee break at work
 - [x] Tone pass: warm, Stardew-style dialogue; substance thread as concern, not mockery
-- [ ] Weekends: Sat/Sun currently still go to work. Make them home days (park, pancakes, chores, on-call page)
-- [ ] Fill the 4:30-7:30 PM gap: dinner together, homework, yard, walk to the park
-- [ ] Bedtime story only happened in ~7% of bot days; make the window obvious (a "Lily is waiting" nudge)
-- [ ] Day-end summary: one warm "moment of the day" line pulled from what you did
-- [ ] Small cozy loops: a garden/patio plant, a kids' drawing wall that fills up, a fridge-magnet gallery
+- [x] Weekends: home days (park, pancakes, chores, on-call page)
+- [x] Fill the 4:30-7:30 PM gap: dinner (+conversation), homework, park, walk, tea, side hustle
+- [x] 7:30 PM "Lily is waiting with a book" nudge
+- [x] Moment of the day in the summary
+- [x] Fridge drawing gallery (visible on the fridge) — [ ] porch plant, Lego castle
 - [ ] Recovery paths as playable as the habits (see backlog)
+
+## Refinement hour (done)
+- [x] Calendar + Lily's concert; relationship heart events; achievements (5); six endings
+- [x] Recovery: patches, doctor call / Rx plan, clean-day streaks, Jess real-talk choice + hidden Honesty
+- [x] Ticket triage choices; Wednesday bedtime page; AI side hustle tier 1 (Marisol's bakery)
+- [ ] Next: Lily/June visible meters, porch plant, multi-week arcs, real ticket-triage minigame UI, sound
 
 ## Marty ideas backlog
 - [x] Subtle substance-use thread: alcohol (marriage, sleep), nicotine pouches (gum damage, cancer risk via dentist), prescription amphetamines (focus/crash, extra-dose temptation) — skeleton in M0.5
 - [x] Daily drive-home stop (gas station/liquor) between work and picking up the girls — M0.5
-- [ ] Recovery/quitting paths that are as playable as the habits (patches, "dry January" LifeOS upsell, talking to Jess)
+- [x] Recovery/quitting paths that are as playable as the habits (patches, "dry January" LifeOS upsell, talking to Jess)
 - [ ] Withdrawal/tolerance tuning across multiple weeks
 - [x] Sprites for everyone, fix overlapping fonts, real scenes + cutscenes (after Windows playtest) — M0.6
