@@ -11,7 +11,7 @@ class_name Cutscenes
 ##  ["wait", seconds]
 ## Lines adapted from the design doc (§4.12, §5.4).
 
-const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment"]
+const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos"]
 
 static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 	var d: int = gs.day
@@ -131,6 +131,21 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 				["say", "lily", "Is it a lot?"],
 				["say", "june", "I'm the dentist now. Say ahh."],
 				["say", "jess", "Come here, you. Pancakes. Nobody's on call."]]
+		"chaos":
+			# Evening chaos events (TASKS M2). Choices are about patience, never punishment.
+			var ev: int = int(ctx.get("n", d)) % 3
+			var evs := [
+				[["say", "", "INCIDENT: June has applied crayon to the Blu-ray player. Severity: P2. She looks proud."],
+					["say", "june", "I made it pretty. It was sad and black."],
+					["choice", [["Laugh, then clean it together", "chaos_laugh"], ["Deep breath. Calm, firm: crayons live on paper", "chaos_calm"], ["Declare it modern art and frame the remote", "chaos_art"]]]],
+				[["say", "", "INCIDENT: The Wi-Fi is down. Two children are experiencing it as a natural disaster."],
+					["say", "lily", "Daddy, the internet died. Is this your fault? You're the internet person."],
+					["choice", [["Fix it with the girls as 'IT interns'", "chaos_laugh"], ["Reboot the router, calmly, like a professional", "chaos_calm"], ["Leave it off. Announce a board game night", "chaos_art"]]]],
+				[["say", "", "INCIDENT: The cat is on the counter, eating the butter, maintaining eye contact."],
+					["say", "june", "He's not stealing. He's sharing with himself."],
+					["choice", [["Laugh. Butter is a lost cause anyway", "chaos_laugh"], ["Calmly relocate the cat. Butter: retired", "chaos_calm"], ["Make the girls narrate it like a nature show", "chaos_art"]]]],
+			]
+			return [["loc", "house"], ["place", "dan", "living"], ["place", "june", "living_j"], ["place", "lily", "girls"]] + evs[ev]
 		"moment":
 			# Heart events (Stardew-style), played once when a relationship crosses a threshold.
 			var lines := {

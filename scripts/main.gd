@@ -462,6 +462,8 @@ func _on_action(id: String, _res: String) -> void:
 		"pickup_girls":
 			queue_cutscene("pickup", {"bought": GameState.today.get("buy_beer", 0) + GameState.today.get("buy_pouches", 0) > 0})
 			queue_cutscene("jess_home")
+			if GameState.rng.randf() < 0.3:
+				queue_cutscene("chaos", {"n": GameState.rng.randi()})
 		"bedtime_story":
 			queue_cutscene("bedtime")
 

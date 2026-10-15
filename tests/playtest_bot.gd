@@ -6,7 +6,7 @@ extends SceneTree
 const STRATS := ["random", "workaholic", "family_first", "heavy", "all_skip", "night_owl", "rx_spam", "balanced", "broke", "stardew", "cozy", "quitter"]
 var problems: Array[String] = []
 var lines := {}            # dialogue/text line -> count
-var stats := {"runs": 0, "days": 0, "actions": 0, "cutscenes": {}, "actions_used": {}, "endings": 0, "audits": 0}
+var stats := {"runs": 0, "days": 0, "actions": 0, "cutscenes": {}, "actions_used": {}, "endings": 0, "endings_by": {}, "audits": 0}
 var bal := {}   # strat -> sums of end-of-week meters
 var gs: Node
 var main: Node
@@ -47,6 +47,7 @@ func _run() -> void:
 	f.store_line("RUNS %d DAYS %d ACTIONS %d AUDITS %d PROBLEMS %d" % [stats["runs"], stats["days"], stats["actions"], stats["audits"], problems.size()])
 	f.store_line("CUTSCENES " + JSON.stringify(stats["cutscenes"]))
 	f.store_line("ACTIONS " + JSON.stringify(stats["actions_used"]))
+	f.store_line("ENDINGS " + JSON.stringify(stats["endings_by"]))
 	f.store_line("BALANCE (avg end of week)  strat | stress perf jess girls | drawings bedtimes | drinks pouches rx_extra | money")
 	for k in bal:
 		var b: Dictionary = bal[k]
@@ -234,4 +235,6 @@ func play_week(strat: String, seed_v: int) -> void:
 	b["drawings"] += gs.fridge_drawings; b["bedtimes"] += gs.week_stats["bedtimes"]; b["drinks"] += gs.week_stats["drinks"]
 	b["pouches"] += gs.week_stats["pouches"]; b["rx_extra"] += gs.week_stats["rx_extra"]; b["money"] += gs.money
 	bal[strat] = b
+	var en: String = gs.ending_id()
+	stats["endings_by"][en] = int(stats["endings_by"].get(en, 0)) + 1
 	main.summary_root.visible = false

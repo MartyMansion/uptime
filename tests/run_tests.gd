@@ -171,6 +171,14 @@ func _process(_d: float) -> bool:
 	var c0: int = gs.closeness
 	gs.apply_choice("talk_honest")
 	check(gs.closeness == c0 + 8 and gs.honesty == 65 and gs.weekly_review().contains("Honesty"), "honest answer: closeness + honesty, noted in review")
+	# --- Endings
+	gs.new_game(41)
+	gs.closeness = 80; gs.girls_connected = 80; gs.stress = 20
+	check(gs.ending_id() == "cozy" and gs.weekly_review().contains("Pancake Sunday"), "cozy week -> Pancake Sunday ending")
+	gs.week_stats["drinks"] = 20
+	check(gs.ending_id() == "foggy", "heavy week -> Foggy ending")
+	gs.notices_seen["choice_talk_honest"] = true
+	check(gs.ending_id() == "turning", "honesty -> Turning Point ending")
 	# --- Recovery tools
 	gs.new_game(31)
 	gs.do_action("feed_girls"); gs.do_action("leave_for_work")

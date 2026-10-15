@@ -73,3 +73,9 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **Recovery tools:** *Nicotine patches instead* at the Gas-N-Sip counter ($15, blocks 5 days of pouch cravings). *Call Dr. Patel about the Rx* at your work desk (once a week, sets an Rx plan: crash -10 instead of -20, and LifeOS stops nudging extra doses).
 - **Cravings are mild and honest:** the day after using, stress is +4 for pouches (none on patches) and +3 for beer. Clean streaks still pay out through people at 2 and 4 days.
 - 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 9: endings + evening chaos
+- **Six week-endings replace the stub,** picked from the strongest signal: The Turning Point (honesty or a real clean streak), Foggy (heavy use, gentle: "Nobody's angry. They just miss you, a little, at the table"), Crispy (burnout "golden brown"), Pancake Sunday (cozy), Five Nines (servers perfect, family not), A Real Week.
+- Across 100 bot weeks: cozy 21, crispy 9, foggy 30, real 14, turning 10, uptime 16. Every ending is reachable.
+- **Chaos events** (30% of evenings after Jess gets home): June's crayon Blu-ray, the Wi-Fi "dying," the cat eating the butter. Each has three patient choices (laugh, calm, make it a tradition). Nobody gets yelled at.
+- Tests: endings checks added; all pass. 100 weeks, 0 problems.

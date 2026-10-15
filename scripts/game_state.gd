@@ -640,7 +640,36 @@ func weekly_review() -> String:
 		if used_ever[k] and clean[k] >= 2:
 			s += "Streaks ........... %d clean day%s (%s). Someone noticed.\n" % [clean[k], "" if clean[k] == 1 else "s", {"drink": "no beer", "pouch": "no pouches", "rx_extra": "Rx as prescribed"}[k]]
 	return s + "Manager comment: \"Great energy! Let's circle back on everything. Also, genuinely, get some rest.\"\n\n" \
-		+ "ENDING (stub): Uptime this week: 99.2%. The SLA was 100%. The pancakes were 100%."
+		+ ending_text()
+
+## Week-end tone: which week did Dan actually have? (Picks the strongest signal.)
+func ending_id() -> String:
+	var subs: int = week_stats["drinks"] + week_stats["pouches"] / 3 + week_stats["rx_extra"] * 2
+	if notices_seen.has("choice_talk_honest") or (subs > 0 and subs < 15 and (clean["drink"] >= 2 or clean["pouch"] >= 2 or clean["rx_extra"] >= 2)):
+		return "turning"
+	if subs >= 15:
+		return "foggy"
+	if stress >= 75:
+		return "crispy"
+	if closeness >= 70 and girls_connected >= 70 and stress <= 50:
+		return "cozy"
+	if performance >= 80 and (closeness < 40 or girls_connected < 40):
+		return "uptime"
+	return "real"
+
+func ending_text() -> String:
+	match ending_id():
+		"turning":
+			return "ENDING — The Turning Point: Uptime this week: not great. Honesty: up. Jess said 'together' like she meant it. The recycling bin has never been emptier."
+		"cozy":
+			return "ENDING — Pancake Sunday: Uptime 99.2%. SLA: 100%. Nobody in this house noticed the missing 0.8%. The fridge is running out of magnets."
+		"uptime":
+			return "ENDING — Five Nines: The servers had a perfect week. Lily drew the servers. They were the only thing in the picture. Gary sent a thumbs-up emoji. Next week can be different."
+		"crispy":
+			return "ENDING — Crispy: LifeOS rates your burnout 'golden brown.' Jess hands you the TV remote and the good blanket and says 'nope' to everything else. Rest is next week's ticket #1."
+		"foggy":
+			return "ENDING — Foggy: The week happened mostly around you. Nobody's angry. They just miss you, a little, at the table. The Gas-N-Sip sign is on, as always. So is the porch light."
+	return "ENDING — A Real Week: Not a perfect week. A real one. Uptime 99.2%, SLA 100%, pancakes 100%."
 
 func _fmt(m: int) -> String:
 	var h := (m % 1440) / 60
@@ -655,6 +684,9 @@ const CHOICES := {
 	"shoes_rca": [{"connected": 5, "minutes": 10}, "Root cause: couch. Mitigation: shoe basket. June signs off on the postmortem."],
 	"shoes_mom": [{"closeness": 2}, "You escalate to Mommy. Jess resolves it in four seconds without looking up. Humbling. Romantic, a little."],
 	"shoes_new": [{"money": -30, "connected": 3}, "You declare the old shoes deprecated. New shoes have lights. June will never sleep again."],
+	"chaos_laugh": [{"connected": 6, "energy": -4, "stress": -3}, "You laugh. The girls laugh. Somehow this became the best part of the day."],
+	"chaos_calm": [{"connected": 2, "stress": 2}, "Calm voice, clear rule, quick fix. Nobody cried. Not even you. Professional."],
+	"chaos_art": [{"connected": 5, "closeness": 2}, "Jess walks in, sees it, and joins in. Somehow it's a family tradition now."],
 	"talk_honest": [{"closeness": 8, "honesty": 15, "stress": -6}, "\"Yeah. It's been more than I want it to be.\" Jess takes your hand. \"Okay. We'll figure it out. Together, like the IKEA bed.\""],
 	"talk_deflect": [{"closeness": -4, "honesty": -10}, "\"Just a long week.\" Jess nods. She doesn't push. That's somehow worse."],
 	"talk_joke": [{"closeness": -2, "honesty": -5}, "\"The recycling is just very enthusiastic.\" Jess smiles, but only with her mouth."],
