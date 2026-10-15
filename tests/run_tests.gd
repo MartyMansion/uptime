@@ -321,7 +321,8 @@ func _process(_d: float) -> bool:
 	gs.new_game(209); gs.do_action("leave_for_work")
 	main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""; main.summary_kind = ""
 	main.open_incident("site_outage")
-	check(main.inc_budget < 90 and main.inc_budget == main.inc_optimal * main.INC_CMD_MIN + main.inc_slack and main.inc_slack >= 4 and main.inc_slack <= 16, "SLA = fastest path + slack (%d min)" % main.inc_budget)
+	var p2_rng: Array = main.SLACK_BY_LEVEL[main.incident_level("site_outage")]
+	check(main.inc_budget == main.inc_optimal * main.INC_CMD_MIN + main.inc_slack and main.inc_slack >= p2_rng[0] and main.inc_slack <= p2_rng[1], "SLA = fastest path + skill-scaled slack (%d min, Lv %d)" % [main.inc_budget, main.incident_level("site_outage")])
 	var p2_gd := 0
 	while main.term_open() and not main.term_done and p2_gd < 30:
 		p2_gd += 1; main.term_submit(main.term.next_step(), true)
@@ -590,6 +591,111 @@ func _process(_d: float) -> bool:
 	for x in probs:
 		printerr("  ", x)
 	check(probs.is_empty(), "UI audit: no overlapping/out-of-bounds labels")
+	paper_tests(gs, main)
 	print("TESTS DONE: %d failure(s)" % failures)
 	quit(1 if failures > 0 else 0)
 	return true
+
+## Paper presentation: sets, cards, camera, prompts, typewriter/flaps, banner, SLA scaling.
+func paper_tests(gs: Node, main: Node) -> void:
+	var d: Diorama = main.diorama
+	check(d != null and main.paper and not main.world.visible, "paper diorama is the presentation; 2D plan hidden")
+	for ln in ["house", "office", "gas_station", "school"]:
+		main.load_location(ln)
+		check(d.set_name == ln and d.set_root.get_child_count() > 20, "paper set built for %s (%d pieces)" % [ln, d.set_root.get_child_count()])
+		var ok := true
+		for id in main.loc.stations:
+			var c: Vector3 = d.to3((main.loc.stations[id]["rect"] as Rect2).get_center())
+			if absf(c.x) > d.XW or c.z < d.zb - 0.1: ok = false
+		check(ok, "%s: every station sits inside the set walls" % ln)
+		# camera never sees past the set, anywhere Dan can stand
+		var leaks := 0
+		var b: Rect2 = main.loc.bounds
+		for fx in [0.0, 0.5, 1.0]:
+			for fy in [0.0, 0.5, 1.0]:
+				main.dan.position = b.position + b.size * Vector2(fx, fy)
+				for i in 120: d.tick(1.0 / 30.0, main.loc, "", "", 0.0, "")
+				leaks += d.edge_leaks(1.63) + d.edge_leaks(1.33) + d.edge_leaks(2.0)
+		check(leaks == 0, "%s: camera stays inside the diorama at all 9 test spots / 3 aspects (leaks %d)" % [ln, leaks])
+		check(d.signs.size() >= 1, "%s: has lettered 3D signs" % ln)
+	gs.phase = "drive"
+	for pl in ["park", "pharmacy", "dental", "diner", "coffee"]:
+		gs.at_place = pl
+		main.load_location("gas_station"); main._paper_sync()
+		check(d.place == pl and d.set_root.get_child_count() > 15, "town destination %s has its own paper set" % pl)
+		for i in 60: d.tick(1.0 / 30.0, main.loc, "", "", 0.0, "")
+		check(d.edge_leaks(1.63) == 0, "%s: no set edges visible" % pl)
+	gs.new_game(42)
+	main.skip_all_cutscenes()
+	main.sync_location()
+	check(main.loc_name == "house", "back home for paper tests")
+	# fridge drawings are 3D sprites
+	gs.fridge_drawings = 5; main._update_fridge()
+	check(d.fridge_root != null and d.fridge_root.get_children().filter(func(n): return n is Sprite3D).size() == 5, "5 fridge drawings pinned on the 3D fridge")
+	# cards + lanes
+	main.loc.actors["lily"].position = main.loc.actors["dan"].position + Vector2(2, 0)
+	for i in 90: d.tick(1.0 / 30.0, main.loc, "", "", 0.0, "")
+	check(absf(d.card_x("lily") - d.card_x("dan")) > (d.card("dan").size.x + d.card("lily").size.x) * 0.35, "two cards on one spot get auto-spaced apart")
+	# flip has thickness + tilt
+	var c: PaperCard = d.card("dan")
+	c.face(-c.facing)
+	c.tick(PaperCard.FLIP_TIME * 0.5, false, 0.0)
+	check(c.flipping() and absf(c.pivot.rotation.z) > 0.05 and absf(c.layers[0].position.z - c.layers[4].position.z) > PaperCard.THICK * 1.5, "mid-flip the card tilts and shows its thickness")
+	c.tick(1.0, false, 0.0)
+	check(not c.flipping() and absf(c.layers[0].position.z - c.layers[4].position.z) < PaperCard.THICK * 1.01, "flip settles back to a thin card")
+	var w0: float = c.art.walk
+	c.tick(0.2, true, 0.0)
+	check(c.art.walk > w0 and c.art.moving, "walking advances the walk cycle")
+	# proximity prompt
+	main.near_station = "kitchen"
+	check(main._tag_text().begins_with("Kitchen"), "proximity tag names the station + keys")
+	d.tick(0.03, main.loc, "kitchen", "", 0.0, main._tag_text())
+	check(d.tag.visible and d.tag.text.begins_with("Kitchen"), "paper tag floats over the station when Dan is near")
+	main.near_station = ""
+	# typewriter + mouth flaps
+	main.queue_cutscene("moment", {"id": "bedtime"})
+	var spoke := false; var narr_ok := true; var flap_idle := 0; var flap_typing := 0
+	for f in 3000:
+		if main.cs_id == "": break
+		if main.cs_waiting == "choice": main.pick_choice(0); continue
+		if main.cs_waiting == "move" and main.cs_mover and main.cs_mover._tween and main.cs_mover._tween.is_valid(): main.cs_mover._tween.custom_step(0.05)
+		main._process(1.0 / 30.0)
+		if main.cs_waiting == "say":
+			if main.typing():
+				if main.talk_flap > 0: flap_typing += 1
+			else:
+				if main.talk_flap > 0: flap_idle += 1
+				spoke = true
+				main.advance()
+	main.skip_all_cutscenes()
+	check(spoke and flap_typing > 0 and flap_idle == 0, "mouths flap while letters type, and stop when the line is done (%d/%d)" % [flap_typing, flap_idle])
+	main._run_step(["say", "", "A narrator line with no speaker."], false)
+	for i in 120: main._process(1.0 / 30.0)
+	check(not main.typing() and main.talk_flap == 0.0, "narration lines type out too (no stuck blank box)")
+	main._run_step(["say", "jess", "Long line. With beats, and a pause before the punchline."], false)
+	main._process(1.0 / 30.0)
+	var e := InputEventKey.new(); e.keycode = KEY_ENTER; e.pressed = true
+	main.cs_id = "test"
+	main._unhandled_input(e)
+	check(main.cs_waiting == "say" and not main.typing(), "first Enter finishes the line, it doesn't skip it")
+	main._unhandled_input(e)
+	check(main.cs_waiting == "", "second Enter advances")
+	main.cs_id = ""
+	main.dialog_panel.visible = false
+	# SLA scales with skill: generous early, tight for experts
+	var r := RandomNumberGenerator.new(); r.seed = 3
+	var lo := 0; var hi := 0
+	for i in 50: lo += main.incident_slack(1, r); hi += main.incident_slack(5, r)
+	check(lo > hi * 3, "incident slack: Lv1 avg %d min vs Lv5 avg %d min" % [lo / 50, hi / 50])
+	for k in gs.skills: gs.skills[k] = 0
+	main.open_incident("site_outage")
+	var b1: int = main.inc_budget
+	main.term_close(false)
+	for k in gs.skills: gs.skills[k] = 400
+	main.open_incident("site_outage")
+	var b5: int = main.inc_budget
+	main.term_close(false)
+	check(b1 > b5, "a new Dan gets a longer SLA than an expert Dan (%d vs %d min)" % [b1, b5])
+	main.load_location("house")
+	var probs: Array[String] = main.audit_ui()
+	check(probs.is_empty(), "UI audit clean after paper tests %s" % [probs])

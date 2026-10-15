@@ -1222,12 +1222,15 @@ func apply_choice(eid: String) -> String:
 
 # ------------------------------------------------------------------ save/load
 const SAVE_PATH := "user://uptime_save.json"
+## Bots running in parallel set UPTIME_SAVE_TAG so each process has its own save slot.
+var save_path: String = SAVE_PATH if OS.get_environment("UPTIME_SAVE_TAG") == "" else "user://uptime_save_%s.json" % OS.get_environment("UPTIME_SAVE_TAG")
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
 	"fridge_drawings", "honesty", "skills", "incidents_week", "plant", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments"]
 
 ## Saves at the start of a day (the game autosaves every morning).
-func save_game(path: String = SAVE_PATH) -> bool:
+func save_game(path: String = "") -> bool:
+	if path == "": path = save_path
 	# Saves are "morning of" saves: mid-day F6 stores this morning, not the afternoon's meters
 	# (which loading would otherwise replay a whole day on top of).
 	var d := _morning_snap if not _morning_snap.is_empty() else _snapshot()
@@ -1237,11 +1240,13 @@ func save_game(path: String = SAVE_PATH) -> bool:
 	f.store_string(JSON.stringify(d))
 	return true
 
-func has_save(path: String = SAVE_PATH) -> bool:
+func has_save(path: String = "") -> bool:
+	if path == "": path = save_path
 	return FileAccess.file_exists(path)
 
 ## Loads a morning save. Returns false if missing/corrupt (game state untouched).
-func load_game(path: String = SAVE_PATH) -> bool:
+func load_game(path: String = "") -> bool:
+	if path == "": path = save_path
 	if not FileAccess.file_exists(path):
 		return false
 	var d = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -1267,6 +1272,7 @@ func load_game(path: String = SAVE_PATH) -> bool:
 	_start_day()
 	return true
 
-func delete_save(path: String = SAVE_PATH) -> void:
+func delete_save(path: String = "") -> void:
+	if path == "": path = save_path
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
