@@ -79,3 +79,11 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - Across 100 bot weeks: cozy 21, crispy 9, foggy 30, real 14, turning 10, uptime 16. Every ending is reachable.
 - **Chaos events** (30% of evenings after Jess gets home): June's crayon Blu-ray, the Wi-Fi "dying," the cat eating the butter. Each has three patient choices (laugh, calm, make it a tradition). Nobody gets yelled at.
 - Tests: endings checks added; all pass. 100 weeks, 0 problems.
+
+## Refinement hour, iteration 10: screenshot pass + line polish
+- Screenshot tool now also renders a chaos choice and the Saturday house with a 9-drawing fridge. 16 shots, UI audit 0 problems. The dialogue hint switches to "1-3: choose / Esc: kindest option" during choices.
+- I read all ~780 unique lines from the bot's log:
+  - Fixed the picture-day mismatch (Jess's text said Thursday, the calendar says Tuesday).
+  - Heart events no longer show twice (as a LifeOS toast and a cutscene).
+  - Added 5 homework/drawing variants and 5 drop-off variants so the week doesn't repeat itself.
+- 100 weeks, 0 problems. Tests pass.

@@ -104,7 +104,7 @@ const JESS_TEXTS := [
 	"Jess: Can you grab milk on the way? June wants to 'review' the oat one again.",
 	"Jess: Hospital gave us pizza instead of a raise again. Saved you a slice of late-stage capitalism. ❤",
 	"Jess: Lily asked if your job is real. I said 'legally, yes.' She said you seem 'very important to printers.'",
-	"Jess: Friendly reminder the shared calendar exists 💛 June has picture day Thursday.",
+	"Jess: Friendly reminder the shared calendar exists 💛 June has picture day Tuesday.",
 	"Jess: June just asked if you're 'the computer guy' at home too. I said 'only when it's broken.' So, always.",
 	"Jess: a patient's kid drew me a horse. It looks like a sofa. I love it. Bringing it home for the fridge.",
 	"Jess: day is long. you're my favorite person. that's it, that's the text.",
@@ -341,7 +341,9 @@ func do_action(id: String) -> String:
 	match id:
 		"leave_for_work":
 			phase = "work"
-			line = "School drop-off: both shoes found! You badge in at %s." % clock_text()
+			line = ["School drop-off: both shoes found! You badge in at %s.", "Drop-off: June hugs the crossing guard. Lily pretends not to know you. You badge in at %s.",
+				"Drop-off: picture day hair held for 11 whole minutes. You badge in at %s.", "Drop-off: Lily practices her recorder in the car. Your ears badge in at %s.",
+				"Drop-off: June gives you a rock 'for work'. It's on your desk now. You badge in at %s."][day % 5] % clock_text()
 		"head_home":
 			phase = "drive"
 			line = "The Gas-N-Sip on Route 9 glows in the dusk. The girls are waiting at after-care."
@@ -380,7 +382,11 @@ func do_action(id: String) -> String:
 			_moment("Dinner where everyone talked at once.")
 		"homework":
 			fridge_drawings += 1
-			line = "Lily does fractions. June draws you as a robot with a coffee for a heart. It goes on the fridge. (Drawings: %d)" % fridge_drawings
+			line = ["Lily does fractions. June draws you as a robot with a coffee for a heart. It goes on the fridge.",
+				"Spelling words. June draws the whole family. You are the tallest and also, for some reason, a server.",
+				"Lily's science worksheet asks 'what does a computer need?' She writes 'my dad'. Fridge-worthy.",
+				"June draws Mommy with a stethoscope and you with a printer. Accurate. Fridge.",
+				"Lily draws LifeOS as a little ghost in a phone. Unsettlingly good. Fridge."][day % 5] + " (Drawings: %d)" % fridge_drawings
 			_moment("A new drawing for the fridge.")
 		"walk_park":
 			line = "The park. June conquers the big slide. Lily finds a stick that is 'definitely a wand.' Nobody checks a phone."
@@ -505,8 +511,7 @@ func _check_relationships() -> void:
 		if not moments_seen.has(k) and int(get(m[0])) >= int(m[1]):
 			moments_seen[k] = true
 			_moment(str(m[2]).split(": ", true, 1)[1] if ": " in str(m[2]) else str(m[2]))
-			moment.emit(k)
-			lifeos_message.emit(m[2])
+			moment.emit(k)   # Main plays the heart-event cutscene
 
 ## Clean-day streaks: quitting is rewarded through people, not badges.
 const CLEAN_LINES := {

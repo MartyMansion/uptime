@@ -114,7 +114,26 @@ func run() -> void:
 	await shot("13_day_summary")
 	main.dismiss_summary()
 	main.skip_all_cutscenes()
+	# Pass 2 features: choice, chaos, weekend, fridge gallery
+	main.queue_cutscene("chaos", {"n": 0})
 	for i in 6:
+		await until_say()
+		if main.cs_waiting == "choice": break
+		main.advance()
+	for i in 200:
+		if main.cs_waiting == "choice": break
+		await process_frame
+	await shot("15_chaos_choice")
+	main.skip_all_cutscenes()
+	for i in 4:
+		gs.end_day()
+		main.skip_all_cutscenes()
+		main.summary_root.visible = false
+	gs.fridge_drawings = 9
+	main.sync_location()
+	await walk_dan_to("couch")
+	await shot("16_weekend_house")
+	for i in 2:
 		gs.do_action("sleep") if gs.phase == "home_pm" else gs.end_day()
 		main.skip_all_cutscenes()
 		if main.summary_root.visible and not main.summary_is_week:

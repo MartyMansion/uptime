@@ -40,6 +40,7 @@ var dialog_panel: PanelContainer
 var dialog_portrait: TextureRect
 var dialog_name: Label
 var dialog_text: Label
+var dialog_hint: Label
 var summary_root: Control
 var summary_title: Label
 var summary_label: Label
@@ -265,6 +266,8 @@ func _build_ui() -> void:
 	dialog_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	dv.add_child(dialog_text)
 	var hint := _label("Enter: next    Esc: skip", 12)
+	hint.name = "Hint"
+	dialog_hint = hint
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint.modulate = Color(1, 1, 1, 0.6)
 	dv.add_child(hint)
@@ -593,6 +596,7 @@ func _run_step(st: Array, instant: bool) -> void:
 				dialog_panel.visible = true
 				lifeos_panel.visible = false
 				cs_waiting = "choice"
+				dialog_hint.text = "1-%d: choose    Esc: kindest option" % opts.size()
 		"say", "lifeos":
 			var who: String = "lifeos" if st[0] == "lifeos" else st[1]
 			var text: String = st[1] if st[0] == "lifeos" else st[2]
@@ -602,6 +606,7 @@ func _run_step(st: Array, instant: bool) -> void:
 			dialog_portrait.texture = load(p) if ResourceLoader.exists(p) else (load("res://assets/portraits/lifeos.png") if who != "" else null)
 			dialog_portrait.visible = who != ""
 			dialog_panel.visible = true
+			dialog_hint.text = "Enter: next    Esc: skip"
 			lifeos_panel.visible = false
 			if not instant:
 				cs_waiting = "say"
