@@ -183,6 +183,12 @@ func _process(_d: float) -> bool:
 	var cz: Array = Cutscenes.build("chaos", gs, {"n": 0})
 	check(str(cz[-1][1][0][1]) == "chaos_calm", "high stress: the laugh option is out of reach in chaos events")
 	gs.stress = 20
+	var c1: int = gs.closeness
+	gs.apply_choice("phone_draft")
+	check(gs.closeness == mini(c1 + 2, 100), "phone: draft-and-delete heart reply")
+	gs.new_game(61); gs.do_action("leave_for_work"); gs.minutes = 1480
+	check(gs.can_do("head_home") == "" , "off-grid clock at 12:40 AM still has a way forward (no softlock)")
+	gs.new_game(62)
 	# --- Side hustle + achievements
 	gs.new_game(51)
 	gs.phase = "home_pm"; gs.minutes = 1200

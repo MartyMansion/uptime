@@ -111,3 +111,8 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
 - **The bad-moment page:** Wednesday's bedtime story is interrupted by a P1 payroll page. Finish the story first (connected +8, perf -4: "Lily will remember the dragon"), or take the page and let Jess do a different dragon. No wrong answer, just a cost either way.
 - **Fixes the bot and tests found:** a stale pending choice could leak into the next action (now cleared on every action and every morning), and `skip_all_cutscenes` had a guard of 50 that a long test run exceeded (now 1000).
 - 100 weeks, 0 problems. Tests pass.
+
+## Refinement hour, iteration 15: phone overlay + an off-grid softlock
+- **Phone overlay:** T now opens Jess's thread with three reply styles: something thoughtful (the full text action), "k 👍" ("A perfectly functional marriage protocol. Low bandwidth.") or draft three paragraphs, delete them and send a heart ("She got all three paragraphs anyway.").
+- **Bot-found softlock:** choices that add 10 minutes (triage "fix properly", the shoes root cause analysis) could leave the clock at 12:40 AM at the office, where no 30-minute action fits before 1 AM. A partial last block is now allowed and the action runs into 1 AM. Regression test added.
+- 100 weeks, 0 problems. Tests pass.

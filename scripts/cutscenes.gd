@@ -11,7 +11,7 @@ class_name Cutscenes
 ##  ["wait", seconds]
 ## Lines adapted from the design doc (§4.12, §5.4).
 
-const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more", "triage", "page"]
+const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more", "triage", "page", "phone"]
 
 static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 	var d: int = gs.day
@@ -164,6 +164,11 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			return [["say", "", "Halfway through the dragon voice, your phone buzzes. PAGER: [P1] Payroll server down. It's Wednesday. Of course it's Wednesday."],
 				["say", "lily", "...Is the dragon going to work?"],
 				["choice", [["Finish the story first. Six minutes. The server can wait.", "page_story"], ["Take the page. Jess takes the dragon.", "page_take"]]]]
+		"phone":
+			# Phone overlay: Jess's thread with three reply styles (TASKS M1).
+			var latest: String = gs.JESS_TEXTS[(d * 3 + int(gs.today.get("text_jess", 0))) % gs.JESS_TEXTS.size()].trim_prefix("Jess: ")
+			return [["say", "jess", "📱 " + latest],
+				["choice", [["Write something thoughtful (-2 energy)", "phone_thoughtful"], ["k 👍", "phone_k"], ["Draft three paragraphs, delete, send a heart", "phone_draft"]]]]
 		"one_more":
 			return [["lifeos", "It's late. Your squad is queuing again. LifeOS has no opinion. (LifeOS has an opinion.)"],
 				["choice", [["Log off. Go to bed like an adult.", "match_bed"], ["One more match.", "match_more"]]]]

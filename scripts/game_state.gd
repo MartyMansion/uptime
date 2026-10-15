@@ -278,7 +278,9 @@ func can_do(id: String) -> String:
 	if not (phase in a["phases"]):
 		return "Not right now."
 	var cost_min: int = int(a["blocks"]) * BLOCK
-	if minutes + cost_min > DAY_END:
+	# Allow a partial last block (choices can leave the clock off the 30-min grid);
+	# the action just runs into 1 AM and the day ends.
+	if minutes + cost_min > DAY_END and (minutes + cost_min - DAY_END >= BLOCK or minutes >= DAY_END):
 		return "Not enough day left. It's %s." % clock_text()
 	if a.has("before") and minutes >= int(a["before"]):
 		return "Too late for that today."
@@ -333,7 +335,7 @@ func do_action(id: String) -> String:
 	if id == "work_ticket" and rx_active():
 		e = -5          # focus: tickets feel easy...
 		perf += 3
-	minutes += blocks * BLOCK
+	minutes = mini(minutes + blocks * BLOCK, DAY_END)
 	energy = clampi(energy + e, 0, 100)
 	stress = clampi(stress + int(a.get("stress", 0)), 0, 100)
 	performance = clampi(performance + perf, 0, 100)
@@ -763,11 +765,15 @@ const CHOICES := {
 	"triage_reboot": [{"performance": 1}, "\"Have you tried turning it off and on again?\" They had not. It works. The oldest magic."],
 	"page_story": [{"connected": 8, "performance": -4, "stress": 3}, "You finish the story first. The dragon wins. The server waits 6 minutes. Nobody remembers the outage. Lily will remember the dragon."],
 	"page_take": [{"performance": 5, "connected": -3}, "You take the page. Lily says \"It's okay, Daddy.\" She means it. That's the hard part. Jess finishes the dragon voice. It's a different dragon."],
+	"phone_k": [{"closeness": 1}, "You: k 👍\nJess: 👍\n(A perfectly functional marriage protocol. Low bandwidth.)"],
+	"phone_draft": [{"closeness": 2, "stress": 1}, "You type three paragraphs about how much you appreciate her. Delete. Send: ❤\nJess: ❤❤\n(She got all three paragraphs anyway.)"],
 	"talk_honest": [{"closeness": 8, "honesty": 15, "stress": -6}, "\"Yeah. It's been more than I want it to be.\" Jess takes your hand. \"Okay. We'll figure it out. Together, like the IKEA bed.\""],
 	"talk_deflect": [{"closeness": -4, "honesty": -10}, "\"Just a long week.\" Jess nods. She doesn't push. That's somehow worse."],
 	"talk_joke": [{"closeness": -2, "honesty": -5}, "\"The recycling is just very enthusiastic.\" Jess smiles, but only with her mouth."],
 }
 func apply_choice(eid: String) -> String:
+	if eid == "phone_thoughtful":
+		return do_action("text_jess")
 	if not CHOICES.has(eid):
 		return ""
 	var c: Array = CHOICES[eid]

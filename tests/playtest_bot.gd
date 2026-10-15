@@ -229,7 +229,10 @@ func play_week(strat: String, seed_v: int) -> void:
 			stats["actions"] += 1
 			stats["actions_used"][a] = int(stats["actions_used"].get(a, 0)) + 1
 			var before_min: int = gs.minutes
-			main.perform(a)
+			if a == "text_jess" and rng.randf() < 0.5:
+				main.queue_cutscene("phone")   # the T key path: phone overlay with reply choices
+			else:
+				main.perform(a)
 			if gs.minutes < before_min and gs.day == last_day and not gs.week_over: bad("clock went backwards on " + a)
 		check_state()
 		if rng.randf() < 0.05: await audit("play")

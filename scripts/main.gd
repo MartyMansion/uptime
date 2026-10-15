@@ -419,7 +419,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		lifeos_panel.visible = false
 		return
 	match k:
-		KEY_T: perform("text_jess")
+		KEY_T:
+			var why: String = GameState.can_do("text_jess")
+			if why == "":
+				queue_cutscene("phone")
+			else:
+				_log(why)
 		KEY_P: perform("pouch")
 		KEY_R: perform("rx_dose")
 		KEY_B: perform("breathe")
