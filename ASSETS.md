@@ -1,5 +1,28 @@
 # Uptime — Assets
 
+## Paper port (branch `paper-port`, current presentation)
+Everything below this section is the **v0-pixel** art (tag `v0-pixel`). It is still in the repo because the
+2D Location plan (stations, spots, solids) is the logic layer, but it is hidden at runtime.
+
+All paper art is **original and procedural**: no third-party art, fonts (Godot default font only) or textures.
+- **Characters** (`scripts/paper/paper_person.gd`): crude construction-paper cut-outs drawn with polygons at runtime
+  (original designs; inspired by the *cut-out animation* look in general, nothing traced or copied). Flat shapes,
+  3 px ink outline, a baked per-character wobble (stable, no frame-to-frame jitter), beady eyes, a "flip-top" head
+  hinged at the back that opens on vowels, mitten hands, procedural walk cycle (feet lift, hands swing, body bob).
+  Dan: hoodie + lanyard + eye bags. Jess: apron + bun. Lily: skirt + side bunches. June: star shirt + bow.
+  Gary: tie, pocket pen, glasses and a three-strand comb-over with side fringe.
+- **Cards** (`scripts/paper/paper_card.gd`, `shaders/card.gdshader`): each character renders into a 256x320
+  SubViewport, shown on 5 stacked quads (art front/back + 3 kraft core layers) with a die-cut white border.
+  Heights: Dan 1.62 m, Jess 1.54, Lily 1.06, June 0.9, Gary 1.7. Cards take ~38% of scene light (warm tint per set).
+- **Sets** (`scripts/paper/diorama.gd`, `shaders/paper.gdshader`): built at runtime from each Location's plan
+  (1 plan px = 5 cm): cardboard boxes with a paper-fibre shader, knee-high cut-away partitions, tall back/side
+  walls, a stage lip with low foreground props, lettered `Label3D` signs, a live wall clock, time-of-day light.
+  Town destinations (park, pharmacy, dental, diner, coffee) have their own small sets.
+- **2D assets** (`tools/gen_paper.py`, Pillow): `assets/paper/town_board.png` (the town map as a papercraft board
+  game, 1280x720), `assets/paper/drawings.png` (12 crayon fridge drawings, 4x3 of 64 px), `assets/paper/lifeos.png`.
+- **UI**: cream paper panels, ink outlines, kraft top/bottom bars and buttons, terminal in a cardboard bezel.
+- Palette: warm kraft `#CCA370`, paper `#FCF5DE`, ink `#211A1A`; set colours in `diorama.gd` (`FLOOR_COLS`).
+
 All art is **original and generated programmatically** by `tools/gen_sprites.py` (Python + Pillow).
 No third-party art, fonts or samples: license-clean, owned by the project (treat as CC0 placeholders).
 Regenerate everything with `python3 tools/gen_sprites.py`. Every file can be swapped 1:1 for commissioned art

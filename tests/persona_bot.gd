@@ -181,7 +181,7 @@ func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String
 		"speedrunner":
 			_chaos(rng)
 			# spam actions incl. disallowed ones (must be rejected cleanly)
-			if rng.randf() < 0.3:
+			if rng.randf() < 0.3 and not main.is_busy():
 				var ids: Array = gs.ACTIONS.keys()
 				var bad_id: String = ids[rng.randi() % ids.size()]
 				var before := [gs.minutes, gs.energy, gs.money]
@@ -328,7 +328,7 @@ func _solve(clicked: bool, guard_max: int) -> void:
 		main.term_close(false); return
 	if main.term_open() and main.term != null:
 		var is_inc: bool = main.inc_id != ""
-		if is_inc: stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0)
+		if is_inc: stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0); inc("inc_by_hand")
 		else: stats["grade_" + main.term.grade()] = int(stats.get("grade_" + main.term.grade(), 0)) + 1
 		if randf() < 0.1: await audit("terminal solved")
 		main.term_close(true)
@@ -357,7 +357,7 @@ func _newbie(rng: RandomNumberGenerator) -> void:
 	if main.term_open() and main.term != null and main.term_done:
 		var is_inc: bool = main.inc_id != ""
 		if not is_inc: stats["grade_" + main.term.grade()] = int(stats.get("grade_" + main.term.grade(), 0)) + 1
-		else: stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0)
+		else: stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0); inc("inc_by_hand")
 		inc("newbie_solved")
 		main.term_close(true)
 	elif main.term_open():

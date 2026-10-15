@@ -94,3 +94,20 @@ Source of truth: `/workspace/game-design/uptime-game-design-doc-v2.md` (§2.5 On
 ## Marty notes (2026-10-15)
 - Concern: black comedy + cutesy pixel sprites may not mix; some dialogue reads cringe. Needs a tone/dialogue rethink.
 - Exploring: possible move to 3D in Unreal Engine 5 with a deliberately crude, flat cutout look like the Canadians in South Park (simple shapes, flapping heads). Not decided — evaluate with a prototype before porting.
+
+## Paper port (branch `paper-port`, 2026-10-15) — style C: cut-out cards in a cardboard diorama
+- [x] Tag the pixel build as `v0-pixel`
+- [x] Mockup flaws fixed in the port: 3D lettered signs + fridge drawings, adaptive dialogue banner (bottom/top),
+      tall back/side walls + stage lip (camera edge-leak check), auto-spaced depth lanes, page-turn flip with
+      tilt + thickness, warm scene light on cards, foreground props, baked (non-jittery) outlines, Gary's comb-over,
+      walk cycle, mouth flaps synced to the typewriter
+- [x] Presentation layer replaced: every location + 5 town destinations are dioramas; actors are paper cards;
+      proximity tags; paper/cardboard UI, terminal bezel, papercraft town board. All logic/saves/tests unchanged.
+- [x] Persona bots check the paper layer; new `paperfan` persona; 7 x 100 weeks + legacy bot clean
+- [x] Incident SLA scales with skill + curveballs; cheap hints/typos for a new Dan
+- [x] Parallel bots: `UPTIME_SAVE_TAG` gives each process its own save
+- [ ] Commissioned paper art pass (hand-cut textures, scanned paper, a hand-lettered font)
+- [ ] Sound: paper rustle on flips, cardboard thunk on doors, mouth-flap blips
+- [ ] Camera: per-room framing presets for the house (bedroom/kitchen/girls/living)
+- [ ] Phone/page voice-over lines: show the caller as a small card in the banner
+- [ ] nmap / reboot / telnet responses (sysadmin probes still hit "command not found")

@@ -101,8 +101,8 @@ var inc_budget := 90
 var inc_optimal := 0
 var inc_slack := INC_SLACK
 const INC_CMD_MIN := 4
-const SLACK_BY_LEVEL := [[40, 56], [40, 56], [26, 40], [14, 26], [6, 16], [2, 10]]   # index = avg skill level
-const CURVEBALL_P := 0.07
+const SLACK_BY_LEVEL := [[12, 28], [12, 28], [12, 28], [10, 24], [8, 20], [6, 16]]   # index = avg skill level
+const CURVEBALL_P := 0.2
 const CURVEBALLS := [["Gary walks over to ask for an ETA. Then asks again.", 5], ["The vendor puts you on hold. The hold music is a ukulele.", 8],
 	["Karen forwards the suspicious email to 'all staff' to ask if it's suspicious.", 4], ["Your laptop picks now to install updates.", 6], ["The CEO joins the bridge call to 'listen in'.", 5]]
 var inc_curve := 0
@@ -113,6 +113,10 @@ func incident_level(id: String) -> int:
 	var st: Array = TicketSim.INCIDENTS[id]["stages"]
 	for k in st: lv += GameState.skill_level(GameState.skill_of(k))
 	return clampi(roundi(lv / maxf(1.0, st.size())), 1, 5)
+
+## Reading the runbook is cheap for a new Dan (he's expected to), pricier for an expert.
+static func hint_cost(level: int) -> int:
+	return 2 if level <= 2 else (4 if level == 3 else INC_HINT_MIN)
 
 static func incident_slack(level: int, rng: RandomNumberGenerator) -> int:
 	var r: Array = SLACK_BY_LEVEL[clampi(level, 1, 5)]
@@ -591,7 +595,8 @@ func term_submit(cmd: String, clicked := false) -> void:
 	_tab_last = ""
 	if inc_id != "":
 		inc_cmds += 1
-		inc_used += INC_CMD_MIN
+		# a typo / unknown command costs a minute, not a full step (newbies flail; that's allowed)
+		inc_used += 1 if "command not found" in str(term.log_lines[-1] if not term.log_lines.is_empty() else "") else INC_CMD_MIN
 		if term_rng.randf() < CURVEBALL_P:
 			var cb: Array = CURVEBALLS[term_rng.randi() % CURVEBALLS.size()]
 			inc_used += cb[1]; inc_curve += cb[1]
@@ -661,7 +666,7 @@ func term_hint() -> void:
 	if focus: term.hints_used -= 1   # Rx focus: hints are free
 	term.log_lines.append(h)
 	if inc_id != "":
-		inc_used += INC_HINT_MIN / (2 if focus else 1)
+		inc_used += hint_cost(incident_level(inc_id)) / (2 if focus else 1)
 		if _inc_check_breach():
 			term.log_lines.append("Gary: Hey. We're past the SLA. That's okay. Just... keep going. I'm telling the CEO you're 'in the zone'.")
 	_term_refresh()

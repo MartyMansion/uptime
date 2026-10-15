@@ -1157,7 +1157,7 @@ func resolve_incident(inc_id: String, used_min: int, breached: bool, after_hours
 		"Blameless root cause: %s" % {"site_outage": "a 'temporary' firewall rule and a tired service.", "ransomware": "a convincing fake invoice. Karen has been hugged and enrolled in training.",
 			"backup_restore": "the backup disk filled up in March. Nobody was watching the watcher.", "db_corruption": "the DB crashed mid-write on a full disk.",
 			"ups_failure": "a UPS battery older than June.", "cert_outage": "auto-renew was set to 'later'. Later came."}[inc_id],
-		("What cost time (fair feedback): fastest path was %d commands; you ran %d (+%d extra × 4 min) and read %d hint%s (6 min each). Next time: follow the runbook order, and check before you change." % [optimal, commands, maxi(0, commands - optimal), hints, "" if hints == 1 else "s"]) if breached and optimal > 0 else "Action items: add a monitor, add a calendar reminder, add a nap.",
+		("What cost time (fair feedback): fastest path was %d commands; you ran %d (+%d extra; real steps cost 4 min, typos 1) and read %d hint%s (cheap at low skill, 6 min for an expert). Next time: follow the runbook order, and check before you change." % [optimal, commands, maxi(0, commands - optimal), hints, "" if hints == 1 else "s"]) if breached and optimal > 0 else "Action items: add a monitor, add a calendar reminder, add a nap.",
 		"Impact on home: %s" % ("you missed part of the evening. Jess saved you a plate and a look. The girls drew you a 'server hero' picture anyway." if after_hours else "none. You made it home on time-ish."),
 		"Gary: %s" % ("\"Thank you. Truly. Go home.\"" if not breached else "\"We got there. That's what counts. Let's write the postmortem and never speak of it.\""),
 	]

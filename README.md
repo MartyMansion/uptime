@@ -1,5 +1,18 @@
-# Uptime — "One Week" prototype
+# Uptime — "One Week" prototype (paper port)
 A life sim about a sysadmin dad with 99.2% uptime and an SLA of 100%. Godot 4.7, GDScript.
+
+**Look:** crude paper cut-out characters standing as cards in 3D cardboard dioramas, with a raised side-on follow camera
+(Paper Mario-like). The old pixel version is preserved at git tag `v0-pixel`.
+
+### How the paper layer works
+- Game logic is unchanged: each Location (`scripts/locations/*.gd`) is still a 320x200 plan with stations, spots and
+  solids. It is hidden; `scripts/paper/diorama.gd` builds a 3D set from it and mirrors every actor onto a paper card.
+- Walk with WASD/arrows as before (W/S move into/out of the set). Near a station a paper tag floats over it
+  (`Kitchen [1-3]`); the bottom bar lists the actions.
+- Cards flip like a page (tilt + visible thickness) when Dan turns, bob/wobble when walking, and the speaker's head
+  flaps open on vowels while the line types out (Enter once finishes the line, again continues).
+- The dialogue banner sits at the bottom, or moves to the top if the bottom would cover a sign or the speaker.
+- Town destinations (park, pharmacy, dental, diner, coffee) each have a small set behind the papercraft town board.
 
 ## Open it
 1. Install Godot 4.7+ (standard build) from godotengine.org.
@@ -74,3 +87,13 @@ The calendar (top of the sidebar) has picture day, taco Wednesday, Lily's Thursd
 - **Afternoon:** pickup opens at 2:00 PM; grab a coffee on the town map in between.
 - **Terminal:** common real commands (dig, journalctl, uptime, sudo, top, ip a, curl, cat, ls, history, clear, man) work, with Tab completion.
 - **Incidents** have a visible SLA. Hints cost time, and breaches hurt performance and block the Uptime ending.
+
+### Paper port mechanics
+- **Incident SLA scales with skill:** slack on top of the fastest path is 12–28 min at Lv 1–2, 10–24 at Lv 3,
+  8–20 at Lv 4 and 6–16 at Lv 5. **Curveballs** (Gary wants an ETA, vendor hold music, Karen, laptop updates, the CEO
+  "listening in") cost 4–8 min each, 20% per command, and are listed in the postmortem as not your fault.
+- Parallel bots: set `UPTIME_SAVE_TAG=<name>` to give a process its own save slot.
+- Persona bots now also check the paper layer (cards present/inside walls, lanes, camera edge leaks) and there is a
+  7th persona, `paperfan`, which watches cutscenes at 30 fps and judges typing, flaps, flips and framing.
+- Quick look at all sets: `xvfb-run -a godot --path . --rendering-driver opengl3 -s res://tools/paper_quick.gd -- /tmp/pq`;
+  gameplay clip frames: `tools/paper_gif.gd`; regenerate paper 2D art: `python3 tools/gen_paper.py`.
