@@ -465,7 +465,7 @@ func _build_terminal() -> void:
 	term_input.add_theme_font_override("font", mono)
 	term_input.add_theme_font_size_override("font_size", 14)
 	term_input.add_theme_color_override("font_color", TERM_GREEN)
-	term_input.placeholder_text = "type a command, or click one below"
+	term_input.placeholder_text = "type a command, or click one below    (Tab completes · H = hint · S = show me)"
 	term_input.text_submitted.connect(func(t): term_submit(t, false))
 	term_input.gui_input.connect(_term_input_key)
 	if "keep_editing_on_text_submit" in term_input: term_input.set("keep_editing_on_text_submit", true)
