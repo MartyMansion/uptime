@@ -178,6 +178,9 @@ func _tycoon_plan() -> Array:
 	if best == "":   # nothing pays alone: unlock the next tier
 		# unlock the bottleneck first: shelf (1) -> rack + switch (2) -> circuit (3+)
 		var pending: Array = gs.orders.map(func(o): return o[0]) + gs.boxes
+		for id in gs.CATALOG:   # pass 3: read the shop's own "→ unlocks" line, like a player would
+			if not (id in pending) and gs.item_effect(id).contains("unlocks") and gs.CATALOG[id]["price"] <= gs.money:
+				inc("tycoon_read_unlock"); return [id]
 		for id in ["server", "rack", "switch"]:
 			if gs.farm_has(id) == 0 and not (id in pending): best = id; break
 		if best == "" and not ("server" in pending) and not ("electrician" in pending):
@@ -524,6 +527,8 @@ func _newbie(rng: RandomNumberGenerator) -> void:
 			var h: String = main.term.log_lines[-1]
 			if "Try: " in h:
 				main.term_submit(h.split("Try: ")[1].strip_edges(), true); inc("newbie_followed_hint")
+		elif r < 0.6 and cmds > 3 and main.has_method("term_showme"):
+			main.term_showme(); inc("newbie_showme")   # pass 3: the "Show me (S)" button
 		else:
 			var sug: Array[String] = main.term.suggestions(false)
 			main.term_submit(sug[rng.randi() % sug.size()].trim_suffix(" …"), true)
