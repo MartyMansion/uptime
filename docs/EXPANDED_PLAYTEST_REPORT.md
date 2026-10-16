@@ -208,3 +208,44 @@ Applied (clearly cringe): **#1** only. The others are proposals for Marty.
 
 **P3: next milestone**
 15. Win Path B beyond the first week: second rack, colo contracts, Town Sentiment and "Five Nines", as in design doc §B. *(tycoon, homelab)*
+
+## Pass 3 (1000 weeks × 12 personas)
+
+Every persona ran **1000 fresh playthroughs**, one full week each, with a new save and seed every time. That is 12,000 weeks, 84,000 days and about 1.99 M actions. Logs and summaries are in `playtest_pass3/`.
+
+**Playthroughs per persona:** 1000 each for sysadmin, cozy, speedrunner, newbie, struggling, completionist, paperfan, homelab, tycoon, therapist, a11y and comedy. The tycoon count is from the rerun after its bot fix; the first 1000-run tycoon pass is kept in `playtest_pass3/tycoon_v1/`.
+
+**Problems: 0 across all 12 personas** (final runs).
+
+### Roadmap status
+- Comedy rewrites #2–#12: done, one commit each. #1 was applied in pass 2.
+- P0.1 Show me / wider slack / PIP autopilot · P0.2 visible repair · P0.3 repetition (covered by the rewrites) · P0.4 text size.
+- P1.5 shop unlock lines · P1.6 FarmStat history + power bill · P1.7 `HOMELAB_NET` 25 · P1.8 garage-boundary scene · P1.9 rails / RAID-rebuild night / °C and dB.
+- P2.10 compact-banner fallback · P2.11 focus ring, taskbar key hints, blinking LEDs, text speed, terminal key hints · P2.12 Trophies app + F4 instant seen dialogue · P2.13 Clean Sprint achievement · P2.14 blinky-lights girls moment.
+- P3.15 (Path B beyond one week): **deferred** to the next milestone. It is too large for a polish pass.
+
+### Bugs found and fixed
+1. **The compact banner pushed the "Enter / Esc" hint over the sidebar.** This came from the P2.10 change and showed up as about 250 problems in the first, aborted launch. In compact mode the hint is now hidden and the banner grows inward. That launch was restarted and its logs are in `aborted_run1/`.
+2. **Tycoon bot stalled at 1 server.** Drives always had the best single-item return, so the bot never scaled up. It now climbs a cumulative tier ladder (server → rack → switch → server → electrician). Max online went from 1 to 2, and the uptime ending went from 24% to 22% with more real/turning endings. This was a bot bug; the game itself was fine.
+
+### Results vs pass 2
+- **Homelab ending:** 6% for the homelab persona (was 1–5%). Completionist and sysadmin reach it 2% of the time.
+- **Therapist:** Jess ends at 66 on average (was 48), and the `real` ending fires in 67% of runs. The repair scene works.
+- **Newbie:** breached 791 of 956 hand-solved incidents (83%, was 94%) and used Show me 38k times. It is still high because the bot deliberately types nonsense 20% of the time. Next step: a Lv0 "guided" incident mode.
+- **Speedrunner:** still ends `foggy` 99% of the time. The Clean Sprint achievement gives them a goal other than the ending.
+
+### Full table
+| Persona | Weeks | Problems | Endings | Breached / hand-solved incidents | Farm | Avg end state |
+|---|---|---|---|---|---|---|
+| a11y | 1000 | 0 | cozy 100% | 87/1687 | runs 0 orders 0 builds 0 servers_online 0 net $0 outages 0 | stress 0 perf 78 jess 96 girls 99 | drawings 9.6 bedtimes 4.4 | drinks 0.0 pouches 0.0 rx_extra 0.0 | money 48 |
+| comedy | 1000 | 0 | foggy 99%, turning 0% | 86/1658 | runs 0 orders 0 builds 0 servers_online 0 net $0 outages 0 | stress 1 perf 70 jess 91 girls 89 | drawings 6.6 bedtimes 0.6 | drinks 2.7 pouches 9.7 rx_extra 20.5 | money 47 |
+| completionist | 1000 | 0 | cozy 60%, turning 34%, foggy 3%, homelab 2% | 31/1782 | runs 1000 orders 6172 builds 3137 servers_online 1978 net $108308 outages 913 | stress 1 perf 33 jess 93 girls 96 | drawings 11.6 bedtimes 4.5 | drinks 0.7 pouches 2.0 rx_extra 2.0 | money 80 |
+| cozy | 1000 | 0 | cozy 100% | 44/1401 | runs 0 orders 0 builds 0 servers_online 0 net $0 outages 0 | stress 5 perf 29 jess 97 girls 100 | drawings 13.1 bedtimes 7.0 | drinks 0.0 pouches 0.0 rx_extra 0.0 | money 80 |
+| homelab | 1000 | 0 | cozy 62%, turning 20%, foggy 9%, homelab 6%, real 2% | 37/1548 | runs 998 orders 4022 builds 4013 servers_online 1834 net $80874 outages 855 | stress 0 perf 93 jess 90 girls 84 | drawings 4.4 bedtimes 3.0 | drinks 0.0 pouches 0.0 rx_extra 4.0 | money 54 |
+| newbie | 1000 | 0 | turning 56%, cozy 37%, foggy 3%, real 1%, crispy 0% | 791/956 | runs 0 orders 0 builds 0 servers_online 0 net $0 outages 0 | stress 2 perf 21 jess 89 girls 92 | drawings 1.7 bedtimes 1.8 | drinks 0.7 pouches 1.3 rx_extra 2.4 | money 60 |
+| paperfan | 1000 | 0 | cozy 100% | 60/1684 | runs 981 orders 2163 builds 2145 servers_online 981 net $71723 outages 672 | stress 0 perf 33 jess 96 girls 100 | drawings 9.9 bedtimes 2.2 | drinks 0.0 pouches 0.0 rx_extra 0.0 | money 45 |
+| speedrunner | 1000 | 0 | foggy 99%, turning 0%, cozy 0% | 27/1603 | runs 0 orders 0 builds 0 servers_online 0 net $0 outages 0 | stress 0 perf 36 jess 82 girls 78 | drawings 3.2 bedtimes 0.7 | drinks 1.2 pouches 7.4 rx_extra 19.1 | money 44 |
+| struggling | 1000 | 0 | turning 73%, foggy 26% | 286/1530 | runs 0 orders 0 builds 0 servers_online 0 net $0 outages 0 | stress 4 perf 72 jess 19 girls 15 | drawings 0.6 bedtimes 0.2 | drinks 15.9 pouches 16.4 rx_extra 8.8 | money 21 |
+| sysadmin | 1000 | 0 | cozy 57%, turning 22%, foggy 12%, real 3%, homelab 2%, uptime 1% | 102/1581 | runs 1000 orders 4981 builds 4504 servers_online 1992 net $83778 outages 807 | stress 0 perf 94 jess 87 girls 81 | drawings 4.8 bedtimes 2.5 | drinks 0.0 pouches 0.0 rx_extra 4.4 | money 85 |
+| therapist | 1000 | 0 | real 67%, cozy 32% | 76/1631 | runs 0 orders 0 builds 0 servers_online 0 net $0 outages 0 | stress 0 perf 55 jess 66 girls 100 | drawings 1.0 bedtimes 3.0 | drinks 0.0 pouches 0.0 rx_extra 0.0 | money 100 |
+| tycoon | 1000 | 0 | real 42%, uptime 22%, turning 17%, cozy 11%, foggy 5% | 37/1336 | runs 1000 orders 6643 builds 6000 servers_online 2000 net $106933 outages 1074 | stress 1 perf 86 jess 69 girls 42 | drawings 3.0 bedtimes 0.0 | drinks 0.0 pouches 0.0 rx_extra 3.5 | money 76 |
