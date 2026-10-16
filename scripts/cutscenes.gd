@@ -111,7 +111,7 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			elif gs.closeness < 35:
 				s += [["say", "", "She sits at the far end of the couch, tired. She still smiles when you look over."]]
 			elif gs.today.get("text_jess", 0) > 0:
-				s += [["say", "jess", "Thanks for texting today. It really helped."]]
+				s += [["say", "jess", ["Thanks for texting today. It really helped.", "Your text came in during a code blue. I read it after. It still counted.", "You texted. I noticed. That's the whole review."][gs.day % 3]]]
 			s += [["move", "jess", "couch_l"]]
 			return s
 		"bedtime":
