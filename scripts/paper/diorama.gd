@@ -44,6 +44,7 @@ var fridge_root: Node3D
 var plant_node: Node3D
 var farm_root: Node3D
 var farm_key := ""
+var _led_t := 0.0
 var clock_hands: Array = []
 var signs: Array[Label3D] = []
 var zb := -4.2                 # back wall front face z
@@ -559,7 +560,8 @@ func refresh_farm(gs) -> void:
 		var sv := slab(p, Vector3(1.0, 0.22, 0.6), Color(0.3, 0.32, 0.36), farm_root)
 		sv.name = "Server"
 		for k in 3:
-			slab(p + Vector3(-0.35 + k * 0.1, 0, 0.31), Vector3(0.05, 0.05, 0.02), Color(0.3, 1, 0.4) if i < on else Color(1, 0.3, 0.2), farm_root, 0.8)
+			var led := slab(p + Vector3(-0.35 + k * 0.1, 0, 0.31), Vector3(0.05, 0.05, 0.02), Color(0.3, 1, 0.4) if i < on else Color(1, 0.3, 0.2), farm_root, 0.8)
+			led.name = "LedOn" if i < on else "LedOff"   # offline LEDs blink: state isn't colour-only (a11y)
 	if gs.farm_has("switch") > 0:
 		var p := rx + Vector3(0, 2.0, 0) if has_rack else to3(Vector2(200, 50)) + Vector3(0, 0.06, 0)
 		slab(p, Vector3(1.0, 0.1, 0.5), Color(0.2, 0.4, 0.7), farm_root).name = "Switch"
@@ -700,6 +702,10 @@ func card(n: String) -> PaperCard:
 
 ## Mirrors the Location's actors onto paper cards and moves the camera.
 func tick(delta: float, loc: Location, near_station: String, talk_who: String, talk_flap: float, prompt_text: String, show_actors := true) -> void:
+	_led_t += delta
+	if farm_root and is_instance_valid(farm_root):
+		for c in farm_root.get_children():
+			if str(c.name).begins_with("LedOff"): c.visible = fmod(_led_t, 1.0) < 0.5
 	if loc == null:
 		return
 	var vis: Array[String] = []

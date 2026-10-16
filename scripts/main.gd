@@ -197,7 +197,7 @@ func _theme() -> Theme:
 	t.set_stylebox("normal", "Button", bn)
 	t.set_stylebox("hover", "Button", bh)
 	t.set_stylebox("pressed", "Button", bh)
-	t.set_stylebox("focus", "Button", _paper_box(Color(0, 0, 0, 0), Color(0.85, 0.3, 0.2), 3, false))
+	t.set_stylebox("focus", "Button", _paper_box(Color(1, 0.85, 0.3, 0.25), Color(0.85, 0.2, 0.1), 4, false))   # a11y: thick, filled focus ring
 	t.set_stylebox("disabled", "Button", bd)
 	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		t.set_color(k, "Button", INK)
@@ -1675,6 +1675,9 @@ func _build_desktop() -> void:
 	hb.add_child(desk_tab)
 	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(sp)
+	var esc := _label("Esc: close · Tab/arrows: move · Enter: open", 14)
+	esc.add_theme_color_override("font_color", INK)
+	hb.add_child(esc)
 	desk_clock = _label("", 14)
 	desk_clock.custom_minimum_size = Vector2(130, 0)
 	desk_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
