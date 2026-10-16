@@ -879,6 +879,12 @@ func farm_tests(gs: Node, main: Node) -> void:
 		if gs.farm_history[-1][3] == "drive": drive_nights += 1
 	check(drive_nights > 0 and drive_nights < 40, "used drives fail sometimes (RAID rebuild nights: %d/200)" % drive_nights)
 	check(gs.farm_status().contains("°C") and gs.farm_status().contains("dB"), "FarmStat shows °C and dB")
+	gs.new_game(15); gs.day = 1; gs.incidents_week = 2; gs.week_stats["sla_breaches"] = 0
+	gs._check_achievements()
+	check("sprint" in gs.achievements, "Clean Sprint achievement for speedrunners")
+	gs.new_game(16); gs.farm = {"server": 1, "rack": 1}; gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
+	var bl: String = gs.do_action("play_girls")
+	check(bl.contains("blinky") and gs.week_stats.get("blinky", false), "girls ask to see the blinky lights once a server is online")
 	# every action result is a real line, not just the menu label (comedy writer pass)
 	gs.new_game(3); gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
 	var r1: String = gs.do_action("play_girls")

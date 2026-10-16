@@ -681,6 +681,10 @@ func do_action(id: String) -> String:
 				"Hide and seek. June hides in the same spot every time. You never find her. Never.",
 				"Lily teaches you a card game she invented. You lose. The rules change twice. You lose faster.",
 				"Pillow fort. Load-bearing couch cushions. Lily is the architect. June is the wrecking ball."][(day * 3 + int(today.get("play_girls", 1))) % 5]
+			if farm_online() > 0 and not week_stats.get("blinky", false):
+				week_stats["blinky"] = true
+				girls_connected = clampi(girls_connected + 4, 0, 100)
+				line = "June drags you to the garage: \"Show me the blinky lights!\" Lily names the servers Sparkle and Mr. Fan. You explain what a server does. June says it's a robot that does homework. Close enough."
 		"feed_girls":
 			line = ["Scrambled eggs. June asks for 'the crunchy ones'. You burnt them on purpose. Teamwork.",
 				"Toast cut into triangles, per contract. Lily reviews it: four stars, 'too squared'.",
@@ -872,6 +876,9 @@ const ACHIEVEMENTS := {
 	"founder": ["Pre-Revenue No More", "Got paid by Marisol"],
 	"tea": ["Tea Time", "Tea with Jess on 3 days"],
 	"clean": ["Quiet Win", "A 4-day clean streak"],
+	"sprint": ["Clean Sprint", "Resolve 2 incidents by Wednesday, no SLA breach"],
+	"blinky": ["Blinky Lights", "Showed the girls the servers"],
+	"homelab": ["It Pays For Itself", "A server farm earned $100+ in a week"],
 }
 func _check_achievements() -> void:
 	var got := {
@@ -880,6 +887,9 @@ func _check_achievements() -> void:
 		"founder": hustle >= 3,
 		"tea": int(week_stats.get("tea", 0)) >= 3,
 		"clean": clean.values().any(func(v): return v >= 4),
+		"sprint": day <= 2 and incidents_week >= 2 and int(week_stats.get("sla_breaches", 0)) == 0,
+		"blinky": week_stats.get("blinky", false),
+		"homelab": farm_income_total >= 100,
 	}
 	for k in got:
 		if got[k] and not (k in achievements):

@@ -28,6 +28,9 @@ var talk_who := ""               # who is speaking (mouth flaps follow the typew
 var talk_flap := 0.0
 var _type_t := 0.0
 const TYPE_CPS := 48.0
+var skip_seen := false            # F4: dialogue you've seen before (any playthrough) shows instantly
+var cs_fast := false
+var seen_scenes := {}
 var type_cps := TYPE_CPS          # F3: 48 / 96 / instant (a11y)
 const INK := Color(0.13, 0.1, 0.1)
 const PAPER := Color(0.99, 0.96, 0.87)
@@ -137,6 +140,7 @@ func _on_day_started() -> void:
 	GameState.save_game()
 
 func _ready() -> void:
+	_load_seen()
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	world = Node2D.new()
 	world.name = "World"
@@ -293,7 +297,7 @@ func _build_ui() -> void:
 		sv.add_child(b)
 		meters[key] = b
 	sv.add_child(HSeparator.new())
-	sv.add_child(_label("WASD / Arrows  move    1-4  action\nT text Jess   B breathe\nP nic pouch   R Rx dose\nEnter continue   Esc skip\nF6 save   F7 load (autosaves daily)\nF2 text size   F3 text speed", 14))
+	sv.add_child(_label("WASD / Arrows  move    1-4  action\nT text Jess   B breathe\nP nic pouch   R Rx dose\nEnter continue   Esc skip\nF6 save   F7 load (autosaves daily)\nF2 text size   F3 text speed\nF4 seen dialogue: instant", 14))
 	sv.add_child(HSeparator.new())
 	log_label = _label("", 13, true)
 	log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -961,7 +965,7 @@ func _type_tick(delta: float) -> void:
 	if dialog_text.visible_characters < 0 or dialog_text.visible_characters >= total:
 		dialog_text.visible_characters = -1
 		return
-	_type_t += delta * (type_cps if type_cps > 0 else 100000.0)
+	_type_t += delta * (type_cps if type_cps > 0 and not cs_fast else 100000.0)
 	while _type_t >= 1.0 and dialog_text.visible_characters < total:
 		_type_t -= 1.0
 		dialog_text.visible_characters += 1
@@ -1202,6 +1206,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_F3:
 			type_cps = {48.0: 96.0, 96.0: 0.0, 0.0: 48.0}.get(type_cps, 48.0)
 			show_lifeos("LifeOS: Text speed: %s." % ("instant" if type_cps == 0 else "%d characters/s" % int(type_cps)))
+		KEY_F4:
+			skip_seen = not skip_seen
+			_save_seen()
+			show_lifeos("LifeOS: Seen dialogue: %s." % ("instant" if skip_seen else "plays normally"))
 		KEY_F6:
 			show_lifeos("LifeOS: Saved (the morning of %s; F7 rewinds to it). Your progress is safe. Your inbox is not." % GameState.day_name() if GameState.save_game() else "LifeOS: Save failed. Classic.")
 		KEY_F7:
@@ -1340,6 +1348,10 @@ func _next_cutscene() -> void:
 		return
 	var item: Array = cs_queue.pop_front()
 	cs_id = item[0]
+	cs_fast = skip_seen and seen_scenes.has(cs_id)
+	if not seen_scenes.has(cs_id):
+		seen_scenes[cs_id] = true
+		_save_seen()
 	if cs_id != "moment": in_garage = false
 	if desktop_open(): close_desktop()
 	if assembly_open(): close_assembly()
@@ -1611,7 +1623,7 @@ var desk_close_btn: Button
 var cart: Array = []
 var desk_msg := ""
 const DESK_APPS := [["tickets", "▤", "Tickets"], ["games", "♞", "Vapor Games"], ["hustle", "✎", "Bakery Script"], ["pceggo", "◒", "PCEggo"],
-	["rackbay", "▦", "RackBay"], ["kevin", "ϟ", "Kilowatt Kevin's"], ["cart", "▣", "Cart"], ["farm", "≋", "FarmStat"]]
+	["rackbay", "▦", "RackBay"], ["kevin", "ϟ", "Kilowatt Kevin's"], ["cart", "▣", "Cart"], ["farm", "≋", "FarmStat"], ["trophies", "★", "Trophies"]]
 const SHOP_TAG := {"pceggo": "PCEggo — parts with a little egg on them. Free next-day shipping on anything that fits in a box.",
 	"rackbay": "RackBay — pre-loved enterprise gear. Previous owner: a bank that no longer exists.",
 	"kevin": "Kilowatt Kevin's Power & Cooling — fans, foam, and a guy who knows a guy (licensed, mostly)."}
@@ -1776,7 +1788,7 @@ func _desk_build(id: String) -> void:
 	desk_tab.visible = true
 	desk_start.visible = false
 	for c in desk_body.get_children(): c.free()
-	var names := {"pceggo": "PCEggo.web — Deals", "rackbay": "RackBay — Used Enterprise", "kevin": "Kilowatt Kevin's — Power & Cooling", "cart": "Cart — Checkout", "farm": "FarmStat 1.0 — Mercer Data Center"}
+	var names := {"pceggo": "PCEggo.web — Deals", "rackbay": "RackBay — Used Enterprise", "kevin": "Kilowatt Kevin's — Power & Cooling", "cart": "Cart — Checkout", "farm": "FarmStat 1.0 — Mercer Data Center", "trophies": "Trophies"}
 	desk_title.text = names.get(id, id)
 	desk_tab.text = desk_title.text.left(18)
 	match id:
@@ -1813,6 +1825,13 @@ func _desk_build(id: String) -> void:
 			var co := Button.new(); co.text = "Checkout (next-day delivery)"; co.pressed.connect(func(): cart_checkout())
 			desk_body.add_child(co)
 			if desk_msg != "": _dl(desk_msg, 14, Color(0.6, 0.2, 0.1))
+		"trophies":
+			_dl("Trophies — this week (%d/%d)" % [GameState.achievements.size(), GameState.ACHIEVEMENTS.size()], 16)
+			for k in GameState.ACHIEVEMENTS:
+				var a: Array = GameState.ACHIEVEMENTS[k]
+				var got: bool = k in GameState.achievements
+				_dl(("★ %s — %s" if got else "☆ %s — %s (locked)") % [a[0], a[1]], 14, INK if got else Color(0.45, 0.42, 0.4))
+			_dl("Speedrun tip: Clean Sprint = work-from-home Monday, take every page, no breaches.", 13, Color(0.35, 0.35, 0.5))
 		"farm":
 			var r := Button.new(); r.text = "Refresh"; r.pressed.connect(desk_app.bind("farm"))
 			desk_body.add_child(r)
@@ -1986,3 +2005,16 @@ func apply_text_scale(n: Node = null) -> void:
 		if n is RichTextLabel: c.add_theme_font_size_override("normal_font_size", fs)
 		else: c.add_theme_font_size_override("font_size", fs)
 	for ch in n.get_children(): apply_text_scale(ch)
+
+const SEEN_PATH := "user://seen_scenes.cfg"
+func _save_seen() -> void:
+	var c := ConfigFile.new()
+	c.set_value("seen", "ids", seen_scenes.keys())
+	c.set_value("seen", "skip", skip_seen)
+	c.save(SEEN_PATH)
+
+func _load_seen() -> void:
+	var c := ConfigFile.new()
+	if c.load(SEEN_PATH) == OK:
+		for k in c.get_value("seen", "ids", []): seen_scenes[str(k)] = true
+		skip_seen = bool(c.get_value("seen", "skip", false))
