@@ -581,7 +581,7 @@ func do_action(id: String) -> String:
 	pending_choice = ""
 	if id == "sleep":
 		end_day()
-		return "Lights out."
+		return ["Lights out.", "Lights out. June asks for water. Lights out again.", "Lights out. The house ticks. Somebody snores. It might be you."][day % 3]
 	var a: Dictionary = ACTIONS[id]
 	var blocks: int = action_blocks(id)
 	var e: int = int(a["energy"])
