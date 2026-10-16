@@ -639,7 +639,7 @@ func do_action(id: String) -> String:
 				# Staying late: the 3rd ticket costs family time.
 				closeness = clampi(closeness - 5, 0, 100)
 				girls_connected = clampi(girls_connected - 6, 0, 100)
-				lifeos = "LifeOS: Stayed late. June asked after-care if Daddy 'lives at work now'. Jess: -5, Girls: -6."
+				lifeos = "LifeOS: Stayed late. June asked after-care if Daddy 'lives at work now'. The after-care lady didn't have a good answer. Jess: -5, Girls: -6."
 			if phase == "work" and rng.randf() < 0.2 and not terminal_ticket:
 				pending_choice = "triage"
 			if rx_active():
