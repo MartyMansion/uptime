@@ -188,6 +188,6 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
   - Extra Rx doses get escalating lines instead of one line repeated.
   - The after-work line no longer lists a fixed route.
   - The garage title is short enough for the HUD.
-- Homelab ending re-tuned; "any 2 servers" used to win 50–75% of farm runs. It now needs 2+ servers online behind a UPS, at least $35 net, at most 1 outage, Jess ≥ 50 and girls ≥ 40. A thriving cozy week outranks it unless the farm netted $140 or more.
+- Homelab ending re-tuned; "any 2 servers" used to win 50–75% of farm runs. It now needs 2+ servers online behind a UPS, at least $25 net, at most 1 outage, Jess ≥ 50 and girls ≥ 40. A thriving cozy week outranks it unless the farm netted $140 or more.
 - Farm economy: server $55, UPS $60, electrician $95, $14/day per server. Under the old prices, a one-week farm never paid back.
 - Full report: `uptime-build/EXPANDED_PLAYTEST_REPORT.md`.

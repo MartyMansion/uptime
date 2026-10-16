@@ -1349,7 +1349,7 @@ const POWER_RATE := 0.16          # $/kWh
 # build (2+ online behind a UPS), a farm that paid for itself, at most 1 outage, and a family that
 # didn't pay for it.
 const HOMELAB_SERVERS := 2
-const HOMELAB_NET := 35
+const HOMELAB_NET := 25         # pass 3: 35 gave 1-5%; aim ~10% for dedicated builders
 const HOMELAB_MAX_OUTAGES := 1
 const HOMELAB_BUSINESS := 140      # net $ for the farm to outrank a cozy week
 const HOMELAB_CLOSENESS := 50
