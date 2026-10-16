@@ -1905,7 +1905,12 @@ func open_assembly() -> void:
 	asm_done = 0
 	asm_mistakes = 0
 	asm_title.text = "Build: " + GameState.CATALOG[id]["name"].split(" (")[0]
-	asm_info.text = "Do the steps in the right order (click, or press 1-3). %d more box%s after this." % [GameState.boxes.size() - 1, "" if GameState.boxes.size() == 2 else "es"]
+	if id == "server" and not GameState.notices_seen.has("rails"):
+		GameState.notices_seen["rails"] = true
+		asm_info.text = "The rails don't fit the rack. Of course they don't. You zip-tie them. It's fine. It's enterprise-grade fine.\n"
+	else:
+		asm_info.text = ""
+	asm_info.text += "Do the steps in the right order (click, or press 1-3). %d more box%s after this." % [GameState.boxes.size() - 1, "" if GameState.boxes.size() == 2 else "es"]
 	_asm_refresh()
 	asm_panel.visible = true
 

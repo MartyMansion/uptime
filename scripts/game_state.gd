@@ -1426,9 +1426,9 @@ func farm_bill_day() -> int:
 
 func farm_status() -> String:
 	var pend := orders.map(func(o): return CATALOG[o[0]]["name"].split(" (")[0])
-	return "Servers online: %d / %d   Uptime this week: %s\nIncome: $%d/day   Power: %d W (~$%d/day)   Net so far: $%d\nHeat: %d/10   Noise: %d/10   Outages: %d\nBoxes in the garage: %d   On the way: %s" % [
+	return "Servers online: %d / %d   Uptime this week: %s\nIncome: $%d/day   Power: %d W (~$%d/day)   Net so far: $%d\nHeat: %d/10 (~%d°C intake)   Noise: %d/10 (~%d dB)   Outages: %d\nBoxes in the garage: %d   On the way: %s" % [
 		farm_online(), farm_has("server"), ("%d%%" % int(100.0 * (farm_days - farm_outages) / maxf(1.0, farm_days))) if farm_days > 0 else "n/a",
-		farm_income_day(), farm_watts(), farm_bill_day(), farm_income_total, farm_heat(), farm_noise(), farm_outages, boxes.size(), ", ".join(pend) if not pend.is_empty() else "nothing"]
+		farm_income_day(), farm_watts(), farm_bill_day(), farm_income_total, farm_heat(), 22 + farm_heat() * 2, farm_noise(), 30 + farm_noise() * 5, farm_outages, boxes.size(), ", ".join(pend) if not pend.is_empty() else "nothing"]
 
 ## Checkout from the parody shops: money check, next-day delivery.
 func checkout(cart: Array) -> String:
@@ -1503,6 +1503,12 @@ func _farm_night() -> String:
 				"Power blip. No UPS. The RAID is 'rebuilding' and so is your relationship with sleep."][rng.randi() % 2]
 		else:
 			note = "Heat alarm at 2 AM. You stood in the garage in boxers with a box fan. Jess filmed it." if farm_has("fans") == 0 else "Heat alarm at 2 AM. The box fans lost."
+		lifeos_message.emit("LifeOS: HOME INCIDENT: " + note)
+	if cause == "" and farm_has("drives") > 0 and farm_online() > 0 and rng.randf() < 0.06:
+		cause = "drive"
+		note = "A used drive died at 3 AM (low hours, allegedly). RAID rebuild night: the garage hums, you don't sleep."
+		income = int(income * 0.75)
+		stress = clampi(stress + 3, 0, 100)
 		lifeos_message.emit("LifeOS: HOME INCIDENT: " + note)
 	var noise := farm_noise()
 	if noise >= 4:

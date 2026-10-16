@@ -872,6 +872,13 @@ func farm_tests(gs: Node, main: Node) -> void:
 	main.skip_all_cutscenes(); gs.pending_choice = ""
 	gs.apply_choice("garage_curfew"); gs.minutes = 1270; gs.boxes = ["switch"]
 	check(gs.can_do("build_farm").contains("curfew"), "garage curfew blocks builds after 9 PM")
+	gs.new_game(14); gs.farm = {"server": 2, "rack": 1, "switch": 1, "ups": 1, "drives": 2}
+	var drive_nights := 0
+	for k in 200:
+		gs._farm_night()
+		if gs.farm_history[-1][3] == "drive": drive_nights += 1
+	check(drive_nights > 0 and drive_nights < 40, "used drives fail sometimes (RAID rebuild nights: %d/200)" % drive_nights)
+	check(gs.farm_status().contains("°C") and gs.farm_status().contains("dB"), "FarmStat shows °C and dB")
 	# every action result is a real line, not just the menu label (comedy writer pass)
 	gs.new_game(3); gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
 	var r1: String = gs.do_action("play_girls")
