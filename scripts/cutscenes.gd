@@ -73,7 +73,7 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			]
 			return [["loc", "office"], ["place", "dan", "entry"], ["place", "gary", "gary_desk"], ["move", "dan", "desk"],
 				["move", "gary", "gary_talk"], ["face", "dan", "right"], ["say", "gary", gary[d % gary.size()]],
-				["say", "dan", "(Sysadmin Brain: It's DNS.)  Sure thing, Gary."], ["move", "gary", "gary_desk"]]
+				["say", "dan", "(Sysadmin Brain: It's DNS.) (Sysadmin Mouth: ...) Sure thing, Gary."], ["move", "gary", "gary_desk"]]
 		"drive_stop":
 			var radio := [
 				"...and that's why I get up at 4 AM. Anyway, it's not for everyone. Get some sleep, folks.",
