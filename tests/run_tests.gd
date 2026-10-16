@@ -842,6 +842,13 @@ func farm_tests(gs: Node, main: Node) -> void:
 	gs.farm_outages = 0; gs.closeness = 40
 	check(gs.ending_id() != "homelab", "neglecting Jess blocks the ending")
 	check(gs.can_do("pc") != "" and gs.do_action("pc") != "", "UI verbs can't run through do_action")
+	# repair is visible: honesty unlocks a warm scene and moves closeness (therapist pass)
+	gs.new_game(8); gs.honesty = 70; var c0: int = gs.closeness
+	gs._check_relationships()
+	check(gs.moments_seen.has("repair") and gs.closeness >= c0 + 8, "honesty unlocks the repair scene and closeness")
+	gs.new_game(8); gs.phase = "work"; c0 = gs.closeness
+	gs.do_action("call_doctor")
+	check(gs.closeness > c0, "calling Dr. Patel (and telling Jess) moves closeness")
 	# every action result is a real line, not just the menu label (comedy writer pass)
 	gs.new_game(3); gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
 	var r1: String = gs.do_action("play_girls")

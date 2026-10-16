@@ -181,6 +181,7 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 		"moment":
 			# Heart events (Stardew-style), played once when a relationship crosses a threshold.
 			var lines := {
+				"repair": [["say", "jess", "Hey. Can I say a thing? A good thing."], ["say", "jess", "I noticed you're trying. Not perfect. Trying. I see it."], ["say", "dan", "It's... a lot of days in a row."], ["say", "jess", "Then we do them in a row. Together. Like the IKEA bed."]],
 				"jess70": [["say", "jess", "Found our wedding playlist. It's 60% ska. Who let us make decisions?"], ["say", "dan", "We were young and the trombone was persuasive."], ["say", "jess", "Dance with me. Badly. Before the kids notice."]],
 				"jess85": [["say", "jess", "Hey. You've been really here this week. Like, here here."], ["say", "dan", "LifeOS says I'm 'underperforming in Side Hustle.'"], ["say", "jess", "LifeOS can file a ticket."]],
 				"girls75": [["say", "june", "You are Best Daddy. It's a tie with the cat."], ["say", "dan", "I'll take it. The cat's very accomplished."]],

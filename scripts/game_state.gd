@@ -687,7 +687,8 @@ func do_action(id: String) -> String:
 		"call_doctor":
 			rx_plan = true
 			honesty = clampi(honesty + 10, 0, 100)
-			line = "You call Dr. Patel and tell her about the extra doses. She doesn't gasp. She adjusts the plan. Hold music: pan flute, but supportive."
+			closeness = clampi(closeness + 5, 0, 100)   # you told Jess too
+			line = "You call Dr. Patel and tell her about the extra doses. She doesn't gasp. She adjusts the plan. Hold music: pan flute, but supportive. Afterwards you tell Jess. She just squeezes your hand."
 		"coffee_break":
 			line = ["Coffee with the team. Karen shows everyone her new puppy. You feel a little more human.", "Coffee with the team. Karen's puppy has learned 'sit'. Gary has not.", "Coffee with the team. Gary tells a joke from a 2009 email forward. You laugh. You're a team player."][day % 3]
 		"breathe":
@@ -847,6 +848,7 @@ func _moment(t: String) -> void:
 
 ## One-time relationship moments at closeness/connection thresholds (Stardew heart events).
 const REL_MOMENTS := {
+	"repair": ["honesty", 65, "Jess: I noticed you're trying. Not perfect. Trying. I see it."],
 	"jess70": ["closeness", 70, "Jess: found our old wedding playlist. it's mostly ska. who let us do that. ❤"],
 	"jess85": ["closeness", 85, "Jess: you've been really here this week. I notice. thank you."],
 	"girls75": ["girls_connected", 75, "LifeOS: June has declared you 'Best Daddy (Tie)'. The other contestant is the cat."],
@@ -857,6 +859,7 @@ func _check_relationships() -> void:
 		var m: Array = REL_MOMENTS[k]
 		if not moments_seen.has(k) and int(get(m[0])) >= int(m[1]):
 			moments_seen[k] = true
+			if k == "repair": closeness = clampi(closeness + 8, 0, 100)   # repair is visible (therapist pass)
 			_moment(str(m[2]).split(": ", true, 1)[1] if ": " in str(m[2]) else str(m[2]))
 			moment.emit(k)   # Main plays the heart-event cutscene
 
