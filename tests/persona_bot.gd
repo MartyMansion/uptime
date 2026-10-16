@@ -164,6 +164,17 @@ const HOMELAB_PLAN := ["rack", "switch", "server", "server", "ups", "electrician
 
 ## Tycoon: greedy ROI. Buys whatever raises daily net the most per dollar right now.
 func _tycoon_plan() -> Array:
+	# pass 3: drives had the best single-item ROI forever, so the bot never scaled past 1 server.
+	# A tycoon thinks in tiers: grow online capacity first (2-step ROI), then top up drives.
+	var pend: Array = gs.orders.map(func(o): return o[0]) + gs.boxes
+	const LADDER := ["server", "rack", "switch", "server", "electrician", "server"]
+	if gs.farm_online() < 3 and not ("server" in pend):
+		var seen := {}
+		for i in LADDER.size():
+			var id: String = LADDER[i]
+			seen[id] = int(seen.get(id, 0)) + 1
+			if gs.farm_has(id) + pend.count(id) < int(seen[id]):
+				inc("tycoon_tier_buy"); return LADDER.slice(0, i + 1)   # cumulative: the caller diffs plan vs owned
 	var best := ""
 	var best_roi := -1.0
 	for id in gs.CATALOG:
