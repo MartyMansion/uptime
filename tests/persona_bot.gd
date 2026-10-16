@@ -178,7 +178,7 @@ func _tycoon_plan() -> Array:
 	if best == "":   # nothing pays alone: unlock the next tier
 		# unlock the bottleneck first: shelf (1) -> rack + switch (2) -> circuit (3+)
 		var on: int = gs.farm_online()
-		var pending := gs.orders.map(func(o): return o[0]) + gs.boxes
+		var pending: Array = gs.orders.map(func(o): return o[0]) + gs.boxes
 		for id in ["server", "rack", "switch", "electrician"]:
 			if gs.farm_has(id) == 0 and not (id in pending): best = id; break
 		if best == "" and gs.farm_has("server") <= on and not ("server" in pending): best = "server"
@@ -234,7 +234,7 @@ func farm_routine(rng: RandomNumberGenerator) -> void:
 	var plan: Array = FARM_PLAN
 	if persona == "homelab": plan = HOMELAB_PLAN
 	elif persona == "tycoon": plan = _tycoon_plan()
-	var reserve := {"tycoon": 0, "homelab": 20}.get(persona, 40)
+	var reserve: int = {"tycoon": 0, "homelab": 20}.get(persona, 40)
 	var need := {}
 	var buy: Array = []
 	var budget: int = gs.money - reserve

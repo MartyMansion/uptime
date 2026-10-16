@@ -826,13 +826,25 @@ func farm_tests(gs: Node, main: Node) -> void:
 	for k in 40: gs._farm_night()
 	check(no_ups > 0 and gs.farm_outages < no_ups, "home incidents happen; UPS + fans cut them (%d -> %d)" % [no_ups, gs.farm_outages])
 	gs.new_game(6); gs.farm = {"server": 2, "rack": 1, "switch": 1}; gs.farm_income_total = 40; gs.closeness = 60; gs.stress = 20
-	check(gs.ending_id() != "homelab", "2 servers is not a data center (ending tuned)")
-	gs.farm = {"server": 3, "rack": 1, "switch": 1, "electrician": 1}; gs.farm_income_total = 60; gs.girls_connected = 60
+	check(gs.ending_id() != "homelab", "2 servers without a UPS is not a data center (ending tuned)")
+	gs.farm = {"server": 2, "rack": 1, "switch": 1, "ups": 1}; gs.farm_income_total = 60; gs.girls_connected = 60
 	check(gs.ending_id() == "homelab" and gs.ending_text().contains("Mercer Data Center"), "homelab ending reachable with a real build")
+	gs.closeness = 80; gs.girls_connected = 80; gs.stress = 20
+	check(gs.ending_id() == "cozy", "a thriving family week outranks a modest farm")
+	gs.farm_income_total = 95
+	check(gs.ending_id() == "homelab", "a real little business outranks cozy")
+	gs.closeness = 60; gs.girls_connected = 60; gs.farm_income_total = 60
 	gs.farm_outages = 3
 	check(gs.ending_id() != "homelab", "an outage-ridden farm doesn't earn the ending")
 	gs.farm_outages = 0; gs.closeness = 40
 	check(gs.ending_id() != "homelab", "neglecting Jess blocks the ending")
 	check(gs.can_do("pc") != "" and gs.do_action("pc") != "", "UI verbs can't run through do_action")
+	# every action result is a real line, not just the menu label (comedy writer pass)
+	gs.new_game(3); gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
+	var r1: String = gs.do_action("play_girls")
+	check(r1 != gs.ACTIONS["play_girls"]["name"] and r1.length() > 30, "play_girls has a real result line")
+	gs.new_game(3)
+	var r2: String = gs.do_action("feed_girls")
+	check(r2 != gs.ACTIONS["feed_girls"]["name"], "breakfast has a real result line")
 	main.in_garage = false
 	gs.new_game(1); main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""; main.sync_location()

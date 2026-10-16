@@ -615,7 +615,7 @@ func do_action(id: String) -> String:
 		"head_home":
 			phase = "drive"
 			at_place = "road"
-			line = "You badge out. The town map unfolds in your head: school, Gas-N-Sip, home. The girls are waiting at after-care." if not jess_has_girls() else "You badge out. Jess has the girls today. The town is, briefly, yours."
+			line = "You badge out. After-care closes at 6:30. The girls know exactly what time it is." if not jess_has_girls() else "You badge out. Jess has the girls today. The town is, briefly, yours."
 		"buy_beer":
 			beers += 6
 			line = "Six-pack in the passenger seat."
@@ -672,6 +672,18 @@ func do_action(id: String) -> String:
 		"buy_patch":
 			patch_days += 5
 			line = "Patches. The cashier raises an eyebrow, then gives you a tiny nod. Gas-N-Sip solidarity."
+		"play_girls":
+			line = ["Floor is lava. June wins, rules unclear. Lily referees and is bribed with a cracker.",
+				"Tea party. You are served invisible tea and told it's too hot. You blow on it. June approves.",
+				"Hide and seek. June hides in the same spot every time. You never find her. Never.",
+				"Lily teaches you a card game she invented. You lose. The rules change twice. You lose faster.",
+				"Pillow fort. Load-bearing couch cushions. Lily is the architect. June is the wrecking ball."][(day * 3 + int(today.get("play_girls", 1))) % 5]
+		"feed_girls":
+			line = ["Scrambled eggs. June asks for 'the crunchy ones'. You burnt them on purpose. Teamwork.",
+				"Toast cut into triangles, per contract. Lily reviews it: four stars, 'too squared'.",
+				"Oatmeal with a face made of raisins. June eats the face first. Every time.",
+				"Pancake shapes: a heart, a dog, and an accident June calls 'Gary'.",
+				"Banana and peanut-butter toast. Everyone is fed. Nobody cried. A five-nines breakfast."][day % 5]
 		"call_doctor":
 			rx_plan = true
 			honesty = clampi(honesty + 10, 0, 100)
@@ -777,7 +789,9 @@ func do_action(id: String) -> String:
 				rx_extra_total += 1
 				used_ever["rx_extra"] = true
 				week_stats["rx_extra"] += 1
-				line = "Another one, just to get through the afternoon. The bottle says 1 daily."
+				line = ["Another one, just to get through the afternoon. The bottle says 1 daily.",
+					"A second one. The bottle's instructions are short. You read them anyway. Then you don't.",
+					"Extra dose. The focus comes back. So does the little voice that counts the pills."][mini(rx_extra_total, 3) - 1]
 				if rx_extra_total >= 3 and not notices_seen.has("rx_refill"):
 					notices_seen["rx_refill"] = true
 					lifeos = "LifeOS: Pharmacy reminder: at this pace your refill runs out %d days early. Maybe a good thing to mention to your doctor." % rx_extra_total
@@ -1037,9 +1051,11 @@ func ending_id() -> String:
 		return "crispy"
 	if subs > 0 and (clean["drink"] >= 2 or clean["pouch"] >= 2 or clean["rx_extra"] >= 2):
 		return "turning"
-	if homelab_earned():
+	var cozy := closeness >= 70 and girls_connected >= 70 and stress <= 50
+	# A thriving family week outranks a server week, unless the farm is a real little business.
+	if homelab_earned() and (not cozy or farm_income_total >= HOMELAB_BUSINESS):
 		return "homelab"
-	if closeness >= 70 and girls_connected >= 70 and stress <= 50:
+	if cozy:
 		return "cozy"
 	if performance >= 85 and not on_pip() and int(week_stats.get("sla_breaches", 0)) == 0 and (closeness < 40 or girls_connected < 40):
 		return "uptime"
@@ -1319,12 +1335,13 @@ const CATALOG := {
 	"electrician": {"name": "Electrician visit: dedicated 20 A circuit", "shop": "kevin", "price": 95, "watts": 0, "box": false},
 }
 const POWER_RATE := 0.16          # $/kWh
-# Tuned after the 12-persona pass: the ending was too easy (any 2 servers). Now it needs a real
-# build (3 online = rack + switch + electrician), a farm that paid for itself, few outages, and a
-# marriage that survived it.
-const HOMELAB_SERVERS := 3
-const HOMELAB_NET := 30
+# Tuned after the 12-persona pass: "any 2 servers" won 50-75% of farm runs. Now it needs a protected
+# build (2+ online behind a UPS), a farm that paid for itself, at most 1 outage, and a family that
+# didn't pay for it.
+const HOMELAB_SERVERS := 2
+const HOMELAB_NET := 35
 const HOMELAB_MAX_OUTAGES := 1
+const HOMELAB_BUSINESS := 90       # net $ for the farm to outrank a cozy week
 const HOMELAB_CLOSENESS := 50
 var farm := {}                    # item id -> installed count
 var orders: Array = []            # [item id, delivery day]
@@ -1334,7 +1351,7 @@ var farm_outages: int = 0
 var farm_days: int = 0
 
 func homelab_earned() -> bool:
-	return farm_online() >= HOMELAB_SERVERS and farm_income_total >= HOMELAB_NET and farm_outages <= HOMELAB_MAX_OUTAGES \
+	return farm_online() >= HOMELAB_SERVERS and farm_has("ups") > 0 and farm_income_total >= HOMELAB_NET and farm_outages <= HOMELAB_MAX_OUTAGES \
 		and closeness >= HOMELAB_CLOSENESS and girls_connected >= 40
 
 func farm_has(id: String) -> int:

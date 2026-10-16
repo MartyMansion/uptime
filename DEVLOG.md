@@ -173,3 +173,21 @@ A Stardew-loving playtester bot (`tests/playtest_bot.gd`) now plays full weeks t
   - Evening garage time costs closeness.
   - New ending: "Mercer Data Center" (2+ servers online, net ≥ $20, Jess ≥ 40).
 - All of it saves and loads. Persona bots `sysadmin`, `completionist` and `paperfan` shop and build through the real UI and audit it.
+
+## 2026-10-15 (night) — Expanded playtest: 12 personas × 300 weeks
+- Five new expert personas, each with its own policy:
+  - `homelab`: a datacenter vet. Builds in a protected order and sanity-checks the power, bill and heat model.
+  - `tycoon`: greedy return-on-investment buyer. Plays for money first and unlocks bottlenecks as it goes.
+  - `therapist`: slips once on day 1, then recovers and picks the kind or honest choices.
+  - `a11y`: keyboard only, using station keys 1–4, T/P/R/B, the map number keys, Tab and Enter in the terminal, and Esc in the desktop. Scans font sizes and click targets.
+  - `comedy`: wants to see every bit. Watches cutscenes and logs every line it reads.
+- Fixes:
+  - The desktop and its windows now take keyboard focus.
+  - Map pins are at least 24 px tall.
+  - Play-with-the-girls and breakfast now have real result lines; before, they just echoed the menu label.
+  - Extra Rx doses get escalating lines instead of one line repeated.
+  - The after-work line no longer lists a fixed route.
+  - The garage title is short enough for the HUD.
+- Homelab ending re-tuned; "any 2 servers" used to win 50–75% of farm runs. It now needs 2+ servers online behind a UPS, at least $35 net, at most 1 outage, Jess ≥ 50 and girls ≥ 40. A thriving cozy week outranks it unless the farm netted $90 or more.
+- Farm economy: server $55, UPS $60, electrician $95, $14/day per server. Under the old prices, a one-week farm never paid back.
+- Full report: `uptime-build/EXPANDED_PLAYTEST_REPORT.md`.
