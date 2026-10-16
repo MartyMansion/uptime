@@ -778,7 +778,7 @@ func do_action(id: String) -> String:
 			used_ever["pouch"] = true
 			gum_damage += 1
 			week_stats["pouches"] += 1
-			line = "Pouch in. A brief, quiet calm. Upper lip, left side, same spot as always."
+			line = ["Pouch in. A brief, quiet calm. Upper lip, left side, same spot as always.", "Pouch in. Your lip has a reserved parking spot.", "Pouch in. Calm arrives on schedule. It's the only thing that does."][int(today.get("pouch", 1)) % 3]
 			for t in GUM_NOTES:
 				if gum_damage >= t and not notices_seen.has("gum%d" % t):
 					notices_seen["gum%d" % t] = true
