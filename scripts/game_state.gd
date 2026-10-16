@@ -796,7 +796,7 @@ func do_action(id: String) -> String:
 					notices_seen["rx_refill"] = true
 					lifeos = "LifeOS: Pharmacy reminder: at this pace your refill runs out %d days early. Maybe a good thing to mention to your doctor." % rx_extra_total
 			else:
-				line = "Rx taken. The 47 browser tabs close themselves, emotionally. Focus: on."
+				line = ["Rx taken. The 47 browser tabs close themselves, emotionally. Focus: on.", "Rx taken. Your brain closes the tabs. One stays open. It's always the one about the dishwasher."][day % 2]
 			rx_last_dose = minutes
 			rx_until = minutes + RX_DURATION
 			today["crashed"] = false
