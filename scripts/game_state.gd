@@ -245,6 +245,7 @@ func new_game(seed_value: int = 0) -> void:
 	farm_income_total = 0
 	farm_outages = 0
 	farm_days = 0
+	farm_history = []
 	week_over = false
 	week_stats = {"bedtimes": 0, "tickets": 0, "texts": 0, "gaming_blocks": 0, "drinks": 0, "pouches": 0, "rx_extra": 0}
 	_start_day()
@@ -1272,7 +1273,7 @@ var save_path: String = SAVE_PATH if OS.get_environment("UPTIME_SAVE_TAG") == ""
 const SAVE_VARS := ["day", "energy", "stress", "performance", "closeness", "girls_fed", "girls_connected", "money",
 	"beers", "pouches", "drinks_week", "gum_damage", "rx_pills", "rx_extra_total", "notices_seen", "week_stats",
 	"fridge_drawings", "honesty", "skills", "incidents_week", "plant", "girl_time", "girl_quiet", "hustle", "achievements", "patch_days", "rx_plan", "moments_seen", "clean", "used_ever", "week_moments",
-	"farm", "orders", "boxes", "farm_income_total", "farm_outages", "farm_days"]
+	"farm", "orders", "boxes", "farm_income_total", "farm_outages", "farm_days", "farm_history"]
 
 ## Saves at the start of a day (the game autosaves every morning).
 func save_game(path: String = "") -> bool:
@@ -1353,6 +1354,7 @@ var boxes: Array = []             # delivered, waiting in the garage
 var farm_income_total: int = 0    # net (income - power), all time this week
 var farm_outages: int = 0
 var farm_days: int = 0
+var farm_history: Array = []      # [day, net $, watts, outage cause ("", "power", "heat")]
 
 ## What buying one more of `id` would do right now (shop tooltips: tycoon/homelab pass).
 func item_effect(id: String) -> String:
@@ -1478,17 +1480,20 @@ func _farm_night() -> String:
 	var income := farm_income_day()
 	var bill := farm_bill_day()
 	var note := ""
-	var p := 0.0
-	if farm_has("ups") == 0: p += 0.12
-	if farm_heat() >= 5: p += 0.15
-	if farm_online() > 0 and rng.randf() < p:
+	var p_power := 0.12 if farm_has("ups") == 0 else 0.0
+	var p_heat := 0.15 if farm_heat() >= 5 else 0.0
+	var cause := ""
+	if farm_online() > 0 and rng.randf() < p_power + p_heat:
+		cause = "power" if rng.randf() * (p_power + p_heat) < p_power else "heat"
 		farm_outages += 1
 		income /= 2
 		stress = clampi(stress + 6, 0, 100)
 		closeness = clampi(closeness - 3, 0, 100)
-		note = ["The breaker tripped during the microwave popcorn. Movie night: dark. Servers: also dark.", "Heat alarm at 2 AM. You stood in the garage in boxers with a box fan. Jess filmed it.",
-			"Power blip. No UPS. The RAID is 'rebuilding' and so is your relationship with sleep."][rng.randi() % 3]
-		if farm_has("ups") > 0 and note.contains("No UPS"): note = "Heat alarm at 2 AM. The box fans lost."
+		if cause == "power":
+			note = ["The breaker tripped during the microwave popcorn. Movie night: dark. Servers: also dark.",
+				"Power blip. No UPS. The RAID is 'rebuilding' and so is your relationship with sleep."][rng.randi() % 2]
+		else:
+			note = "Heat alarm at 2 AM. You stood in the garage in boxers with a box fan. Jess filmed it." if farm_has("fans") == 0 else "Heat alarm at 2 AM. The box fans lost."
 		lifeos_message.emit("LifeOS: HOME INCIDENT: " + note)
 	var noise := farm_noise()
 	if noise >= 4:
@@ -1497,4 +1502,11 @@ func _farm_night() -> String:
 	var net := income - bill
 	money += net
 	farm_income_total += net
+	farm_history.append([day, net, farm_watts(), cause])
+	if day == 6:   # Sunday night: the week's power bill
+		var wk := 0
+		for h in farm_history: wk += int(round(int(h[2]) * 24 / 1000.0 * POWER_RATE))
+		if not notices_seen.has("power_bill_%d" % day):
+			notices_seen["power_bill_%d" % day] = true
+			lifeos_message.emit("LifeOS: Brookfield Power & Light: your garage used %d kWh this week ($%d). Jess has opened the bill. Jess has questions." % [int(farm_history.reduce(func(a, h): return a + int(h[2]) * 24 / 1000.0, 0)), wk])
 	return "Garage farm: +$%d income, -$%d power%s%s" % [income, bill, (" · noise %d/10 (Jess noticed)" % noise) if noise >= 4 else "", (" · OUTAGE: " + note) if note != "" else ""]

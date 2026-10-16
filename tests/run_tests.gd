@@ -862,6 +862,10 @@ func farm_tests(gs: Node, main: Node) -> void:
 	gs.farm = {"server": 1, "rack": 1}
 	check(gs.item_effect("switch").contains("unlocks server #2"), "switch shows it unlocks server #2: " + gs.item_effect("switch"))
 	gs.farm = {}
+	gs.new_game(12); gs.farm = {"server": 2, "rack": 1, "switch": 1}
+	for k in 3: gs._farm_night()
+	check(gs.farm_history.size() == 3 and gs.farm_history.all(func(h): return h[3] in ["", "power", "heat"]), "farm history logs nights with outage causes")
+	check(gs.SAVE_VARS.has("farm_history"), "farm history saves")
 	# every action result is a real line, not just the menu label (comedy writer pass)
 	gs.new_game(3); gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
 	var r1: String = gs.do_action("play_girls")

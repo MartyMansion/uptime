@@ -1811,6 +1811,13 @@ func _desk_build(id: String) -> void:
 			bars = ""
 			for k in 10: bars += "█" if k < GameState.farm_noise() else "░"
 			_dl("Noise " + bars, 14, Color(0.3, 0.3, 0.6))
+			if not GameState.farm_history.is_empty():
+				var hist := "This week ($ net per night)\n"
+				for h in GameState.farm_history:
+					var bar := ""
+					for k in clampi(int(h[1]) / 4, 0, 20): bar += "█"
+					hist += "%s  %s $%d%s\n" % [GameState.DAY_NAMES[int(h[0])].left(3), bar, int(h[1]), ("   ⚠ outage: " + str(h[3])) if h[3] != "" else ""]
+				_dl(hist.strip_edges(), 14, Color(0.2, 0.3, 0.2))
 			_dl("Tip: a rack, a switch and the electrician's circuit let more servers run. A UPS keeps blips from becoming outages. Fans fight heat; foam fights Jess's eyebrows.", 14, Color(0.35, 0.3, 0.25))
 
 func _desk_focus() -> void:
