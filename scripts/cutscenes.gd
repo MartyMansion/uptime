@@ -20,7 +20,7 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 			var s: Array = [["loc", "house"], ["dim", false], ["place", "dan", "bed"], ["face", "dan", "down"],
 				["place", "lily", "table_l"], ["place", "june", "table_r"], ["place", "jess", "kitchen_b"]]
 			if d == 0:
-				s += [["lifeos", "Good morning, Dan! You slept 4h 51m. That's 18% more than a Navy SEAL. LifeOS drew a little sun on your to-do list. Let's crush today! (Gently.)"],
+				s += [["lifeos", "Good morning, Dan! You slept 4h 51m. LifeOS has rounded this up to 'a night'. LifeOS drew a little sun on your to-do list. Let's crush today. (Gently. Like a grape.)"],
 					["move", "dan", "kitchen"],
 					["say", "june", "Daddy. My shoes are gone. Forever. Someone took them."],
 					["say", "dan", "Nobody took your shoes, bug. Shoes don't get stolen. They just quietly resign."],
