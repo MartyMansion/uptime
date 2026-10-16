@@ -918,7 +918,7 @@ func _lifeos_comment(id: String) -> String:
 		"bedtime_story":
 			return "LifeOS: Bedtime story logged. This is the good stuff, Dan."
 		"work_ticket":
-			return "LifeOS: Ticket closed! 1 down, ∞ to go. Somebody's day just got easier, though."
+			return "LifeOS: Ticket closed! 1 down, ∞ to go. Somewhere a printer is printing. You did that."
 		"pickup_girls":
 			return "LifeOS: Commute logged. Brayden Kole's 4 AM Club played for 22 min. The girls drowned it out singing. Good."
 	return LIFEOS_TIPS[rng.randi() % LIFEOS_TIPS.size()]
