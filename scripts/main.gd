@@ -778,7 +778,8 @@ func _build_map() -> void:
 	for id in GameState.PLACES:
 		var b := Button.new()
 		b.name = "Place_" + id
-		b.add_theme_font_size_override("font_size", 12)
+		b.add_theme_font_size_override("font_size", 13)
+		b.custom_minimum_size = Vector2(0, 25)   # a11y: click targets >= 24 px
 		var p: Array = GameState.PLACES[id]
 		b.anchor_left = p[1]; b.anchor_right = p[1]; b.anchor_top = p[2]; b.anchor_bottom = p[2]
 		b.grow_horizontal = Control.GROW_DIRECTION_BOTH if p[1] < 0.8 else Control.GROW_DIRECTION_BEGIN
@@ -1566,6 +1567,7 @@ var desk_clock: Label
 var desk_start: PanelContainer
 var desk_tab: Button
 var desk_app_id := ""
+var desk_close_btn: Button
 var cart: Array = []
 var desk_msg := ""
 const DESK_APPS := [["tickets", "▤", "Tickets"], ["games", "♞", "Vapor Games"], ["hustle", "✎", "Bakery Script"], ["pceggo", "◒", "PCEggo"],
@@ -1670,6 +1672,7 @@ func _build_desktop() -> void:
 	desk_title.clip_text = true
 	th.add_child(desk_title)
 	var x := Button.new(); x.text = "✕"; x.pressed.connect(close_window)
+	desk_close_btn = x
 	th.add_child(x)
 	var sc := ScrollContainer.new()
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1687,6 +1690,8 @@ func open_desktop() -> void:
 	desk_msg = ""
 	close_window()
 	desk_clock.text = "%s  %s" % [GameState.day_name().left(3), GameState.clock_text()]
+	var first: Button = desktop.find_child("Icon_tickets", true, false)
+	if first: first.grab_focus()   # keyboard parity: arrows + Enter work on the icons
 	_log("BrookOS boots in 4 seconds. It used to take 90. You did that.")
 
 func close_desktop() -> void:
@@ -1709,6 +1714,10 @@ func _dl(t: String, size := 14, col := INK) -> Label:
 
 ## Opens an app on the desktop (also the API the bots and tests use).
 func desk_app(id: String) -> void:
+	_desk_build(id)
+	if desktop_open() and desk_window.visible: _desk_focus()
+
+func _desk_build(id: String) -> void:
 	match id:
 		"tickets", "games", "hustle":
 			var aid: String = {"tickets": "work_ticket", "games": "gaming", "hustle": "side_hustle"}[id]
@@ -1761,6 +1770,8 @@ func desk_app(id: String) -> void:
 			desk_body.add_child(co)
 			if desk_msg != "": _dl(desk_msg, 13, Color(0.6, 0.2, 0.1))
 		"farm":
+			var r := Button.new(); r.text = "Refresh"; r.pressed.connect(desk_app.bind("farm"))
+			desk_body.add_child(r)
 			_dl(GameState.farm_status(), 15)
 			var bars := ""
 			for k in 10: bars += "█" if k < GameState.farm_heat() else "░"
@@ -1769,6 +1780,11 @@ func desk_app(id: String) -> void:
 			for k in 10: bars += "█" if k < GameState.farm_noise() else "░"
 			_dl("Noise " + bars, 14, Color(0.3, 0.3, 0.6))
 			_dl("Tip: a rack, a switch and the electrician's circuit let more servers run. A UPS keeps blips from becoming outages. Fans fight heat; foam fights Jess's eyebrows.", 13, Color(0.35, 0.3, 0.25))
+
+func _desk_focus() -> void:
+	for b in desk_body.find_children("*", "Button", true, false):
+		(b as Button).grab_focus(); return
+	desk_close_btn.grab_focus()
 
 func _desk_popup(id: String, t: String) -> void:
 	desk_app_id = id

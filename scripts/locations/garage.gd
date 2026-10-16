@@ -2,7 +2,7 @@ extends Location
 ## The Mercer garage: delivered boxes, a workbench, and (eventually) the server farm.
 
 func build() -> void:
-	title = "The garage (Mercer Data Center, est. this week)"
+	title = "The garage"
 	tile("wall", Rect2(0, 0, 320, 16))
 	tile("floor_office", Rect2(0, 16, 320, 184))
 	prop("office_desk", Vector2(20, 30))

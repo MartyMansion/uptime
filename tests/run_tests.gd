@@ -751,8 +751,12 @@ func farm_tests(gs: Node, main: Node) -> void:
 	check(main._current_actions().has("pc") and main._current_actions().has("gaming"), "desk offers the PC plus the old actions")
 	main.perform("pc")
 	check(main.desktop_open() and main.is_busy(), "PC desk opens the desktop")
+	var fo: Control = main.get_viewport().gui_get_focus_owner()
+	check(fo != null and main.desktop.is_ancestor_of(fo), "desktop takes keyboard focus (icons)")
 	main.desk_app("pceggo")
 	check(main.desk_window.visible and main.desk_title.text.begins_with("PCEggo"), "PCEggo window opens")
+	fo = main.get_viewport().gui_get_focus_owner()
+	check(fo != null and main.desk_window.is_ancestor_of(fo), "window takes keyboard focus")
 	main.relayout(); main.relayout()
 	check(main.audit_ui().is_empty(), "desktop audit clean %s" % [main.audit_ui()])
 	for id in ["rackbay", "kevin", "cart", "farm"]:
@@ -768,7 +772,7 @@ func farm_tests(gs: Node, main: Node) -> void:
 	check(main.cart_checkout().begins_with("Card declined") and gs.money == m0 and gs.orders.is_empty(), "checkout refuses when money is short")
 	gs.money = 400
 	main.cart_add("switch"); main.cart_add("electrician")
-	check(main.cart_checkout().begins_with("Order placed") and gs.money == 400 - 60 - 45 - 25 - 140 and gs.orders.size() == 4 and main.cart.is_empty(), "checkout charges and orders")
+	check(main.cart_checkout().begins_with("Order placed") and gs.money == 400 - 55 - 45 - 25 - 95 and gs.orders.size() == 4 and main.cart.is_empty(), "checkout charges and orders")
 	check(gs.boxes.is_empty(), "nothing arrives the same day")
 	main.desk_app("games")
 	check(not main.desktop_open(), "Games icon runs the old gaming action")
@@ -822,7 +826,13 @@ func farm_tests(gs: Node, main: Node) -> void:
 	for k in 40: gs._farm_night()
 	check(no_ups > 0 and gs.farm_outages < no_ups, "home incidents happen; UPS + fans cut them (%d -> %d)" % [no_ups, gs.farm_outages])
 	gs.new_game(6); gs.farm = {"server": 2, "rack": 1, "switch": 1}; gs.farm_income_total = 40; gs.closeness = 60; gs.stress = 20
-	check(gs.ending_id() == "homelab" and gs.ending_text().contains("Mercer Data Center"), "homelab ending reachable")
+	check(gs.ending_id() != "homelab", "2 servers is not a data center (ending tuned)")
+	gs.farm = {"server": 3, "rack": 1, "switch": 1, "electrician": 1}; gs.farm_income_total = 60; gs.girls_connected = 60
+	check(gs.ending_id() == "homelab" and gs.ending_text().contains("Mercer Data Center"), "homelab ending reachable with a real build")
+	gs.farm_outages = 3
+	check(gs.ending_id() != "homelab", "an outage-ridden farm doesn't earn the ending")
+	gs.farm_outages = 0; gs.closeness = 40
+	check(gs.ending_id() != "homelab", "neglecting Jess blocks the ending")
 	check(gs.can_do("pc") != "" and gs.do_action("pc") != "", "UI verbs can't run through do_action")
 	main.in_garage = false
 	gs.new_game(1); main.skip_all_cutscenes(); main.summary_root.visible = false; main.pending_summary = ""; main.sync_location()

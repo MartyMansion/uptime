@@ -1,10 +1,11 @@
 extends "res://tests/playtest_bot.gd"
 ## Persona playtesters: distinct decision policies (incl. imperfect play).
 ##   godot --headless --path . -s res://tests/persona_bot.gd -- <persona> [runs] [outdir]
-## Personas: sysadmin, cozy, speedrunner, newbie, struggling, completionist, paperfan
+## Personas: sysadmin, cozy, speedrunner, newbie, struggling, completionist, paperfan,
+##   homelab (datacenter vet), tycoon (management sim fan), therapist (family therapist), a11y (accessibility/UX), comedy (comedy writer)
 ## Every persona also checks the paper presentation (cards, camera, prompts, banner) at each audit.
 
-const PERSONAS := ["sysadmin", "cozy", "speedrunner", "newbie", "struggling", "completionist", "paperfan"]
+const PERSONAS := ["sysadmin", "cozy", "speedrunner", "newbie", "struggling", "completionist", "paperfan", "homelab", "tycoon", "therapist", "a11y", "comedy"]
 const REAL_CMDS := ["uptime", "journalctl -xe", "dig tc-web01", "top", "ip a", "ping -c 3 tc-web01", "sudo systemctl restart nginx",
 	"curl -I https://tc-web01", "ls", "cat /var/log/syslog", "history", "man ssh", "systemctl status", "free -h", "who", "ps aux", "nmap tc-web01", "host tc-web01", "telnet tc-web01 443", "reboot"]
 const NEWBIE_CMDS := ["fix it", "restart", "help me", "turn it off and on again", "why", "hello?", "ok", "printer", "internet", "cd ..", "please work", "?"]
@@ -67,6 +68,14 @@ func _run() -> void:
 		var n: float = b["n"]
 		f.store_line("BALANCE %s | stress %d perf %d jess %d girls %d | drawings %.1f bedtimes %.1f | drinks %.1f pouches %.1f rx_extra %.1f | money %d" % [k, b["stress"] / n, b["perf"] / n, b["jess"] / n, b["girls"] / n, b["drawings"] / n, b["bedtimes"] / n, b["drinks"] / n, b["pouches"] / n, b["rx_extra"] / n, b["money"] / n])
 	for h in harsh_hits.slice(0, 20): f.store_line("HARSH " + h)
+	if persona in ["comedy", "therapist"]:
+		var ks: Array = lines.keys()
+		ks.sort_custom(func(a, b): return lines[a] > lines[b])
+		f.store_line("UNIQUE_LINES %d  TOTAL_SHOWN %d" % [ks.size(), lines.values().reduce(func(a, b): return a + b, 0)])
+		for k in ks.slice(0, 40): f.store_line("REPEAT %6d | %s" % [lines[k], str(k).replace("\n", " / ").left(220)])
+		var lf := FileAccess.open(outdir + "/lines_%s.txt" % persona, FileAccess.WRITE)
+		for k in ks: lf.store_line("%6d | %s" % [lines[k], str(k).replace("\n", " / ")])
+		lf.close()
 	for p in problems: f.store_line("PROBLEM " + p)
 	f.close()
 	print("PERSONA %s done runs=%d problems=%d" % [persona, stats["runs"], problems.size()])
@@ -93,6 +102,10 @@ func _choice(opts: Array) -> int:
 			"struggling": if randf() < 0.3: inc("pages_taken"); return take
 			_: if randf() < 0.5: inc("pages_taken"); return take
 		return 1 - take
+	if persona == "therapist":
+		for i in labels.size():
+			for w in ["honest", "talk", "sorry", "listen", "ask"]:
+				if w in str(labels[i]).to_lower(): inc("therapist_kind_choice"); return i
 	if persona == "struggling" and gs.day >= 3:
 		for i in labels.size():
 			if "honest" in str(labels[i]): inc("chose_honest"); return i
@@ -119,6 +132,10 @@ func map_pref(strat: String, rng: RandomNumberGenerator) -> Array:
 					if [gs.minutes, gs.phase, gs.at_place, gs.money] != before: bad("locked map place %s changed state" % o[0])
 					inc("locked_map_clicks")
 			var b: Array = gs.PLACES.keys(); b.shuffle(); return b
+		"tycoon": return ["school", "home"]
+		"therapist": return ["park", "school", "diner", "home"]
+		"comedy":
+			var e: Array = gs.PLACES.keys(); e.shuffle(); return e
 		"completionist":
 			var c: Array = gs.PLACES.keys()
 			c.sort_custom(func(x, y): return int(ps.get("visit_" + x, 0)) < int(ps.get("visit_" + y, 0)))
@@ -127,7 +144,7 @@ func map_pref(strat: String, rng: RandomNumberGenerator) -> Array:
 	return super(strat, rng)
 
 func drain(step := false) -> void:
-	if persona == "paperfan" and main.cs_id != "" and randf() < 0.35:
+	if persona in ["paperfan", "comedy", "a11y"] and main.cs_id != "" and randf() < (0.35 if persona == "paperfan" else 0.6):
 		await watch_cutscene()
 	if want_audit != "":
 		var w := want_audit
@@ -142,49 +159,109 @@ func check_state() -> void:
 	if gs.girls_fed == 0: inc("girls_fed_zero_moments")
 	if gs.girls_fed < 25: inc("girls_fed_low_moments")
 
+# Vet: power protection and the circuit before density; cooling before the 3rd box.
+const HOMELAB_PLAN := ["rack", "switch", "server", "ups", "server", "electrician", "server", "fans", "drives", "foam", "nic"]
+
+## Tycoon: greedy ROI. Buys whatever raises daily net the most per dollar right now.
+func _tycoon_plan() -> Array:
+	var best := ""
+	var best_roi := -1.0
+	for id in gs.CATALOG:
+		var saved: Dictionary = gs.farm.duplicate()
+		var base: int = gs.farm_income_day() - gs.farm_bill_day()
+		gs.farm[id] = gs.farm_has(id) + 1
+		for o in gs.orders: gs.farm[o[0]] = gs.farm_has(o[0]) + 1
+		var gain: int = gs.farm_income_day() - gs.farm_bill_day() - base
+		gs.farm = saved
+		var roi: float = (gain + 0.5) / float(gs.CATALOG[id]["price"])
+		if gain > 0 and roi > best_roi: best_roi = roi; best = id
+	if best == "":   # nothing pays alone: unlock the next tier
+		# unlock the bottleneck first: shelf (1) -> rack + switch (2) -> circuit (3+)
+		var on: int = gs.farm_online()
+		var pending := gs.orders.map(func(o): return o[0]) + gs.boxes
+		for id in ["server", "rack", "switch", "electrician"]:
+			if gs.farm_has(id) == 0 and not (id in pending): best = id; break
+		if best == "" and gs.farm_has("server") <= on and not ("server" in pending): best = "server"
+	return [best] if best != "" else []
+
+## Datacenter vet / tycoon: sanity-check the farm model every time they look at it.
+func farm_judge() -> void:
+	inc("farm_judged")
+	var on: int = gs.farm_online()
+	if on > gs.farm_has("server"): bad("more servers online than installed")
+	if gs.farm_has("server") > 0 and gs.farm_watts() < on * 150: bad("farm draws less power than its servers")
+	if gs.farm_bill_day() < 0 or gs.farm_income_day() < 0: bad("negative farm economics")
+	var kwh: float = gs.farm_watts() * 24 / 1000.0
+	if absf(gs.farm_bill_day() - kwh * gs.POWER_RATE) > 1.0: bad("power bill doesn't match draw")
+	if gs.farm_has("fans") > 0 and gs.farm_heat() > on * 2: bad("fans make it hotter")
+	ps["max_online"] = maxi(int(ps.get("max_online", 0)), on)
+	ps["max_watts"] = maxi(int(ps.get("max_watts", 0)), gs.farm_watts())
+	inc("net_day_sum", gs.farm_income_day() - gs.farm_bill_day())
+	inc("net_day_n")
+	if gs.farm_has("server") > gs.farm_online(): inc("idle_server_looks")
+
 const FARM_PLAN := ["server", "rack", "switch", "server", "ups", "fans", "drives", "foam", "electrician", "server", "nic"]
 
 ## Homelab builders: shop on the home PC, build boxes in the garage (exercises the desktop + assembly UI).
 func farm_routine(rng: RandomNumberGenerator) -> void:
-	if not (persona in ["sysadmin", "completionist", "paperfan"]) or main.is_busy(): return
-	if not (gs.phase in ["home_pm", "weekend"]) or rng.randf() > 0.4: return
+	if not (persona in ["sysadmin", "completionist", "paperfan", "homelab", "tycoon"]) or main.is_busy(): return
+	var pro: bool = persona in ["homelab", "tycoon"]
+	var eager := 0.9 if pro else 0.4
+	if not (gs.phase in ["home_pm", "weekend", "home_am"]) or (gs.phase == "home_am" and persona != "tycoon") or rng.randf() > eager: return
+	if pro: farm_judge()
 	if not gs.boxes.is_empty():
 		main.near_station = "garage"; main.perform("go_garage")
 		if main.loc_name != "garage": bad("garage door did not open the garage")
-		main.near_station = "boxes"; main.perform("build_farm")
-		if not main.assembly_open(): bad("boxes did not open the assembly"); return
-		if persona == "paperfan": main.assembly_step(main.asm_order.find(2)); inc("farm_fumbles")
-		main.relayout(); main.relayout()
-		for p in main.audit_ui(): bad("assembly UI: " + p)
-		var n0: int = gs.farm_has(gs.boxes[0])
-		var id: String = gs.boxes[0]
-		main.assembly_auto()
-		if gs.farm_has(id) != n0 + 1: bad("assembly did not install " + id)
-		inc("farm_builds")
+		for k in (3 if pro else 1):
+			if gs.boxes.is_empty() or gs.minutes >= gs.DAY_END - 60: break
+			main.near_station = "boxes"; main.perform("build_farm")
+			if not main.assembly_open(): bad("boxes did not open the assembly"); return
+			if persona == "paperfan": main.assembly_step(main.asm_order.find(2)); inc("farm_fumbles")
+			main.relayout(main.ui); main.relayout(main.ui)
+			for p in main.audit_ui(): bad("assembly UI: " + p)
+			var id: String = gs.boxes[0]
+			var n0: int = gs.farm_has(id)
+			main.assembly_auto()
+			if gs.farm_has(id) != n0 + 1: bad("assembly did not install " + id)
+			inc("farm_builds")
 		main.perform("go_inside")
-		return
+		if main.loc_name == "garage": bad("garage exit did not return to the house")
+		if not pro: return
 	var have := {}
 	for x in gs.farm: have[x] = int(gs.farm[x])
 	for o in gs.orders: have[o[0]] = int(have.get(o[0], 0)) + 1
+	for x in gs.boxes: have[x] = int(have.get(x, 0)) + 1
+	var plan: Array = FARM_PLAN
+	if persona == "homelab": plan = HOMELAB_PLAN
+	elif persona == "tycoon": plan = _tycoon_plan()
+	var reserve := {"tycoon": 0, "homelab": 20}.get(persona, 40)
 	var need := {}
-	for id in FARM_PLAN:
+	var buy: Array = []
+	var budget: int = gs.money - reserve
+	for id in plan:
 		need[id] = int(need.get(id, 0)) + 1
 		if int(need[id]) > int(have.get(id, 0)):
-			if gs.CATALOG[id]["price"] > gs.money - 40: return
-			main.near_station = "desk"; main.perform("pc")
-			if not main.desktop_open(): bad("PC did not open the desktop"); return
-			main.desk_app(gs.CATALOG[id]["shop"])
-			main.relayout(); main.relayout()
-			for p in main.audit_ui(): bad("desktop UI: " + p)
-			main.cart_add(id)
-			main.desk_app("cart")
-			var m0: int = gs.money
-			var res: String = main.cart_checkout()
-			if not res.begins_with("Order placed") or gs.money != m0 - int(gs.CATALOG[id]["price"]): bad("checkout failed: " + res)
-			inc("farm_orders")
-			main.desk_app("farm")
-			main.close_desktop()
-			return
+			if int(gs.CATALOG[id]["price"]) > budget:
+				inc("farm_cant_afford"); break
+			buy.append(id); budget -= int(gs.CATALOG[id]["price"])
+			if not pro: break
+	if buy.is_empty(): return
+	main.near_station = "desk"; main.perform("pc")
+	if not main.desktop_open(): bad("PC did not open the desktop"); return
+	var cost := 0
+	for id in buy:
+		main.desk_app(gs.CATALOG[id]["shop"])
+		main.relayout(main.ui); main.relayout(main.ui)
+		for p in main.audit_ui(): bad("desktop UI: " + p)
+		main.cart_add(id); cost += int(gs.CATALOG[id]["price"])
+	main.desk_app("cart")
+	var m0: int = gs.money
+	var res: String = main.cart_checkout()
+	if not res.begins_with("Order placed") or gs.money != m0 - cost: bad("checkout failed: " + res)
+	inc("farm_orders", buy.size())
+	inc("farm_checkouts")
+	main.desk_app("farm")
+	main.close_desktop()
 
 func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String:
 	farm_routine(rng)
@@ -222,6 +299,26 @@ func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String
 			# here for the craft: goes where the sets and cutscenes are, walks around a lot
 			if main.loc and rng.randf() < 0.25: stroll(rng)
 			return super("stardew", allowed, rng)
+		"homelab":
+			pref = ["feed_girls", "leave_for_work", "rx_dose", "work_ticket", "head_home", "pickup_girls", "text_jess", "family_dinner", "bedtime_story", "sleep"]
+			if gs.today.get("rx_dose", 0) >= 1: pref.erase("rx_dose")
+			if gs.today.get("tickets", 0) >= 3: pref.erase("work_ticket")
+			if gs.minutes < 1170 and gs.today.get("bedtime_story", 0) == 0: pref.erase("sleep")
+		"tycoon":
+			# min-maxer: money first, family is "upkeep" (one text, bedtime only if cheap)
+			pref = ["cereal", "leave_for_work", "rx_dose", "work_ticket", "side_hustle", "head_home", "pickup_girls", "work_ticket", "sleep"]
+			if gs.today.get("text_jess", 0) == 0: pref.push_front("text_jess")
+			if gs.today.get("rx_dose", 0) >= 1: pref.erase("rx_dose")
+			if gs.minutes < 1080: pref.erase("sleep")
+		"therapist":
+			if gs.day == 0 and gs.today.get("drink", 0) < 1 and "drink" in allowed: inc("therapist_slip"); return "drink"   # tests the relapse/recovery thread
+			return super("quitter" if gs.day < 4 else "family_first", allowed, rng)
+		"a11y":
+			if gs.phase in ["home_pm", "weekend"] and rng.randf() < 0.15: a11y_desktop()
+			return super("stardew" if rng.randf() < 0.6 else "balanced", allowed, rng)
+		"comedy":
+			# wants to see every bit: random-ish, but makes sure set pieces happen
+			return super("random" if rng.randf() < 0.4 else ("heavy" if rng.randf() < 0.2 else "stardew"), allowed, rng)
 		"newbie":
 			return super("balanced", allowed, rng) if rng.randf() < 0.7 else allowed[rng.randi() % allowed.size()]
 		"speedrunner":
@@ -346,6 +443,35 @@ func play_terminal(strat: String, rng: RandomNumberGenerator) -> void:
 					var sug: Array[String] = main.term.suggestions(false)
 					main.term_submit(sug[rng.randi() % sug.size()].trim_suffix(" …"), false)
 				await _solve(rng.randf() < 0.5, 40)
+		"homelab", "tycoon":
+			if persona == "tycoon" and main.autopilot_allowed() and rng.randf() < 0.5:
+				main.term_autopilot(); stats["t_autopilot"] = int(stats.get("t_autopilot", 0)) + 1
+			else:
+				await _solve(false, 40)
+		"therapist":
+			if main.autopilot_allowed() and rng.randf() < 0.7:
+				main.term_autopilot(); stats["t_autopilot"] = int(stats.get("t_autopilot", 0)) + 1
+			else:
+				main.term_hint(); await _solve(true, 40)
+		"a11y":
+			# keyboard only: type, Tab-complete, Enter; H for a hint
+			var g := 0
+			while main.term_open() and main.term != null and not main.term_done and g < 40:
+				g += 1
+				var ns: String = main.term.next_step()
+				main.term_input.text = ns.substr(0, mini(3, ns.length())); main.term_tab()
+				if not ns.begins_with(main.term_input.text.strip_edges()): inc("a11y_tab_wrong")
+				main.term_input.text = ns
+				main.term_submit(main.term_input.text, false)
+				if g == 1 and rng.randf() < 0.3: main.term_input.release_focus(); _key(KEY_H); inc("a11y_hint_key")
+			if main.term_open() and main.term_done:
+				if main.inc_id != "": stats["inc_breached"] = int(stats.get("inc_breached", 0)) + (1 if main.inc_breached else 0); inc("inc_by_hand")
+				_key(KEY_ENTER)
+				if main.term_open(): bad("Enter does not close a finished ticket"); main.term_close(true)
+		"comedy":
+			if rng.randf() < 0.5: main.term_hint()
+			main.term_submit(NEWBIE_CMDS[rng.randi() % NEWBIE_CMDS.size()], false)
+			await _solve(rng.randf() < 0.5, 40)
 		"completionist":
 			if main.autopilot_allowed() and rng.randf() < 0.1:
 				main.term_autopilot(); stats["t_autopilot"] = int(stats.get("t_autopilot", 0)) + 1
@@ -484,6 +610,8 @@ func watch_cutscene() -> void:
 				inc("lines_watched")
 				var t: String = main.dialog_text.text
 				inc("chars_watched", t.length())
+				if persona == "comedy": note("SAY %s: %s" % [main.talk_who, t])
+				if persona == "a11y" and main.dialog_text.get_theme_font_size("font_size") < 14: bad("dialogue font below 14px")
 				if t.length() > 150: inc("long_lines")
 				if t.ends_with("?") or t.ends_with("!") or t.ends_with("."): inc("lines_with_button")
 				var sp: String = main.talk_who
@@ -511,3 +639,61 @@ func cam_in_banner(p: Vector3) -> bool:
 	var wr: Rect2 = main.world_slot.get_global_rect()
 	var gp := wr.position + sp * (wr.size / sz)
 	return r.has_point(gp)
+
+
+# ------------------------------------------------------------ accessibility / UX tester
+const KEY_FOR := {"text_jess": KEY_T, "pouch": KEY_P, "rx_dose": KEY_R, "breathe": KEY_B}
+
+## Keyboard-only play: walk to the station, press its number (or the global key).
+func act(a: String) -> void:
+	if persona != "a11y":
+		main.perform(a); return
+	if KEY_FOR.has(a):
+		_key(KEY_FOR[a]); inc("a11y_global_key"); return
+	if main.loc:
+		for sid in main.loc.stations:
+			if a in main.loc.stations[sid]["actions"]:
+				main.dan.position = (main.loc.stations[sid]["rect"] as Rect2).get_center()
+				main._process(0.0)
+				var idx: int = main._current_actions().find(a)
+				if main.near_station != sid: inc("a11y_station_miss")
+				elif idx < 0 or idx > 3: bad("%s at %s is not on keys 1-4 (%s)" % [a, sid, main._current_actions()])
+				else:
+					_key((KEY_1 + idx) as Key); inc("a11y_keyed"); _ui_scan("act"); return
+	inc("a11y_mouse_only_" + a)
+	main.perform(a)
+
+## Opens the PC with the keyboard and checks focus, then Esc out.
+func a11y_desktop() -> void:
+	if main.is_busy() or main.loc_name != "house": return
+	act("pc")
+	if not main.desktop_open(): bad("keyboard: PC desk did not open the desktop"); return
+	inc("a11y_desktop")
+	var fo: Control = root.get_viewport().gui_get_focus_owner()
+	if fo == null or not main.desktop.is_ancestor_of(fo): bad("desktop opens without keyboard focus")
+	main.desk_app(["pceggo", "rackbay", "kevin", "cart", "farm"][randi() % 5])
+	main.relayout(main.ui); main.relayout(main.ui)
+	fo = root.get_viewport().gui_get_focus_owner()
+	if fo == null or not main.desk_window.is_ancestor_of(fo): bad("window opens without keyboard focus (%s)" % main.desk_app_id)
+	_ui_scan("desktop " + main.desk_app_id)
+	_key(KEY_ESCAPE)
+	if main.desk_window.visible: bad("Esc does not close the window")
+	_key(KEY_ESCAPE)
+	if main.desktop_open(): bad("Esc does not close the desktop"); main.close_desktop()
+
+## Readability scan of visible UI: font sizes, click-target sizes.
+func _ui_scan(where: String) -> void:
+	if persona != "a11y": return
+	inc("a11y_scans")
+	var stack: Array = [main.ui]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is CanvasItem and not (n as CanvasItem).is_visible_in_tree(): continue
+		for c in n.get_children(): stack.append(c)
+		if n is Label or n is Button:
+			var fs: int = (n as Control).get_theme_font_size("font_size")
+			if fs < 12: bad("font %dpx below 12 in %s: '%s'" % [fs, where, str(n.text).left(30)])
+			elif fs < 14: ps["small_font_" + str(fs)] = int(ps.get("small_font_" + str(fs), 0)) + 1
+		if n is Button and (n as Button).is_visible_in_tree():
+			var r := (n as Button).get_global_rect()
+			if r.size.y > 0 and r.size.y < 24: bad("click target %dpx tall in %s: '%s'" % [int(r.size.y), where, (n as Button).text.left(20)])

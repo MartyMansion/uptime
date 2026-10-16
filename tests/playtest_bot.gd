@@ -126,6 +126,10 @@ func check_state() -> void:
 		bad("location %s doesn't match phase %s" % [main.loc_name, gs.phase])
 
 ## Strategy: choose the next action from what's allowed right now.
+## How the bot carries out an action (personas override, e.g. keyboard-only play).
+func act(a: String) -> void:
+	main.perform(a)
+
 func choose(strat: String, allowed: Array, rng: RandomNumberGenerator) -> String:
 	var ph: String = gs.phase
 	var pref: Array = []
@@ -336,7 +340,7 @@ func play_week(strat: String, seed_v: int) -> void:
 			if a == "text_jess" and rng.randf() < 0.5:
 				main.queue_cutscene("phone")   # the T key path: phone overlay with reply choices
 			else:
-				main.perform(a)
+				act(a)
 			if main.assembly_open(): main.assembly_auto()
 			if main.desktop_open(): main.close_desktop()
 			if main.term_open():

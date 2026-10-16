@@ -1037,7 +1037,7 @@ func ending_id() -> String:
 		return "crispy"
 	if subs > 0 and (clean["drink"] >= 2 or clean["pouch"] >= 2 or clean["rx_extra"] >= 2):
 		return "turning"
-	if farm_online() >= HOMELAB_SERVERS and farm_income_total >= HOMELAB_NET and closeness >= 40:
+	if homelab_earned():
 		return "homelab"
 	if closeness >= 70 and girls_connected >= 70 and stress <= 50:
 		return "cozy"
@@ -1308,25 +1308,34 @@ func delete_save(path: String = "") -> void:
 ## Parody shops (original names). price $, watts drawn, "box": arrives as a box to build in the garage.
 const SHOPS := {"pceggo": "PCEggo", "rackbay": "RackBay", "kevin": "Kilowatt Kevin's Power & Cooling"}
 const CATALOG := {
-	"server": {"name": "Refurb 1U server (2x Xeon, smells like 2016)", "shop": "pceggo", "price": 60, "watts": 180, "box": true},
+	"server": {"name": "Refurb 1U server (2x Xeon, smells like 2016)", "shop": "pceggo", "price": 55, "watts": 180, "box": true},
 	"drives": {"name": "4x used 2 TB drives (low hours, allegedly)", "shop": "pceggo", "price": 35, "watts": 20, "box": true},
 	"nic": {"name": "10GbE NIC 2-pack (one works great)", "shop": "pceggo", "price": 20, "watts": 10, "box": true},
 	"rack": {"name": "12U open-frame rack (some assembly, all regret)", "shop": "rackbay", "price": 45, "watts": 0, "box": true},
 	"switch": {"name": "24-port managed switch (ex-bank, LOUD)", "shop": "rackbay", "price": 25, "watts": 40, "box": true},
-	"ups": {"name": "1500VA UPS (new battery, old everything else)", "shop": "rackbay", "price": 70, "watts": 10, "box": true},
+	"ups": {"name": "1500VA UPS (new battery, old everything else)", "shop": "rackbay", "price": 60, "watts": 10, "box": true},
 	"fans": {"name": "Box-fan cooling wall (4 fans + zip ties)", "shop": "kevin", "price": 25, "watts": 120, "box": true},
 	"foam": {"name": "Acoustic foam panels (noise down, dignity down)", "shop": "kevin", "price": 18, "watts": 0, "box": true},
-	"electrician": {"name": "Electrician visit: dedicated 20 A circuit", "shop": "kevin", "price": 140, "watts": 0, "box": false},
+	"electrician": {"name": "Electrician visit: dedicated 20 A circuit", "shop": "kevin", "price": 95, "watts": 0, "box": false},
 }
 const POWER_RATE := 0.16          # $/kWh
-const HOMELAB_SERVERS := 2
-const HOMELAB_NET := 20
+# Tuned after the 12-persona pass: the ending was too easy (any 2 servers). Now it needs a real
+# build (3 online = rack + switch + electrician), a farm that paid for itself, few outages, and a
+# marriage that survived it.
+const HOMELAB_SERVERS := 3
+const HOMELAB_NET := 30
+const HOMELAB_MAX_OUTAGES := 1
+const HOMELAB_CLOSENESS := 50
 var farm := {}                    # item id -> installed count
 var orders: Array = []            # [item id, delivery day]
 var boxes: Array = []             # delivered, waiting in the garage
 var farm_income_total: int = 0    # net (income - power), all time this week
 var farm_outages: int = 0
 var farm_days: int = 0
+
+func homelab_earned() -> bool:
+	return farm_online() >= HOMELAB_SERVERS and farm_income_total >= HOMELAB_NET and farm_outages <= HOMELAB_MAX_OUTAGES \
+		and closeness >= HOMELAB_CLOSENESS and girls_connected >= 40
 
 func farm_has(id: String) -> int:
 	return int(farm.get(id, 0))
@@ -1354,7 +1363,7 @@ func farm_noise() -> int:     # 0..10
 
 func farm_income_day() -> int:
 	var on := farm_online()
-	return on * 9 + mini(farm_has("drives"), on) * 4 + (2 if farm_has("nic") > 0 and on > 0 else 0)
+	return on * 14 + mini(farm_has("drives"), on) * 4 + (2 if farm_has("nic") > 0 and on > 0 else 0)
 
 func farm_bill_day() -> int:
 	return int(round(farm_watts() * 24 / 1000.0 * POWER_RATE))
