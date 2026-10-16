@@ -854,6 +854,7 @@ func farm_tests(gs: Node, main: Node) -> void:
 	check(main.hud_clock.get_theme_font_size("font_size") == 30, "text size 150% scales HUD fonts")
 	main.set_text_scale(1.0)
 	check(main.hud_clock.get_theme_font_size("font_size") == 20, "text size back to 100%")
+	check(main.type_cps == 48.0, "default text speed 48 cps")
 	# every action result is a real line, not just the menu label (comedy writer pass)
 	gs.new_game(3); gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
 	var r1: String = gs.do_action("play_girls")

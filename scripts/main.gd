@@ -28,6 +28,7 @@ var talk_who := ""               # who is speaking (mouth flaps follow the typew
 var talk_flap := 0.0
 var _type_t := 0.0
 const TYPE_CPS := 48.0
+var type_cps := TYPE_CPS          # F3: 48 / 96 / instant (a11y)
 const INK := Color(0.13, 0.1, 0.1)
 const PAPER := Color(0.99, 0.96, 0.87)
 const KRAFT := Color(0.8, 0.64, 0.44)
@@ -960,7 +961,7 @@ func _type_tick(delta: float) -> void:
 	if dialog_text.visible_characters < 0 or dialog_text.visible_characters >= total:
 		dialog_text.visible_characters = -1
 		return
-	_type_t += delta * TYPE_CPS
+	_type_t += delta * (type_cps if type_cps > 0 else 100000.0)
 	while _type_t >= 1.0 and dialog_text.visible_characters < total:
 		_type_t -= 1.0
 		dialog_text.visible_characters += 1
@@ -1189,6 +1190,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_F2:
 			set_text_scale([1.0, 1.25, 1.5][([1.0, 1.25, 1.5].find(text_scale) + 1) % 3])
 			show_lifeos("LifeOS: Text size %d%%. Squinting is optional now." % int(text_scale * 100))
+		KEY_F3:
+			type_cps = {48.0: 96.0, 96.0: 0.0, 0.0: 48.0}.get(type_cps, 48.0)
+			show_lifeos("LifeOS: Text speed: %s." % ("instant" if type_cps == 0 else "%d characters/s" % int(type_cps)))
 		KEY_F6:
 			show_lifeos("LifeOS: Saved (the morning of %s; F7 rewinds to it). Your progress is safe. Your inbox is not." % GameState.day_name() if GameState.save_game() else "LifeOS: Save failed. Classic.")
 		KEY_F7:
