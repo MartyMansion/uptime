@@ -85,7 +85,7 @@ func _run() -> void:
 func _harsh(t: String) -> void:
 	var low := t.to_lower()
 	for w in HARSH:
-		if w in low and harsh_hits.size() < 50:
+		if RegEx.create_from_string("\\b" + w + "\\b").search(low) != null and harsh_hits.size() < 50:   # word match ("closer" is not "loser")
 			harsh_hits.append("%s :: %s" % [w, t])
 
 ## Choice policy per persona (applied when cutscene choices are skipped).
@@ -160,7 +160,7 @@ func check_state() -> void:
 	if gs.girls_fed < 25: inc("girls_fed_low_moments")
 
 # Vet: power protection and the circuit before density; cooling before the 3rd box.
-const HOMELAB_PLAN := ["rack", "switch", "server", "ups", "server", "electrician", "server", "fans", "drives", "foam", "nic"]
+const HOMELAB_PLAN := ["rack", "switch", "server", "server", "ups", "electrician", "server", "fans", "drives", "foam", "nic"]
 
 ## Tycoon: greedy ROI. Buys whatever raises daily net the most per dollar right now.
 func _tycoon_plan() -> Array:
@@ -177,11 +177,11 @@ func _tycoon_plan() -> Array:
 		if gain > 0 and roi > best_roi: best_roi = roi; best = id
 	if best == "":   # nothing pays alone: unlock the next tier
 		# unlock the bottleneck first: shelf (1) -> rack + switch (2) -> circuit (3+)
-		var on: int = gs.farm_online()
 		var pending: Array = gs.orders.map(func(o): return o[0]) + gs.boxes
-		for id in ["server", "rack", "switch", "electrician"]:
+		for id in ["server", "rack", "switch"]:
 			if gs.farm_has(id) == 0 and not (id in pending): best = id; break
-		if best == "" and gs.farm_has("server") <= on and not ("server" in pending): best = "server"
+		if best == "" and not ("server" in pending) and not ("electrician" in pending):
+			best = "electrician" if gs.farm_has("server") >= 2 and gs.farm_has("electrician") == 0 else "server"
 	return [best] if best != "" else []
 
 ## Datacenter vet / tycoon: sanity-check the farm model every time they look at it.
@@ -214,6 +214,7 @@ func farm_routine(rng: RandomNumberGenerator) -> void:
 		if main.loc_name != "garage": bad("garage door did not open the garage")
 		for k in (3 if pro else 1):
 			if gs.boxes.is_empty() or gs.minutes >= gs.DAY_END - 60: break
+			if gs.can_do("build_farm") != "": inc("farm_build_blocked"); break   # too tired / too late: the game says why
 			main.near_station = "boxes"; main.perform("build_farm")
 			if not main.assembly_open(): bad("boxes did not open the assembly"); return
 			if persona == "paperfan": main.assembly_step(main.asm_order.find(2)); inc("farm_fumbles")
@@ -234,7 +235,7 @@ func farm_routine(rng: RandomNumberGenerator) -> void:
 	var plan: Array = FARM_PLAN
 	if persona == "homelab": plan = HOMELAB_PLAN
 	elif persona == "tycoon": plan = _tycoon_plan()
-	var reserve: int = {"tycoon": 0, "homelab": 20}.get(persona, 40)
+	var reserve: int = {"tycoon": 0, "homelab": 0}.get(persona, 40)
 	var need := {}
 	var buy: Array = []
 	var budget: int = gs.money - reserve

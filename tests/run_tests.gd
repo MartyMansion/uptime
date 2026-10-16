@@ -831,7 +831,7 @@ func farm_tests(gs: Node, main: Node) -> void:
 	check(gs.ending_id() == "homelab" and gs.ending_text().contains("Mercer Data Center"), "homelab ending reachable with a real build")
 	gs.closeness = 80; gs.girls_connected = 80; gs.stress = 20
 	check(gs.ending_id() == "cozy", "a thriving family week outranks a modest farm")
-	gs.farm_income_total = 95
+	gs.farm_income_total = 150
 	check(gs.ending_id() == "homelab", "a real little business outranks cozy")
 	gs.closeness = 60; gs.girls_connected = 60; gs.farm_income_total = 60
 	gs.farm_outages = 3
