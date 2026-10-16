@@ -983,21 +983,30 @@ func _place_banner() -> void:
 	var ws := world_slot.size
 	var bot_n := 0
 	var top_n := 0
+	var bh := 138.0
 	if vp_size.x > 10:
-		var h := 138.0 * vp_size.y / maxf(1.0, ws.y)
-		for p in diorama.banner_keepouts(talk_who):
-			if p.y > vp_size.y - h: bot_n += 1
-			if p.y < h: top_n += 1
+		var pts := diorama.banner_keepouts(talk_who)
+		for hh in [138.0, 104.0]:   # both sides blocked? try the compact banner (pass 3: signs under the banner)
+			bh = hh
+			var h: float = hh * vp_size.y / maxf(1.0, ws.y)
+			bot_n = 0; top_n = 0
+			for p in pts:
+				if p.y > vp_size.y - h: bot_n += 1
+				if p.y < h: top_n += 1
+			if top_n == 0 or bot_n == 0: break
 	var want_top := top_n < bot_n
 	banner_top = want_top
+	compact_banner = bh < 138.0
 	if banner_top:
 		dialog_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
 		dialog_panel.offset_left = 16; dialog_panel.offset_right = -16
-		dialog_panel.offset_top = 10; dialog_panel.offset_bottom = 138
+		dialog_panel.offset_top = 10; dialog_panel.offset_bottom = 10 + bh - 10
 	else:
 		dialog_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 		dialog_panel.offset_left = 16; dialog_panel.offset_right = -16
-		dialog_panel.offset_top = -138; dialog_panel.offset_bottom = -10
+		dialog_panel.offset_top = -bh; dialog_panel.offset_bottom = -10
+
+var compact_banner := false
 
 func typing() -> bool:
 	return dialog_panel.visible and cs_waiting == "say" and dialog_text.visible_characters >= 0 and dialog_text.visible_characters < dialog_text.get_total_character_count()
