@@ -990,7 +990,7 @@ func _place_banner() -> void:
 	var bh := 138.0
 	if vp_size.x > 10:
 		var pts := diorama.banner_keepouts(talk_who)
-		for hh in [138.0, 104.0]:   # both sides blocked? try the compact banner (pass 3: signs under the banner)
+		for hh in [138.0, 116.0]:   # both sides blocked? try the compact banner (pass 3: signs under the banner)
 			bh = hh
 			var h: float = hh * vp_size.y / maxf(1.0, ws.y)
 			bot_n = 0; top_n = 0
@@ -1001,6 +1001,8 @@ func _place_banner() -> void:
 	var want_top := top_n < bot_n
 	banner_top = want_top
 	compact_banner = bh < 138.0
+	dialog_hint.visible = not compact_banner   # pass 3: the compact banner drops the key hint so nothing spills out
+	dialog_panel.grow_vertical = Control.GROW_DIRECTION_END if banner_top else Control.GROW_DIRECTION_BEGIN
 	if banner_top:
 		dialog_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
 		dialog_panel.offset_left = 16; dialog_panel.offset_right = -16
