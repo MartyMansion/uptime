@@ -1111,7 +1111,8 @@ func skill_progress(cat: String) -> Array:
 	return [xp - SKILL_LEVELS[lv - 1], SKILL_LEVELS[lv] - SKILL_LEVELS[lv - 1]]
 
 func autopilot_unlocked(cat: String) -> bool:
-	return skill_level(cat) >= PROFICIENT and not on_pip()
+	# On a PIP, autopilot is allowed once per day (the newbie needed it most exactly then).
+	return skill_level(cat) >= PROFICIENT and (not on_pip() or not today.get("pip_autopilot", false))
 
 ## Hints per ticket: 2 + level/2 (1 when running on fumes).
 func max_hints(cat: String) -> int:

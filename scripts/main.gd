@@ -85,6 +85,7 @@ var term_input: LineEdit
 var term_suggest: HFlowContainer
 var term_status: Label
 var term_hint_btn: Button
+var term_show_btn: Button
 var term_done := false
 var term_xp_bar: ProgressBar
 var term_xp_label: Label
@@ -104,7 +105,7 @@ var inc_budget := 90
 var inc_optimal := 0
 var inc_slack := INC_SLACK
 const INC_CMD_MIN := 4
-const SLACK_BY_LEVEL := [[12, 28], [12, 28], [12, 28], [10, 24], [8, 20], [6, 16]]   # index = avg skill level
+const SLACK_BY_LEVEL := [[22, 38], [22, 38], [16, 32], [10, 24], [8, 20], [6, 16]]   # index = avg skill level
 const CURVEBALL_P := 0.2
 const CURVEBALLS := [["Gary walks over to ask for an ETA. Then asks again.", 5], ["The vendor puts you on hold. The hold music is a ukulele.", 8],
 	["Karen forwards the suspicious email to 'all staff' to ask if it's suspicious.", 4], ["Your laptop picks now to install updates.", 6], ["The CEO joins the bridge call to 'listen in'.", 5]]
@@ -122,7 +123,7 @@ static func hint_cost(level: int) -> int:
 	return 2 if level <= 2 else (4 if level == 3 else INC_HINT_MIN)
 
 static func incident_slack(level: int, rng: RandomNumberGenerator) -> int:
-	var r: Array = SLACK_BY_LEVEL[clampi(level, 1, 5)]
+	var r: Array = SLACK_BY_LEVEL[clampi(level, 0, 5)]
 	return rng.randi_range(r[0], r[1])
 var summary_kind := ""     # "", "week", "postmortem"
 var term_rng := RandomNumberGenerator.new()
@@ -471,6 +472,7 @@ func _build_terminal() -> void:
 	br.add_theme_constant_override("separation", 8)
 	v.add_child(br)
 	term_hint_btn = Button.new(); term_hint_btn.text = "Hint (H)"; term_hint_btn.pressed.connect(term_hint); br.add_child(term_hint_btn)
+	term_show_btn = Button.new(); term_show_btn.text = "Show me (S)"; term_show_btn.pressed.connect(term_showme); br.add_child(term_show_btn)
 	var ap := Button.new(); ap.text = "Autopilot (worse results)"; ap.pressed.connect(term_autopilot); br.add_child(ap)
 	term_ap_btn = ap
 	var wa := Button.new(); wa.text = "Walk away (Esc)"; wa.pressed.connect(term_close.bind(false)); br.add_child(wa)
@@ -575,6 +577,7 @@ func _term_refresh() -> void:
 			b.pressed.connect(func(): _term_click(cmd))
 			term_suggest.add_child(b)
 	term_hint_btn.disabled = term_done or (not focus and term.hints_used >= _max_hints())
+	term_show_btn.disabled = term_hint_btn.disabled
 	term_status.text = "Estimated grade: %s" % term.grade().capitalize() if not term_done else "Solved! Grade: %s" % term.grade().capitalize()
 
 func _term_click(cmd: String) -> void:
@@ -661,6 +664,23 @@ func _inc_check_breach() -> bool:
 		return true
 	return false
 
+## "Show me": runs the next step for you and says what it was, so it teaches (costs a hint).
+func term_showme() -> void:
+	if term == null or term_done:
+		return
+	var focus := GameState.rx_active()
+	if not focus and term.hints_used >= _max_hints():
+		return
+	var cmd: String = term.next_step()
+	term.hints_used += 0 if focus else 1
+	if inc_id != "":
+		inc_used += hint_cost(incident_level(inc_id)) / (2 if focus else 1)
+	term.log_lines.append("Show me: this step is  %s  (next time type the first letters and press Tab)." % cmd)
+	shown_steps += 1
+	term_submit(cmd, true)
+
+var shown_steps := 0
+
 func term_hint() -> void:
 	if term == null or term_done:
 		return
@@ -701,6 +721,7 @@ func term_autopilot() -> void:
 		return
 	if not autopilot_allowed():
 		return
+	if GameState.on_pip(): GameState.today["pip_autopilot"] = true
 	if inc_id != "":
 		_finish_incident(true)
 		return
@@ -1130,6 +1151,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			term_close(false)
 		elif term_done and (k == KEY_ENTER or k == KEY_KP_ENTER or k == KEY_SPACE):
 			term_close(true)
+		elif k == KEY_S and not term_input.has_focus():
+			term_showme()
 		elif k == KEY_H and not term_input.has_focus():
 			term_hint()
 		return

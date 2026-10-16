@@ -262,7 +262,10 @@ func _process(_d: float) -> bool:
 	gs.performance = 20; gs.end_day()
 	check(gs.on_pip() and not gs.autopilot_unlocked("dns") or gs.skill_level("dns") < 3, "perf < 25: PIP")
 	gs.skills["dns"] = 300
-	check(gs.on_pip() and not gs.autopilot_unlocked("dns"), "PIP suspends autopilot even at max skill")
+	check(gs.on_pip() and gs.autopilot_unlocked("dns"), "PIP: one autopilot a day still allowed (newbie mercy)")
+	gs.today["pip_autopilot"] = true
+	check(not gs.autopilot_unlocked("dns"), "PIP suspends autopilot after the daily one")
+	gs.today.erase("pip_autopilot")
 	gs.performance = 90; gs.end_day()
 	check(not gs.on_pip() and gs.autopilot_unlocked("dns"), "back over 40: Plan closed, autopilot restored")
 	gs.new_game(202); gs.day = 4; gs.performance = 100
