@@ -758,7 +758,7 @@ func do_action(id: String) -> String:
 			today["gaming"] += 1
 			if minutes >= 1320 and minutes <= DAY_END - 30:
 				pending_choice = "one_more"
-			line = "One more match. Stress down. Time: gone. Into the void. Worth it, probably."
+			line = "One more match. Stress down. Time: gone. Worth it, probably."
 		"drink":
 			beers -= 1
 			used_ever["drink"] = true
