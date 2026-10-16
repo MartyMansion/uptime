@@ -855,6 +855,13 @@ func farm_tests(gs: Node, main: Node) -> void:
 	main.set_text_scale(1.0)
 	check(main.hud_clock.get_theme_font_size("font_size") == 20, "text size back to 100%")
 	check(main.type_cps == 48.0, "default text speed 48 cps")
+	gs.new_game(4)
+	check(gs.item_effect("rack").contains("unlocks") or gs.item_effect("switch").contains("unlocks") or gs.item_effect("server").contains("+1 online"), "shop shows what an item unlocks: %s / %s" % [gs.item_effect("server"), gs.item_effect("rack")])
+	gs.farm = {"server": 1}
+	check(gs.item_effect("server").contains("won't run yet"), "second server warns it needs a rack + switch")
+	gs.farm = {"server": 1, "rack": 1}
+	check(gs.item_effect("switch").contains("unlocks server #2"), "switch shows it unlocks server #2: " + gs.item_effect("switch"))
+	gs.farm = {}
 	# every action result is a real line, not just the menu label (comedy writer pass)
 	gs.new_game(3); gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
 	var r1: String = gs.do_action("play_girls")

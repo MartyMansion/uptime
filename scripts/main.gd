@@ -1775,7 +1775,7 @@ func _desk_build(id: String) -> void:
 				if it["shop"] != id: continue
 				var row := HBoxContainer.new()
 				desk_body.add_child(row)
-				var l := _label("%s — $%d%s" % [it["name"], it["price"], ("  · %d W" % it["watts"]) if it["watts"] > 0 else ""], 14, true)
+				var l := _label("%s — $%d%s\n   → %s" % [it["name"], it["price"], ("  · %d W" % it["watts"]) if it["watts"] > 0 else "", GameState.item_effect(iid)], 14, true)
 				l.add_theme_color_override("font_color", INK)
 				l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				l.custom_minimum_size = Vector2(440, 0)

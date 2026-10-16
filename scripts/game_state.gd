@@ -1354,6 +1354,34 @@ var farm_income_total: int = 0    # net (income - power), all time this week
 var farm_outages: int = 0
 var farm_days: int = 0
 
+## What buying one more of `id` would do right now (shop tooltips: tycoon/homelab pass).
+func item_effect(id: String) -> String:
+	var saved: Dictionary = farm.duplicate()
+	for o in orders: farm[o[0]] = farm_has(o[0]) + 1
+	for b in boxes: farm[b] = farm_has(b) + 1
+	var on0 := farm_online(); var inc0 := farm_income_day() - farm_bill_day(); var h0 := farm_heat(); var n0 := farm_noise()
+	var cap0 := _cap_with(farm_has("server") + 9)
+	farm[id] = farm_has(id) + 1
+	var on1 := farm_online(); var inc1 := farm_income_day() - farm_bill_day(); var h1 := farm_heat(); var n1 := farm_noise()
+	var cap1 := _cap_with(farm_has("server") + 9)
+	farm = saved
+	var bits: Array[String] = []
+	if on1 > on0: bits.append("+%d online" % (on1 - on0))
+	if inc1 != inc0: bits.append("%+d $/day" % (inc1 - inc0))
+	if cap1 > cap0: bits.append("unlocks server #%d" % (cap0 + 1))
+	if id == "ups": bits.append("blips stop becoming outages")
+	if h1 != h0: bits.append("heat %+d" % (h1 - h0))
+	if n1 != n0: bits.append("noise %+d" % (n1 - n0))
+	if id == "server" and on1 == on0: bits.append("won't run yet: " + ("needs a rack + switch" if farm_has("rack") == 0 or farm_has("switch") == 0 else "needs the electrician's circuit"))
+	return ", ".join(bits) if not bits.is_empty() else "no effect yet"
+
+func _cap_with(n_servers: int) -> int:
+	var keep := farm_has("server")
+	farm["server"] = n_servers
+	var c := farm_online()
+	farm["server"] = keep
+	return c
+
 func homelab_earned() -> bool:
 	return farm_online() >= HOMELAB_SERVERS and farm_has("ups") > 0 and farm_income_total >= HOMELAB_NET and farm_outages <= HOMELAB_MAX_OUTAGES \
 		and closeness >= HOMELAB_CLOSENESS and girls_connected >= 40
