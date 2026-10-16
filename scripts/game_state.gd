@@ -317,6 +317,8 @@ func phase_actions() -> Array[String]:
 func can_do(id: String) -> String:
 	if ACTIONS.get(id, {}).get("ui", false):
 		return "(That's a place, not a verb. Walk there.)"
+	if id == "build_farm" and notices_seen.has("choice_garage_curfew") and minutes >= 1260:
+		return "Garage curfew (9 PM). The servers are asleep. Cron says so. Jess says so."
 	if id == "build_farm" and boxes.is_empty():
 		return "No boxes in the garage. (PCEggo has a sale. PCEggo always has a sale.)"
 	if week_over:
@@ -1239,6 +1241,9 @@ const CHOICES := {
 	"phone_k": [{"closeness": 1}, "You: k 👍\nJess: 👍\n(A perfectly functional marriage protocol. Low bandwidth.)"],
 	"phone_draft": [{"closeness": 2, "stress": 1}, "You type three paragraphs about how much you appreciate her. Delete. Send: ❤\nJess: ❤❤\n(She got all three paragraphs anyway.)"],
 	"incident_handoff": [{"performance": -3, "stress": 2, "closeness": 2}, "You hand it to Raj. He owes you from the Great Printer Fire. You stay for the dragon voice. Raj handles it."],
+	"garage_curfew": [{"closeness": 6, "stress": -2}, "You set a cron job called 'dad-curfew'. Jess reads it over your shoulder and laughs. The servers will sleep at nine."],
+	"garage_onemore": [{"closeness": -4}, "\"One more box.\" Jess nods. She goes to bed. The box takes 40 minutes. The bed is cold-ish."],
+	"garage_tour": [{"closeness": 4, "connected": 3}, "You give Jess the tour. She names the switch 'Gary'. June, in pajamas, names the rack 'Server'. Everyone is a stakeholder now."],
 	"talk_honest": [{"closeness": 8, "honesty": 15, "stress": -6}, "\"Yeah. It's been more than I want it to be.\" Jess takes your hand. \"Okay. We'll figure it out. Together, like the IKEA bed.\""],
 	"talk_deflect": [{"closeness": -4, "honesty": -10}, "\"Just a long week.\" Jess nods. She doesn't push. That's somehow worse."],
 	"talk_joke": [{"closeness": -2, "honesty": -5}, "\"The recycling is just very enthusiastic.\" Jess smiles, but only with her mouth."],
@@ -1463,6 +1468,10 @@ func build_box() -> String:
 	energy = clampi(energy - 6, 0, 100)
 	if minutes >= 1080 and phase != "weekend":
 		closeness = clampi(closeness - 2, 0, 100)   # garage time is evening time
+		if not notices_seen.has("garage_talk") and (farm_noise() >= 4 or int(week_stats.get("late_builds", 0)) >= 1):
+			notices_seen["garage_talk"] = true
+			pending_choice = "garage_talk"
+		week_stats["late_builds"] = int(week_stats.get("late_builds", 0)) + 1
 	today["built"] = int(today.get("built", 0)) + 1
 	state_changed.emit()
 	var line: String = {"server": "Racked, cabled, powered on. The fans spin up. Somewhere in the house, Jess sighs in the same key.", "rack": "The rack stands. It is slightly crooked. It is yours.",

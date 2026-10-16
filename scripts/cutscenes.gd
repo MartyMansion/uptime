@@ -11,7 +11,7 @@ class_name Cutscenes
 ##  ["wait", seconds]
 ## Lines adapted from the design doc (§4.12, §5.4).
 
-const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more", "triage", "page", "phone", "incident_page"]
+const IDS := ["wake", "dropoff", "arrive_work", "drive_stop", "pickup", "jess_home", "bedtime", "day_end", "review", "moment", "chaos", "dinner", "one_more", "triage", "page", "phone", "incident_page", "garage_talk"]
 
 static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 	var d: int = gs.day
@@ -153,6 +153,12 @@ static func build(id: String, gs: Node, ctx: Dictionary = {}) -> Array:
 				ch[0] = ["(You can't find the laugh right now. You'll get it back.) Handle it calmly", "chaos_calm"]
 				steps.insert(steps.size() - 1, ["say", "", "Your patience is at 4%. Charging cable not found."])
 			return [["loc", "house"], ["place", "dan", "living"], ["place", "june", "living_j"], ["place", "lily", "girls"]] + steps
+		"garage_talk":
+			# Therapist pass: the farm's cost to the marriage gets a scene, not just a meter tick.
+			return [["loc", "house"], ["place", "dan", "living"], ["place", "jess", "living_j"], ["face", "dan", "right"], ["face", "jess", "left"],
+				["say", "jess", "Can we talk about the garage? I like that you're excited. I miss you at night, though."],
+				["say", "jess", "Garage curfew? After nine, the servers sleep. And so do you."],
+				["choice", [["\"Deal. Nine o'clock. I'll set a cron job.\"", "garage_curfew"], ["\"Just one more box tonight, I promise.\"", "garage_onemore"], ["\"Come see it with me first?\"", "garage_tour"]]]]
 		"dinner":
 			var topics := ["What was the best part of everyone's day?", "June wants to know if robots have birthdays.", "Lily asks why grown-ups are always tired."]
 			return [["say", "jess", topics[d % topics.size()]],
