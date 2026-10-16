@@ -689,7 +689,7 @@ func do_action(id: String) -> String:
 			honesty = clampi(honesty + 10, 0, 100)
 			line = "You call Dr. Patel and tell her about the extra doses. She doesn't gasp. She adjusts the plan. Hold music: pan flute, but supportive."
 		"coffee_break":
-			line = "Coffee with the team. Karen shows everyone her new puppy. You feel a little more human."
+			line = ["Coffee with the team. Karen shows everyone her new puppy. You feel a little more human.", "Coffee with the team. Karen's puppy has learned 'sit'. Gary has not.", "Coffee with the team. Gary tells a joke from a 2009 email forward. You laugh. You're a team player."][day % 3]
 		"breathe":
 			line = ["In for four, hold for four, out for four. The inbox is still there, but further away.",
 				"Box breathing. The box is fine. You're fine. Mostly fine.",
