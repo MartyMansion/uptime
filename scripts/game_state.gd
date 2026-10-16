@@ -1431,7 +1431,7 @@ func build_box() -> String:
 		closeness = clampi(closeness - 2, 0, 100)   # garage time is evening time
 	today["built"] = int(today.get("built", 0)) + 1
 	state_changed.emit()
-	var line: String = {"server": "Racked, cabled, powered on. The fans spin up like a jet that has given up on flying.", "rack": "The rack stands. It is slightly crooked. It is yours.",
+	var line: String = {"server": "Racked, cabled, powered on. The fans spin up. Somewhere in the house, Jess sighs in the same key.", "rack": "The rack stands. It is slightly crooked. It is yours.",
 		"switch": "Switch in. Twenty-four ports, twenty-two of them for later.", "ups": "UPS in. It beeps once, judgmentally, then settles.", "drives": "Drives in. The RAID rebuild estimate says 'soon'.",
 		"nic": "10GbE in. Now the bottleneck is you.", "fans": "Box-fan wall zip-tied. It's ugly. It's 6 degrees cooler.", "foam": "Foam up. The garage now sounds like a recording studio for one sad server."}.get(id, "Built.")
 	if id == "server" and farm_has("server") > farm_online():
