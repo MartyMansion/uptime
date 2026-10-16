@@ -849,6 +849,11 @@ func farm_tests(gs: Node, main: Node) -> void:
 	gs.new_game(8); gs.phase = "work"; c0 = gs.closeness
 	gs.do_action("call_doctor")
 	check(gs.closeness > c0, "calling Dr. Patel (and telling Jess) moves closeness")
+	# text size option (a11y)
+	main.set_text_scale(1.5)
+	check(main.hud_clock.get_theme_font_size("font_size") == 30, "text size 150% scales HUD fonts")
+	main.set_text_scale(1.0)
+	check(main.hud_clock.get_theme_font_size("font_size") == 20, "text size back to 100%")
 	# every action result is a real line, not just the menu label (comedy writer pass)
 	gs.new_game(3); gs.phase = "home_pm"; gs.minutes = 1000; gs.energy = 100
 	var r1: String = gs.do_action("play_girls")

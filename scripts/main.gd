@@ -292,7 +292,7 @@ func _build_ui() -> void:
 		sv.add_child(b)
 		meters[key] = b
 	sv.add_child(HSeparator.new())
-	sv.add_child(_label("WASD / Arrows  move    1-4  action\nT text Jess   B breathe\nP nic pouch   R Rx dose\nEnter continue   Esc skip\nF6 save   F7 load (autosaves daily)", 13))
+	sv.add_child(_label("WASD / Arrows  move    1-4  action\nT text Jess   B breathe\nP nic pouch   R Rx dose\nEnter continue   Esc skip\nF6 save   F7 load (autosaves daily)\nF2 text size   F3 text speed", 14))
 	sv.add_child(HSeparator.new())
 	log_label = _label("", 13, true)
 	log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -826,6 +826,7 @@ func open_map() -> void:
 	map_root.visible = true
 	if loc: dan.stop_walking()
 	_map_refresh()
+	if text_scale != 1.0: apply_text_scale(map_root)
 
 func close_map() -> void:
 	map_root.visible = false
@@ -1185,6 +1186,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_P: perform("pouch")
 		KEY_R: perform("rx_dose")
 		KEY_B: perform("breathe")
+		KEY_F2:
+			set_text_scale([1.0, 1.25, 1.5][([1.0, 1.25, 1.5].find(text_scale) + 1) % 3])
+			show_lifeos("LifeOS: Text size %d%%. Squinting is optional now." % int(text_scale * 100))
 		KEY_F6:
 			show_lifeos("LifeOS: Saved (the morning of %s; F7 rewinds to it). Your progress is safe. Your inbox is not." % GameState.day_name() if GameState.save_game() else "LifeOS: Save failed. Classic.")
 		KEY_F7:
@@ -1738,6 +1742,7 @@ func _dl(t: String, size := 14, col := INK) -> Label:
 ## Opens an app on the desktop (also the API the bots and tests use).
 func desk_app(id: String) -> void:
 	_desk_build(id)
+	if text_scale != 1.0: apply_text_scale(desktop)
 	if desktop_open() and desk_window.visible: _desk_focus()
 
 func _desk_build(id: String) -> void:
@@ -1773,8 +1778,8 @@ func _desk_build(id: String) -> void:
 				row.add_child(l)
 				var b := Button.new(); b.text = "Add to cart"; b.pressed.connect(cart_add.bind(iid))
 				row.add_child(b)
-			_dl("Cart: %d item%s ($%d) · You have $%d · Delivery: tomorrow morning" % [cart.size(), "" if cart.size() == 1 else "s", cart_total(), GameState.money], 13)
-			if desk_msg != "": _dl(desk_msg, 13, Color(0.6, 0.2, 0.1))
+			_dl("Cart: %d item%s ($%d) · You have $%d · Delivery: tomorrow morning" % [cart.size(), "" if cart.size() == 1 else "s", cart_total(), GameState.money], 14)
+			if desk_msg != "": _dl(desk_msg, 14, Color(0.6, 0.2, 0.1))
 		"cart":
 			if cart.is_empty(): _dl("Your cart is empty. Like the rack.")
 			for i in cart.size():
@@ -1791,7 +1796,7 @@ func _desk_build(id: String) -> void:
 			_dl("Total: $%d   ·   Balance: $%d" % [cart_total(), GameState.money], 15)
 			var co := Button.new(); co.text = "Checkout (next-day delivery)"; co.pressed.connect(func(): cart_checkout())
 			desk_body.add_child(co)
-			if desk_msg != "": _dl(desk_msg, 13, Color(0.6, 0.2, 0.1))
+			if desk_msg != "": _dl(desk_msg, 14, Color(0.6, 0.2, 0.1))
 		"farm":
 			var r := Button.new(); r.text = "Refresh"; r.pressed.connect(desk_app.bind("farm"))
 			desk_body.add_child(r)
@@ -1802,7 +1807,7 @@ func _desk_build(id: String) -> void:
 			bars = ""
 			for k in 10: bars += "█" if k < GameState.farm_noise() else "░"
 			_dl("Noise " + bars, 14, Color(0.3, 0.3, 0.6))
-			_dl("Tip: a rack, a switch and the electrician's circuit let more servers run. A UPS keeps blips from becoming outages. Fans fight heat; foam fights Jess's eyebrows.", 13, Color(0.35, 0.3, 0.25))
+			_dl("Tip: a rack, a switch and the electrician's circuit let more servers run. A UPS keeps blips from becoming outages. Fans fight heat; foam fights Jess's eyebrows.", 14, Color(0.35, 0.3, 0.25))
 
 func _desk_focus() -> void:
 	for b in desk_body.find_children("*", "Button", true, false):
@@ -1932,3 +1937,24 @@ func relayout(n: Node = null) -> void:
 	if n == null: n = world_slot
 	if n is Container: (n as Container).notification(Container.NOTIFICATION_SORT_CHILDREN)
 	for c in n.get_children(): relayout(c)
+
+
+# ------------------------------------------------------------------ accessibility: text size
+var text_scale := 1.0
+
+func set_text_scale(sc: float) -> void:
+	text_scale = sc
+	apply_text_scale()
+
+## Scales every UI font from its base size (remembered on first visit). Re-run when UI is rebuilt.
+func apply_text_scale(n: Node = null) -> void:
+	if n == null:
+		n = ui
+		if n == null: return
+	if n is Label or n is Button or n is LineEdit or n is RichTextLabel:
+		var c := n as Control
+		if not c.has_meta("base_fs"): c.set_meta("base_fs", c.get_theme_font_size("font_size"))
+		var fs := int(round(int(c.get_meta("base_fs")) * text_scale))
+		if n is RichTextLabel: c.add_theme_font_size_override("normal_font_size", fs)
+		else: c.add_theme_font_size_override("font_size", fs)
+	for ch in n.get_children(): apply_text_scale(ch)
