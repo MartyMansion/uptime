@@ -116,7 +116,7 @@ const TICKETS := [
 const JESS_TEXTS := [
 	"Jess: On hold with insurance for 52 min. The hold music has a bridge now. I'm emotionally invested.",
 	"Jess: Can you grab milk on the way? June wants to 'review' the oat one again.",
-	"Jess: Hospital gave us pizza instead of a raise again. Saved you a slice of late-stage capitalism. ❤",
+	"Jess: Hospital gave us pizza instead of a raise again. Saved you a slice. It is the one with the burnt corner. It is yours. ❤",
 	"Jess: Lily asked if your job is real. I said 'legally, yes.' She said you seem 'very important to printers.'",
 	"Jess: Friendly reminder the shared calendar exists 💛 June has picture day Tuesday.",
 	"Jess: June just asked if you're 'the computer guy' at home too. I said 'only when it's broken.' So, always.",
@@ -791,7 +791,7 @@ func do_action(id: String) -> String:
 				week_stats["rx_extra"] += 1
 				line = ["Another one, just to get through the afternoon. The bottle says 1 daily.",
 					"A second one. The bottle's instructions are short. You read them anyway. Then you don't.",
-					"Extra dose. The focus comes back. So does the little voice that counts the pills."][mini(rx_extra_total, 3) - 1]
+					"Extra dose. The focus comes back. So does the little voice that counts the pills."][0 if rx_extra_total <= 1 else 1 + (rx_extra_total % 2)]
 				if rx_extra_total >= 3 and not notices_seen.has("rx_refill"):
 					notices_seen["rx_refill"] = true
 					lifeos = "LifeOS: Pharmacy reminder: at this pace your refill runs out %d days early. Maybe a good thing to mention to your doctor." % rx_extra_total
